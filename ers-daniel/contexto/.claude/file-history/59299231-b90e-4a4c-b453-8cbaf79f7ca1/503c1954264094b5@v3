@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Instala los dotfiles creando symlinks directos en ~/.config
+# Uso: ./install.sh              <- instala todos
+#      ./install.sh bspwm kitty  <- solo algunos paquetes
+
+DOTS="$HOME/dotfiles"
+CONFIG="$HOME/.config"
+
+# Paquetes que van a ~/.config/X -> ~/dotfiles/X
+PACKAGES=(bspwm sxhkd polybar picom rofi dunst kitty fish hypr waybar wofi scripts fastfetch)
+
+link() {
+    local src="$1" dst="$2"
+    if [ -L "$dst" ]; then
+        rm "$dst"
+    elif [ -e "$dst" ]; then
+        echo "  SKIP (ya existe, no es symlink): $dst"
+        return
+    fi
+    ln -s "$src" "$dst"
+    echo "  linked: $dst -> $src"
+}
+
+install_all() {
+    # Paquetes estándar: ~/.config/X -> ~/dotfiles/X
+    for pkg in "${PACKAGES[@]}"; do
+        if [ "$pkg" = "fish" ]; then
+            # Solo se enlaza config.fish; fish_variables queda como archivo real
+            link "$DOTS/fish/config.fish" "$CONFIG/fish/config.fish"
+        elif [ -d "$DOTS/$pkg" ]; then
+            link "$DOTS/$pkg" "$CONFIG/$pkg"
+        else
+            echo "  skip (no existe): $pkg"
+        fi
+    done
+
+    # Starship: archivo único en ~/.config/starship.toml
+    link "$DOTS/starship/starship.toml" "$CONFIG/starship.toml"
+
+    # libinput-gestures: archivo único en ~/.config/libinput-gestures.conf
+    link "$DOTS/libinput-gestures/libinput-gestures.conf" "$CONFIG/libinput-gestures.conf"
+
+    # GTK
+    mkdir -p "$CONFIG/gtk-3.0"
+    link "$DOTS/gtk/gtk-3.0/settings.ini" "$CONFIG/gtk-3.0/settings.ini"
+    link "$DOTS/gtk/gtk-4.0"              "$CONFIG/gtk-4.0"
+    link "$DOTS/gtk/.gtkrc-2.0"           "$HOME/.gtkrc-2.0"
+}
+
+if [[ $# -gt 0 ]]; then
+    PACKAGES=("$@")
+fi
+
+install_all
+echo "Listo."

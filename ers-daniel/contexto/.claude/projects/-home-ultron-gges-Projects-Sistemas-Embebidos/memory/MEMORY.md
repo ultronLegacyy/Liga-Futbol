@@ -1,0 +1,2 @@
+- [Proyecto: seguridad de dispositivos médicos embebidos](proyecto-seguridad-dispositivos-medicos-embebidos.md) — objetivo, ámbito (IoMT + implantables) y nivel de rigor esperado en los entregables
+- [Estado del arte: blockchain + criptografía ligera](estado-del-arte-blockchain-lwc-embebidos.md) — dónde vive el documento y las 8 hipótesis de diseño ya fijadas
