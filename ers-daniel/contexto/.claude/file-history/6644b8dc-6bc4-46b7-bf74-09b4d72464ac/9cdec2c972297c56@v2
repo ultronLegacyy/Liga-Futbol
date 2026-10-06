@@ -1,0 +1,8 @@
+# ~/.config/libinput-gestures.conf
+#
+# Gestos de 2 dedos en el mousepad -> cambiar de escritorio en bspwm.
+# Swipe derecha -> escritorio anterior | Swipe izquierda -> escritorio siguiente
+# (si sientes la dirección invertida, solo intercambia "left" y "right" abajo)
+
+gesture swipe left  2 bspc desktop -f next
+gesture swipe right 2 bspc desktop -f prev

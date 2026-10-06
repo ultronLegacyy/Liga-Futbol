@@ -1,0 +1,41 @@
+{
+  "lastUpdated": 1790957367956,
+  "plugins": [
+    {
+      "pluginId": "plugin_01FTLa86dhbVJ3HB1LdHdhN7",
+      "name": "engineering",
+      "description": "Streamline engineering workflows — standups, code review, architecture decisions, incident response, and technical documentation. Works with your existing tools or standalone.",
+      "version": "0040",
+      "updatedAt": "2026-09-22T20:19:51.222284Z",
+      "marketplaceName": "knowledge-work-plugins",
+      "installationPreference": "available"
+    },
+    {
+      "pluginId": "plugin_01VyNDLNYUZHHyKf7A691D7V",
+      "name": "enterprise-search",
+      "description": "Search across all of your company's tools in one place. Find anything across email, chat, documents, and wikis without switching between apps.",
+      "version": "0040",
+      "updatedAt": "2026-09-22T20:19:52.798101Z",
+      "marketplaceName": "knowledge-work-plugins",
+      "installationPreference": "available"
+    },
+    {
+      "pluginId": "plugin_01AYHYqVLaZRH2Vi6aHgDwEw",
+      "name": "product-management",
+      "description": "Write feature specs, plan roadmaps, and synthesize user research faster. Keep stakeholders updated and stay ahead of the competitive landscape.",
+      "version": "0040",
+      "updatedAt": "2026-09-22T20:19:51.741626Z",
+      "marketplaceName": "knowledge-work-plugins",
+      "installationPreference": "available"
+    },
+    {
+      "pluginId": "plugin_0155zZVATbJU3jHUmPP9NvMC",
+      "name": "cowork-plugin-management",
+      "description": "Create, customize, and manage plugins tailored to your organization's tools and workflows. Configure MCP servers, adjust plugin behavior, and adapt templates to match how your team works.",
+      "version": "0040",
+      "updatedAt": "2026-10-01T21:59:56.801289Z",
+      "marketplaceName": "knowledge-work-plugins",
+      "installationPreference": "available"
+    }
+  ]
+}

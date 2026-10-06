@@ -1,0 +1,57 @@
+[2026-09-14T15:19:24.165Z] [supervisor] ─── daemon start ─── version=2.1.248 pid=1182 origin=transient
+[2026-09-14T15:19:24.173Z] [supervisor] auth: scheduling proactive refresh in 28523s
+[2026-09-14T15:19:24.175Z] [supervisor] auth: scheduling proactive refresh in 28523s
+[2026-09-14T15:19:24.176Z] [supervisor] workers=0
+[2026-09-14T15:19:24.185Z] [bg] bg: control socket bound at /tmp/cc-daemon-1000/d26129ba/control.sock
+[2026-09-14T15:19:24.240Z] [bg] bg spawned 15387293 (slash)
+[2026-09-14T15:19:24.242Z] [bg] bg spawned 3e5f170f (spare)
+[2026-09-14T15:19:24.247Z] [bg] bg spare spawned host pid=1195
+[2026-09-14T15:21:34.913Z] [bg] bg settled 3e5f170f (killed)
+[2026-09-14T17:58:22.781Z] [supervisor] ─── daemon start ─── version=2.1.248 pid=15938 origin=transient
+[2026-09-14T17:58:22.901Z] [supervisor] auth: scheduling proactive refresh in 18984s
+[2026-09-14T17:58:22.904Z] [supervisor] auth: scheduling proactive refresh in 18984s
+[2026-09-14T17:58:22.907Z] [supervisor] workers=0
+[2026-09-14T17:58:22.926Z] [bg] bg: control socket bound at /tmp/cc-daemon-1000/d26129ba/control.sock
+[2026-09-14T17:58:22.954Z] [bg] bg adopt: adopted=0 respawned=0 dead=1
+[2026-09-14T17:58:22.977Z] [bg] bg spawned 153553ce (spare)
+[2026-09-14T17:58:22.979Z] [bg] bg spawned 59299231 (slash)
+[2026-09-14T17:58:22.983Z] [bg] bg spare spawned host pid=15962
+[2026-09-14T18:58:23.042Z] [bg] bg settled 153553ce (done)
+[2026-09-14T21:49:23.093Z] [supervisor] binary at /opt/claude-code/bin/claude changed (mtime changed) — self-restarting for upgrade
+[2026-09-14T21:49:23.126Z] [supervisor] shutting down (cause=upgrade, uptime=13860s, leases=0, live_workers=1)
+[2026-09-14T21:49:23.479Z] [supervisor] ─── daemon start ─── version=2.1.270 pid=50222 origin=transient
+[2026-09-14T21:49:23.489Z] [supervisor] auth: scheduling proactive refresh in 5123s
+[2026-09-14T21:49:23.491Z] [supervisor] auth: scheduling proactive refresh in 5123s
+[2026-09-14T21:49:23.493Z] [supervisor] workers=0
+[2026-09-14T21:49:23.501Z] [bg] bg: control socket bound at /tmp/cc-daemon-1000/d26129ba/control.sock
+[2026-09-14T21:49:23.516Z] [bg] bg adopt: adopted=1 respawned=0 dead=0
+[2026-09-14T21:49:23.524Z] [bg] bg orphan-spare reap: 1
+[2026-09-14T21:49:23.557Z] [bg] bg spare spawned host pid=50254
+[2026-09-14T21:49:38.565Z] [bg] bg: post-takeover prewarm burst — respawned 0/1 stale workers, 1 refused in 0s
+[2026-09-14T23:14:47.004Z] [supervisor] auth: proactive refresh starting
+[2026-09-14T23:14:47.039Z] [supervisor] auth: proactive refresh failed, retrying in ~60s (token still valid)
+[2026-09-14T23:14:47.039Z] [supervisor] auth: scheduling proactive refresh in 60s
+[2026-09-14T23:15:47.042Z] [supervisor] auth: proactive refresh starting
+[2026-09-14T23:15:47.060Z] [supervisor] auth: proactive refresh failed, retrying in ~60s (token still valid)
+[2026-09-14T23:15:47.060Z] [supervisor] auth: scheduling proactive refresh in 60s
+[2026-09-14T23:16:47.062Z] [supervisor] auth: proactive refresh starting
+[2026-09-14T23:16:47.077Z] [supervisor] auth: proactive refresh failed, retrying in ~60s (token still valid)
+[2026-09-14T23:16:47.077Z] [supervisor] auth: scheduling proactive refresh in 60s
+[2026-09-14T23:17:47.080Z] [supervisor] auth: proactive refresh starting
+[2026-09-14T23:17:47.101Z] [supervisor] auth: proactive refresh failed, retrying in ~60s (token still valid)
+[2026-09-14T23:17:47.101Z] [supervisor] auth: scheduling proactive refresh in 60s
+[2026-09-14T23:18:47.104Z] [supervisor] auth: proactive refresh starting
+[2026-09-14T23:18:47.119Z] [supervisor] auth: proactive refresh failed, signalling re-auth required
+[2026-09-14T23:18:47.136Z] [supervisor] auth: headless daemon cannot complete OAuth — run `claude auth login` to refresh
+[2026-09-14T23:18:47.137Z] [supervisor] auth: no token found, will re-check keychain every 30s
+[2026-10-04T00:35:16.981Z] [supervisor] ─── daemon start ─── version=2.1.280 pid=45886 origin=transient
+[2026-10-04T00:35:17.104Z] [supervisor] auth: scheduling proactive refresh in 3790s
+[2026-10-04T00:35:17.105Z] [supervisor] auth: scheduling proactive refresh in 3790s
+[2026-10-04T00:35:17.107Z] [supervisor] workers=0
+[2026-10-04T00:35:17.116Z] [bg] bg: control socket bound at /tmp/cc-daemon-1000/d26129ba/control.sock
+[2026-10-04T00:35:17.571Z] [bg] bg adopt: adopted=0 respawned=0 dead=1
+[2026-10-04T00:35:17.586Z] [bg] bg spawned 77f17848 (slash)
+[2026-10-05T13:28:49.854Z] [bg] bg spare spawned host pid=46429
+[2026-10-05T13:29:14.801Z] [bg] bg claimed-spare 9e21482e (spare)
+[2026-10-05T13:29:14.855Z] [bg] bg spare spawned host pid=46860
+[2026-10-05T13:29:14.971Z] [bg] bg settled 9e21482e (killed)

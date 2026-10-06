@@ -1,0 +1,32 @@
+{
+  "state": "failed",
+  "detail": "(idle — send a prompt to start)",
+  "tempo": "idle",
+  "output": null,
+  "children": null,
+  "linkScanOffset": 0,
+  "template": "bg",
+  "respawnFlags": [
+    "--model",
+    "sonnet",
+    "--permission-mode",
+    "auto"
+  ],
+  "bgIsolation": "none",
+  "providerEnv": {},
+  "interactiveLineage": true,
+  "intent": "",
+  "sessionId": "15387293-0eae-45f3-8c3d-a90be267b3fe",
+  "resumeSessionId": "15387293-0eae-45f3-8c3d-a90be267b3fe",
+  "daemonShort": "15387293",
+  "cwd": "/home/ultron_gges",
+  "createdAt": "2026-09-14T15:19:23.890Z",
+  "updatedAt": "2026-09-14T17:58:22.953Z",
+  "firstTerminalAt": "2026-09-14T17:58:22.953Z",
+  "bridgeSessionId": "cse_01YZsraTxx9RfrsCCw5Hbsr9",
+  "bridgeOwnerAccountUuid": "05eeeb30-aa86-4909-b00f-fbc6fc623481",
+  "bridgeOwnerOrganizationUuid": "0279fa65-3818-4e70-b76b-43594865109e",
+  "bridgeOutboundOnly": false,
+  "backend": "daemon",
+  "reapedMidWorkAt": "2026-09-14T15:21:09.670Z"
+}

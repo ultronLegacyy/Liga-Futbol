@@ -1,0 +1,24 @@
+---
+name: liga-ers-project
+description: "ERS del Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia — qué es cada archivo de contexto, hallazgos y estado del trabajo"
+metadata:
+  node_type: memory
+  type: project
+  originSessionId: b0eb4969-ffa1-4028-947a-e60155236c87
+  modified: 2026-10-03T19:03:59.012Z
+---
+
+Proyecto académico de Ingeniería de Software (TecNM – Instituto Tecnológico de Morelia; materiales del Dr. Claudio Ernesto Florián Arenas). Rama `ers-daniel`; insumos en `ers-daniel/contexto/`.
+
+Fuentes (analizadas 2026-10-03):
+- Principal: `Sistema_Gestion_Liga_Municipal_Morelia_Base_Ingenieria_Software.pptx` (49 diapositivas: visión, alcance, 12 actores, RF-01…RF-12, RNF). Es fuente secundaria: resume Reglamento, Convocatoria 2025–2026 y programaciones Fechas 32 (11–12 jul 2026) y 33 (18–19 jul 2026), que NO estaban en `contexto/`. Sin autor/fecha en metadatos (generada con python-pptx).
+- `ERS simplificado.docx`: plantilla vacía del profesor basada en IEEE 830-1998 (1.1 Alcance, 1.2 Personal involucrado, 2.1–2.4, 3.1–3.4, 4 Modelado del sistema; prioridad Alta/Esencial–Media/Deseado–Baja/Opcional).
+- `1. Cuestionario…xlsx` y `2. Business_Model_Canvas…pptx` pertenecen a otro proyecto ("Ally-Educ", Rafael Piedra Sánchez); no usarlos para la Liga. Las copias sin número son plantillas en blanco.
+- `SCRUM_ONLY.pdf`: curso genérico de Scrum; fuera del ERS.
+
+Inconsistencias detectadas en la presentación: quién captura la cédula (árbitro, diap. 24, vs capturista, diap. 28); "recursos e inconformidades" (diap. 5) vs "recursos de inconformidad" (diap. 22); Tesorero es actor pero no hay función económica en el alcance.
+
+Estado: 2026-10-03 se entregaron 23 preguntas de Fase 1 (P1–P23) para las secciones 1.1–1.5, 2 y 2.1; falta que el usuario responda.
+
+**Why:** el ERS se construye por secciones a lo largo de varias sesiones.
+**How to apply:** retomar desde el estado indicado; tratar la presentación como fuente secundaria y pedir los documentos primarios. Reglas: [[ers-working-rules]]. Herramientas: [[office-file-tooling]].

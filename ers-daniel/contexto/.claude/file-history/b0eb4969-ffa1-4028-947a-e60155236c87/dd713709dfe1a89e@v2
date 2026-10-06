@@ -1,0 +1,330 @@
+#!/usr/bin/env python3
+"""Lector mínimo de Word 97-2003 (.doc, OLE2/CFB) con la biblioteca estándar.
+
+Extrae el texto mediante la tabla de piezas (CLX/PlcPcd) y, si se puede, el
+nombre de estilo de cada párrafo (PAPX FKP + STSH) para reconstruir encabezados.
+"""
+import struct
+import sys
+
+ENDOFCHAIN = 0xFFFFFFFE
+FREESECT = 0xFFFFFFFF
+
+
+class CFB:
+    def __init__(self, data):
+        self.data = data
+        assert data[:8] == b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1", "no es un archivo OLE2"
+        self.sec_size = 1 << struct.unpack_from("<H", data, 0x1E)[0]
+        self.mini_size = 1 << struct.unpack_from("<H", data, 0x20)[0]
+        n_fat = struct.unpack_from("<I", data, 0x2C)[0]
+        first_dir = struct.unpack_from("<I", data, 0x30)[0]
+        self.cutoff = struct.unpack_from("<I", data, 0x38)[0]
+        first_minifat = struct.unpack_from("<I", data, 0x3C)[0]
+        first_difat = struct.unpack_from("<I", data, 0x44)[0]
+        n_difat = struct.unpack_from("<I", data, 0x48)[0]
+        difat = list(struct.unpack_from("<109I", data, 0x4C))
+        sec = first_difat
+        for _ in range(n_difat):
+            if sec in (ENDOFCHAIN, FREESECT):
+                break
+            vals = struct.unpack_from("<%dI" % (self.sec_size // 4), self.sector(sec))
+            difat.extend(vals[:-1])
+            sec = vals[-1]
+        fat_secs = [s for s in difat if s not in (ENDOFCHAIN, FREESECT)][:n_fat]
+        self.fat = []
+        for s in fat_secs:
+            self.fat.extend(struct.unpack_from("<%dI" % (self.sec_size // 4), self.sector(s)))
+        # directorio
+        dir_data = self.chain(first_dir)
+        self.entries = []
+        for off in range(0, len(dir_data), 128):
+            e = dir_data[off : off + 128]
+            nlen = struct.unpack_from("<H", e, 0x40)[0]
+            name = e[: max(nlen - 2, 0)].decode("utf-16le", "replace")
+            typ = e[0x42]
+            start = struct.unpack_from("<I", e, 0x74)[0]
+            size = struct.unpack_from("<Q", e, 0x78)[0]
+            if self.sec_size == 512:
+                size &= 0xFFFFFFFF
+            self.entries.append((name, typ, start, size))
+        root = self.entries[0]
+        self.ministream = self.chain(root[2])[: root[3]]
+        self.minifat = []
+        if first_minifat not in (ENDOFCHAIN, FREESECT):
+            mf = self.chain(first_minifat)
+            self.minifat = list(struct.unpack_from("<%dI" % (len(mf) // 4), mf))
+
+    def sector(self, n):
+        off = (n + 1) * self.sec_size
+        return self.data[off : off + self.sec_size]
+
+    def chain(self, start):
+        out = bytearray()
+        s = start
+        seen = set()
+        while s not in (ENDOFCHAIN, FREESECT) and s < len(self.fat) and s not in seen:
+            seen.add(s)
+            out += self.sector(s)
+            s = self.fat[s]
+        return bytes(out)
+
+    def minichain(self, start):
+        out = bytearray()
+        s = start
+        seen = set()
+        while s not in (ENDOFCHAIN, FREESECT) and s < len(self.minifat) and s not in seen:
+            seen.add(s)
+            off = s * self.mini_size
+            out += self.ministream[off : off + self.mini_size]
+            s = self.minifat[s]
+        return bytes(out)
+
+    def stream(self, name):
+        for n, typ, start, size in self.entries:
+            if n == name and typ == 2:
+                if size < self.cutoff:
+                    return self.minichain(start)[:size]
+                return self.chain(start)[:size]
+        return None
+
+    def names(self):
+        return [(n, t, s) for n, t, _, s in self.entries if n]
+
+
+def read_doc(path):
+    cfb = CFB(open(path, "rb").read())
+    wd = cfb.stream("WordDocument")
+    flags = struct.unpack_from("<H", wd, 0x0A)[0]
+    table_name = "1Table" if flags & 0x0200 else "0Table"
+    tbl = cfb.stream(table_name)
+    csw = struct.unpack_from("<H", wd, 0x20)[0]
+    off = 0x22 + csw * 2
+    cslw = struct.unpack_from("<H", wd, off)[0]
+    lw_off = off + 2
+    rglw = struct.unpack_from("<%di" % cslw, wd, lw_off)
+    ccp = {
+        "text": rglw[3],
+        "ftn": rglw[4],
+        "hdd": rglw[5],
+        "atn": rglw[7],
+        "edn": rglw[8],
+        "txbx": rglw[9],
+        "hdrtxbx": rglw[10],
+    }
+    off = lw_off + cslw * 4
+    cb = struct.unpack_from("<H", wd, off)[0]
+    fclcb = struct.unpack_from("<%dI" % (cb * 2), wd, off + 2)
+
+    def pair(i):
+        return fclcb[2 * i], fclcb[2 * i + 1]
+
+    fcStshf, lcbStshf = pair(1)
+    fcBtePapx, lcbBtePapx = pair(13)
+    fcClx, lcbClx = pair(33)
+
+    # ---- tabla de piezas
+    clx = tbl[fcClx : fcClx + lcbClx]
+    i = 0
+    while clx[i] == 0x01:
+        cbgrpprl = struct.unpack_from("<h", clx, i + 1)[0]
+        i += 3 + cbgrpprl
+    assert clx[i] == 0x02, "CLX sin Pcdt"
+    lcb = struct.unpack_from("<I", clx, i + 1)[0]
+    plc = clx[i + 5 : i + 5 + lcb]
+    n = (lcb - 4) // 12
+    cps = struct.unpack_from("<%dI" % (n + 1), plc, 0)
+    pieces = []
+    for k in range(n):
+        pcd = plc[4 * (n + 1) + 8 * k : 4 * (n + 1) + 8 * k + 8]
+        fc_raw = struct.unpack_from("<I", pcd, 2)[0]
+        compressed = bool(fc_raw & 0x40000000)
+        fc = fc_raw & 0x3FFFFFFF
+        pieces.append((cps[k], cps[k + 1], fc, compressed))
+
+    # texto completo con mapeo cp -> fc (para encontrar estilos de párrafo)
+    chars = []  # (char, fc_of_char)
+    for cp0, cp1, fc, comp in pieces:
+        cnt = cp1 - cp0
+        if comp:
+            start = fc // 2
+            raw = wd[start : start + cnt]
+            txt = raw.decode("cp1252", "replace")
+            for j, ch in enumerate(txt):
+                chars.append((ch, start + j, True))
+        else:
+            raw = wd[fc : fc + 2 * cnt]
+            txt = raw.decode("utf-16le", "replace")
+            for j, ch in enumerate(txt):
+                chars.append((ch, fc + 2 * j, False))
+
+    # ---- estilos (STSH) : istd -> nombre
+    style_names = {}
+    try:
+        st = tbl[fcStshf : fcStshf + lcbStshf]
+        cbStshi = struct.unpack_from("<H", st, 0)[0]
+        stshi = st[2 : 2 + cbStshi]
+        cstd = struct.unpack_from("<H", stshi, 0)[0]
+        cbSTDBaseInFile = struct.unpack_from("<H", stshi, 2)[0]
+        p = 2 + cbStshi
+        for istd in range(cstd):
+            cbStd = struct.unpack_from("<H", st, p)[0]
+            p += 2
+            if cbStd:
+                std = st[p : p + cbStd]
+                # nombre: tras STDBase (cbSTDBaseInFile bytes); Xstz = cch(uint16) + UTF-16
+                q = cbSTDBaseInFile
+                cch = struct.unpack_from("<H", std, q)[0]
+                name = std[q + 2 : q + 2 + 2 * cch].decode("utf-16le", "replace")
+                style_names[istd] = name
+            p += cbStd
+    except Exception as ex:  # noqa: BLE001
+        print(f"[aviso: no se pudieron leer estilos: {ex}]", file=sys.stderr)
+
+    # ---- PAPX: fc de fin de párrafo -> istd (y si es fin de fila de tabla)
+    para_istd = []  # lista de (fc_start, fc_end, istd, is_ttp, in_table)
+    try:
+        plcbte = tbl[fcBtePapx : fcBtePapx + lcbBtePapx]
+        nb = (lcbBtePapx - 4) // 8
+        bte_pns = struct.unpack_from("<%dI" % nb, plcbte, 4 * (nb + 1))
+        for pn in bte_pns:
+            pn &= 0x3FFFFF
+            fkp = wd[pn * 512 : pn * 512 + 512]
+            crun = fkp[511]
+            rgfc = struct.unpack_from("<%dI" % (crun + 1), fkp, 0)
+            for r in range(crun):
+                bx_off = 4 * (crun + 1) + 13 * r
+                bOffset = fkp[bx_off]
+                istd = 0
+                is_ttp = False
+                in_table = False
+                if bOffset:
+                    po = bOffset * 2
+                    cb_ = fkp[po]
+                    if cb_ == 0:
+                        cb_ = fkp[po + 1]
+                        body = fkp[po + 2 : po + 2 + 2 * cb_]
+                    else:
+                        body = fkp[po + 1 : po + 1 + 2 * cb_ - 1]
+                    istd = struct.unpack_from("<H", body, 0)[0]
+                    grpprl = body[2:]
+                    # recorrer sprms buscando sprmPFInTable (0x2416) y sprmPFTtp (0x2417)
+                    g = 0
+                    while g + 2 <= len(grpprl):
+                        sprm = struct.unpack_from("<H", grpprl, g)[0]
+                        spra = sprm >> 13
+                        g += 2
+                        if spra in (0, 1):
+                            size = 1
+                        elif spra in (2, 4, 5):
+                            size = 2
+                        elif spra == 3:
+                            size = 4
+                        elif spra == 7:
+                            size = 3
+                        else:  # 6: longitud variable
+                            if sprm in (0xD608,):
+                                size = struct.unpack_from("<H", grpprl, g)[0] + 1
+                                size += 1
+                            elif sprm == 0xC615:
+                                size = grpprl[g] + 1
+                            else:
+                                size = grpprl[g] + 1 if g < len(grpprl) else 1
+                        if sprm == 0x2416 and g < len(grpprl):
+                            in_table = grpprl[g] != 0
+                        if sprm == 0x2417 and g < len(grpprl):
+                            is_ttp = grpprl[g] != 0
+                        g += size
+                para_istd.append((rgfc[r], rgfc[r + 1], istd, is_ttp, in_table))
+    except Exception as ex:  # noqa: BLE001
+        print(f"[aviso: no se pudieron leer PAPX: {ex}]", file=sys.stderr)
+
+    para_istd.sort()
+
+    def lookup(fc):
+        lo, hi = 0, len(para_istd) - 1
+        while lo <= hi:
+            mid = (lo + hi) // 2
+            a, b, istd, ttp, intbl = para_istd[mid]
+            if fc < a:
+                hi = mid - 1
+            elif fc >= b:
+                lo = mid + 1
+            else:
+                return istd, ttp, intbl
+        return 0, False, False
+
+    return chars, ccp, style_names, lookup, cfb
+
+
+def render(chars, upto, style_names, lookup):
+    lines = []
+    buf = []
+    row = []
+    field_stack = []  # True = dentro de instrucción de campo
+    for idx in range(min(upto, len(chars))):
+        ch, fc, comp = chars[idx]
+        o = ord(ch)
+        if o == 0x13:
+            field_stack.append(True)
+            continue
+        if o == 0x14:
+            if field_stack:
+                field_stack[-1] = False
+            continue
+        if o == 0x15:
+            if field_stack:
+                field_stack.pop()
+            continue
+        if field_stack and field_stack[-1]:
+            continue  # texto de instrucción de campo (TOC, HYPERLINK, PAGEREF...)
+        if o in (0x0D, 0x07):
+            istd, ttp, intbl = lookup(fc)
+            text = "".join(buf).strip()
+            buf = []
+            if o == 0x07:
+                if ttp:
+                    lines.append("| " + " | ".join(row) + " |")
+                    row = []
+                else:
+                    row.append(text)
+                continue
+            sname = style_names.get(istd, f"istd{istd}")
+            if text:
+                lines.append(f"{text}    «{sname}»")
+            else:
+                lines.append("")
+            continue
+        if o == 0x0B:
+            buf.append(" / ")
+        elif o == 0x0C:
+            buf.append("\n[salto de página/sección]\n")
+        elif o == 0x09:
+            buf.append("\t")
+        elif o in (0x01, 0x08):
+            buf.append("[objeto/imagen]")
+        elif o in (0x1E,):
+            buf.append("-")
+        elif o in (0x1F, 0x02, 0x05):
+            continue
+        else:
+            buf.append(ch)
+    if buf:
+        lines.append("".join(buf))
+    return lines
+
+
+if __name__ == "__main__":
+    path = sys.argv[1]
+    chars, ccp, style_names, lookup, cfb = read_doc(path)
+    print(f"[streams: {cfb.names()}]")
+    print(f"[ccp: {ccp}]  [total chars: {len(chars)}]")
+    lines = render(chars, ccp["text"], style_names, lookup)
+    print("\n".join(lines))
+    # resto: notas al pie, encabezados/pies, comentarios
+    rest_start = ccp["text"]
+    rest = chars[rest_start:]
+    if rest:
+        print("\n=========== TEXTO FUERA DEL CUERPO (notas, encabezados, pies, comentarios) ===========")
+        lines = render(rest, len(rest), style_names, lookup)
+        print("\n".join(l for l in lines if l.strip()))

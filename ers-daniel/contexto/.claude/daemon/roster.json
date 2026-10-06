@@ -1,0 +1,78 @@
+{
+  "proto": 1,
+  "supervisorPid": 45886,
+  "updatedAt": 1791206954989,
+  "workers": {
+    "77f17848": {
+      "pid": 45896,
+      "procStart": "2937965",
+      "sessionId": "77f17848-87b2-415d-b0cf-25f2ea23444e",
+      "rendezvousSock": "/tmp/cc-daemon-1000/d26129ba/rv/77f17848.sock",
+      "ptySock": "/tmp/cc-daemon-1000/d26129ba/pty/77f17848.sock",
+      "cliVersion": "2.1.280",
+      "startedAt": 1791074117586,
+      "attempt": 1,
+      "cwd": "/home/ultron_gges/Projects/Liga-Futbol/ers-daniel",
+      "dispatch": {
+        "proto": 1,
+        "short": "77f17848",
+        "nonce": "c411e9d5",
+        "sessionId": "77f17848-87b2-415d-b0cf-25f2ea23444e",
+        "createdAt": 1791074116622,
+        "source": "slash",
+        "cwd": "/home/ultron_gges/Projects/Liga-Futbol/ers-daniel",
+        "launch": {
+          "mode": "resume",
+          "sessionId": "/home/ultron_gges/.claude/projects/-home-ultron-gges-Projects-Liga-Futbol-ers-daniel/b0eb4969-ffa1-4028-947a-e60155236c87.jsonl",
+          "fork": true,
+          "flagArgs": [
+            "--model",
+            "claude-opus-5-5",
+            "--permission-mode",
+            "auto"
+          ],
+          "restoresTranscript": true
+        },
+        "env": {
+          "CLAUDE_BG_ISOLATION": "none"
+        },
+        "isolation": "none",
+        "respawnFlags": [
+          "--model",
+          "claude-opus-5-5",
+          "--permission-mode",
+          "auto"
+        ],
+        "seed": {
+          "intent": "(backgrounded)"
+        },
+        "cols": 143,
+        "rows": 33
+      },
+      "decModes": [
+        1000,
+        1002,
+        1003,
+        1006,
+        2004,
+        2031,
+        1004
+      ],
+      "firedInteractiveMarks": [
+        {
+          "kind": "content_paint",
+          "msgsLoaded": 163,
+          "msgsInJsonl": 163,
+          "msgsRenderedAtFirstPaint": 163
+        },
+        {
+          "kind": "prompt_idle"
+        }
+      ],
+      "rvAuth": "2b69c6a9ad77620da880cd9a15584f91",
+      "ptyAuth": "695da28e7503be8154835fab882d035e",
+      "replPid": 45902,
+      "replProcStart": "2937982"
+    }
+  }
+}

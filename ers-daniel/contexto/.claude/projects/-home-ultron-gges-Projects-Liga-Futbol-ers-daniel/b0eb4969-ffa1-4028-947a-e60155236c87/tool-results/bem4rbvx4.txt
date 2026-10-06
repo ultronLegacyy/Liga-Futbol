@@ -1,0 +1,2086 @@
+
+################ 2. Business_Model_Canvas_Software.pptx ################
+
+===== Diapositiva 1 (ppt/slides/slide1.xml) =====
+  <Text 3>
+    INGENIERÍA DE SOFTWARE
+  <Text 4>
+    Modelo de Negocio
+    CANVAS
+  <Text 5>
+    Cómo convertir una propuesta de proyecto de software en un modelo de negocio explicable, coherente y defendible.
+  <Text 7>
+    Guía de clase + plantilla de entrega para equipos
+    Dr. Claudio Ernesto Florián Arenas  ·  Instituto Tecnológico de Morelia  ·  TecNM
+  [NOTAS DEL ORADOR]
+    Presentación en dos partes: la primera explica el modelo (diapositivas 2-22) y la segunda es la plantilla que cada equipo llena y entrega (diapositivas 23-25). Duración estimada de la exposición: 90-110 minutos con ejercicio en clase.
+
+===== Diapositiva 2 (ppt/slides/slide2.xml) =====
+  <Text 0>
+    Cómo usar este material
+  <Text 1>
+    Una misma presentación sirve para la clase y para la entrega del equipo
+  <Text 4>
+    1
+  <Text 5>
+    Aprende el modelo
+  <Text 6>
+    Diapositivas 3 a 6: qué es el Canvas, para qué sirve y en qué orden se llena.
+  <Text 9>
+    2
+  <Text 10>
+    Estudia los 9 bloques
+  <Text 11>
+    Diapositivas 7 a 16: cada bloque con definición, enfoque de software, preguntas guía y error común.
+  <Text 14>
+    3
+  <Text 15>
+    Analiza el caso
+  <Text 16>
+    Diapositivas 17 a 22: un modelo resuelto, errores frecuentes, validación y guion de exposición.
+  <Text 19>
+    4
+  <Text 20>
+    Llena tu plantilla
+  <Text 21>
+    Diapositivas 23 a 25: el equipo escribe aquí su propuesta y entrega este mismo archivo.
+  <Text 23>
+    Complemento obligatorio:  el archivo de Excel «Cuestionario Business Model Canvas» contiene las 45 preguntas guía con celdas de captura, un lienzo que se arma solo con tus respuestas, una calculadora de monetización y un semáforo de avance. Llénalo antes de vaciar el contenido en la plantilla de estas diapositivas.
+  [NOTAS DEL ORADOR]
+    Aclarar desde el inicio que el entregable son dos archivos: el Excel con el cuestionario contestado y la plantilla del PowerPoint llena.
+
+===== Diapositiva 3 (ppt/slides/slide3.xml) =====
+  <Text 0>
+    Un buen software que nadie necesita sigue siendo un fracaso
+  <Text 1>
+    Por qué un ingeniero de software debe saber modelar un negocio
+  <Text 3>
+    La causa número uno de fracaso en startups tecnológicas no es técnica
+  <Text 4>
+    Es construir algo para lo que no existe una necesidad real de mercado. El código funcionaba; el modelo de negocio nunca existió.
+    Fuente: CB Insights, «The Top Reasons Startups Fail».
+  <Text 5>
+    Lo que el Canvas te obliga a decidir antes de escribir la primera línea de código
+  <Text 6>
+    Quién paga, quién usa y quién decide (casi nunca son la misma persona).
+    Qué problema medible resuelve el sistema y contra qué alternativa compite.
+    Cómo entra el dinero y cuánto cuesta realmente operar y sostener el software.
+    Qué requisitos son negociables y cuáles sostienen el modelo completo.
+  <Text 8>
+    El Canvas conecta decisiones técnicas con decisiones de negocio
+  <Text 10>
+    Segmentos de clientes  →  Historias de usuario y perfiles de acceso
+  <Text 12>
+    Propuesta de valor  →  Requisitos funcionales prioritarios y MVP
+  <Text 14>
+    Canales y relación  →  Onboarding, soporte, actualizaciones, telemetría
+  <Text 16>
+    Fuentes de ingresos  →  Módulo de cobro, planes, límites de uso, facturación
+  <Text 18>
+    Recursos y actividades  →  Arquitectura, stack, equipo, proceso de desarrollo
+  <Text 20>
+    Estructura de costos  →  Decisiones de infraestructura, escalabilidad y deuda técnica
+  [NOTAS DEL ORADOR]
+    Insistir: el Canvas no sustituye la ingeniería de requisitos, la alimenta. Cada bloque del lienzo aterriza en una decisión técnica concreta.
+
+===== Diapositiva 4 (ppt/slides/slide4.xml) =====
+  <Text 0>
+    ¿Qué es el Business Model Canvas?
+  <Text 1>
+    Osterwalder & Pigneur (2010), «Business Model Generation»
+  <Text 3>
+    Un lienzo de una sola página que describe cómo una organización crea, entrega y captura valor.
+  <Text 4>
+    Cuatro preguntas, nueve bloques
+  <Text 6>
+    ¿A QUIÉN?
+  <Text 7>
+    Segmentos de clientes · Canales · Relación con clientes
+  <Text 9>
+    ¿QUÉ?
+  <Text 10>
+    Propuesta de valor
+  <Text 12>
+    ¿CÓMO?
+  <Text 13>
+    Recursos clave · Actividades clave · Socios clave
+  <Text 15>
+    ¿CUÁNTO?
+  <Text 16>
+    Fuentes de ingresos · Estructura de costos
+  <Text 18>
+    Para qué sirve en tu proyecto
+  <Text 19>
+    Obliga a explicar el proyecto completo en una sola página, sin refugiarse en tecnicismos.
+    Hace visibles los supuestos: lo que escribes en una nota adhesiva es una hipótesis, no un hecho.
+    Revela incoherencias: una propuesta de valor sin canal, o costos que no corresponden a los recursos declarados.
+    Facilita comparar alternativas: dos modelos distintos para el mismo software se ven lado a lado.
+    Es el lenguaje común con inversionistas, jurados de concurso, directivos y clientes.
+  [NOTAS DEL ORADOR]
+    Recalcar la idea de hipótesis: el Canvas no es un documento de verdades, es un tablero de apuestas que deben validarse.
+
+===== Diapositiva 5 (ppt/slides/slide5.xml) =====
+  <Text 0>
+    El lienzo: los nueve bloques y su posición
+  <Text 3>
+    8
+  <Text 4>
+    Socios clave
+  <Text 5>
+    Quién nos ayuda: proveedores, APIs de terceros, distribuidores, aliados que reducen riesgo o costo.
+  <Text 8>
+    7
+  <Text 9>
+    Actividades clave
+  <Text 10>
+    Qué hacemos: desarrollo, operación, seguridad, venta, soporte, implementación.
+  <Text 13>
+    6
+  <Text 14>
+    Recursos clave
+  <Text 15>
+    Qué necesitamos: personas, infraestructura, datos, propiedad intelectual, capital.
+  <Text 18>
+    2
+  <Text 19>
+    Propuesta de valor
+  <Text 20>
+    Qué ofrecemos y por qué el cliente lo prefiere sobre su alternativa actual.
+    Es el corazón del lienzo: todo lo demás existe para sostenerlo.
+  <Text 23>
+    4
+  <Text 24>
+    Relación con clientes
+  <Text 25>
+    Cómo interactuamos: autoservicio, acompañamiento, comunidad, éxito del cliente.
+  <Text 28>
+    3
+  <Text 29>
+    Canales
+  <Text 30>
+    Cómo llegamos: descubrimiento, prueba, venta, entrega, soporte.
+  <Text 33>
+    1
+  <Text 34>
+    Segmentos de clientes
+  <Text 35>
+    Para quién creamos valor: usuario, cliente que paga y quien decide la compra.
+    Si el segmento es «todos», el modelo no está definido.
+  <Text 38>
+    9
+  <Text 39>
+    Estructura de costos
+  <Text 40>
+    Qué gastamos para sostener recursos, actividades y socios. Fijos y variables.
+  <Text 43>
+    5
+  <Text 44>
+    Fuentes de ingresos
+  <Text 45>
+    Cómo entra el dinero desde cada segmento: suscripción, licencia, uso, comisión, servicios.
+  <Text 46>
+    Izquierda = eficiencia (cómo se produce el valor)          ·          Centro = la propuesta de valor          ·          Derecha = valor para el cliente (cómo se entrega)
+  [NOTAS DEL ORADOR]
+    La posición no es decorativa: la mitad izquierda responde a la eficiencia interna y la derecha al valor percibido por el cliente. La propuesta de valor es la bisagra entre ambas.
+
+===== Diapositiva 6 (ppt/slides/slide6.xml) =====
+  <Text 0>
+    ¿En qué orden se llena?
+  <Text 1>
+    El número del bloque no es el orden de llenado
+  <Text 4>
+    1
+  <Text 5>
+    Segmentos de clientes
+Todo empieza por saber a quién sirves.
+  <Text 8>
+    2
+  <Text 9>
+    Propuesta de valor
+Qué problema de ese segmento resuelves.
+  <Text 12>
+    3
+  <Text 13>
+    Canales
+Cómo llega tu propuesta hasta el cliente.
+  <Text 16>
+    4
+  <Text 17>
+    Relación con clientes
+Cómo lo conservas después de la venta.
+  <Text 20>
+    5
+  <Text 21>
+    Fuentes de ingresos
+Por qué valor está dispuesto a pagar.
+  <Text 24>
+    6
+  <Text 25>
+    Recursos clave
+Qué necesitas para entregar todo lo anterior.
+  <Text 28>
+    7
+  <Text 29>
+    Actividades clave
+Qué tienes que hacer de forma sostenida.
+  <Text 32>
+    8
+  <Text 33>
+    Socios clave
+Qué no haces tú y quién lo hace por ti.
+  <Text 36>
+    9
+  <Text 37>
+    Estructura de costos
+Cuánto cuesta sostener el modelo completo.
+  <Text 39>
+    Regla práctica: si cambias el segmento de clientes, vuelve a revisar los nueve bloques. Ningún bloque es independiente.
+  [NOTAS DEL ORADOR]
+    Pedir que llenen en ese orden en el Excel: la hoja Cuestionario ya está ordenada así.
+
+===== Diapositiva 7 (ppt/slides/slide7.xml) =====
+  <Text 1>
+    1
+  <Text 2>
+    Segmentos de clientes
+  <Text 4>
+    ÁREA: CLIENTE
+  <Text 5>
+    ¿QUÉ RESPONDE ESTE BLOQUE?
+  <Text 6>
+    Los grupos distintos de personas u organizaciones a los que el software sirve. Cada segmento tiene un problema, un lenguaje y una disposición a pagar diferentes.
+  <Text 7>
+    EN UN PROYECTO DE SOFTWARE
+  <Text 8>
+    Separa tres papeles: quién usa el sistema, quién paga la licencia y quién autoriza la compra.
+    Construye arquetipos (personas) con su contexto técnico real: dispositivos, conectividad, nivel digital.
+    Decide mercado de nicho o masivo, y si es B2B, B2C, B2G o multilateral (plataforma de dos lados).
+    Elige un segmento de entrada (beachhead): el que más sufre el problema y es más fácil de alcanzar.
+  <Text 10>
+    EJEMPLO — TALLERPRO (caso de la diapositiva 18)
+  <Text 11>
+    Talleres mecánicos independientes de 3 a 10 empleados en ciudades medias del Bajío. Usuario diario: jefe de taller. Quien paga y decide: el dueño.
+  <Text 13>
+    PREGUNTAS GUÍA
+  <Text 14>
+    ¿Para quién creamos valor, en una frase?
+    ¿Quién usa el software a diario y quién firma el pago?
+    ¿Qué segmento sufre el problema con más intensidad y frecuencia?
+    ¿Cuántos son, dónde están y cómo los contactamos?
+    ¿Con qué segmento arrancamos y cuál dejamos para después?
+  <Text 16>
+    ERROR MÁS COMÚN
+  <Text 17>
+    Declarar que el mercado es «cualquier persona con un teléfono». Un segmento que no se puede describir, contar ni contactar no es un segmento.
+  [NOTAS DEL ORADOR]
+    Bloque 1 — Segmentos de clientes. Las preguntas guía de esta diapositiva corresponden a la sección 1 de la hoja «Cuestionario» del archivo de Excel.
+
+===== Diapositiva 8 (ppt/slides/slide8.xml) =====
+  <Text 1>
+    2
+  <Text 2>
+    Propuesta de valor
+  <Text 4>
+    ÁREA: OFERTA
+  <Text 5>
+    ¿QUÉ RESPONDE ESTE BLOQUE?
+  <Text 6>
+    El conjunto de productos y servicios que resuelven un problema o satisfacen una necesidad del segmento. Es la razón por la que el cliente te elige a ti y no a su alternativa actual.
+  <Text 7>
+    EN UN PROYECTO DE SOFTWARE
+  <Text 8>
+    Formúlala como resultado medible para el cliente, no como lista de funcionalidades.
+    Identifica la alternativa real que hoy usa: Excel, papel, WhatsApp, otro sistema o no hacer nada.
+    Elige tu palanca de valor: automatización, desempeño, personalización, accesibilidad, precio o reducción de riesgo.
+    Define explícitamente qué NO hace el producto; el alcance también es propuesta de valor.
+  <Text 10>
+    EJEMPLO — TALLERPRO (caso de la diapositiva 18)
+  <Text 11>
+    «Reduce de 3 horas a 20 minutos diarios el control de órdenes de servicio y elimina las refacciones que hoy se instalan sin cobrarse.»
+  <Text 13>
+    PREGUNTAS GUÍA
+  <Text 14>
+    ¿Qué problema específico resolvemos y para quién?
+    ¿Qué hace hoy el cliente sin nosotros y qué le cuesta?
+    ¿Qué gana de forma medible: tiempo, dinero, errores evitados, cumplimiento?
+    ¿Por qué nosotros y no la alternativa que ya tiene?
+    ¿Qué queda fuera del alcance de la primera versión?
+  <Text 16>
+    ERROR MÁS COMÚN
+  <Text 17>
+    Presentar un catálogo de módulos y pantallas. Las funcionalidades son el medio; el valor es el cambio que produce en el trabajo del cliente.
+  [NOTAS DEL ORADOR]
+    Bloque 2 — Propuesta de valor. Las preguntas guía de esta diapositiva corresponden a la sección 2 de la hoja «Cuestionario» del archivo de Excel.
+
+===== Diapositiva 9 (ppt/slides/slide9.xml) =====
+  <Text 1>
+    3
+  <Text 2>
+    Canales
+  <Text 4>
+    ÁREA: CLIENTE
+  <Text 5>
+    ¿QUÉ RESPONDE ESTE BLOQUE?
+  <Text 6>
+    Cómo la empresa se comunica con sus segmentos y les entrega la propuesta de valor. Abarca desde que el cliente se entera de que existes hasta la posventa.
+  <Text 7>
+    EN UN PROYECTO DE SOFTWARE
+  <Text 8>
+    Cubre las cinco fases: conocimiento, evaluación, compra, entrega y posventa.
+    Define el canal de prueba: demo guiada, versión de prueba, sandbox o entorno de evaluación.
+    Define el canal de entrega técnica: web, tienda de aplicaciones, instalación en sitio o nube privada.
+    Distingue canales propios (sitio, equipo de venta) de canales de socios (distribuidores, integradores).
+  <Text 10>
+    EJEMPLO — TALLERPRO (caso de la diapositiva 18)
+  <Text 11>
+    Visita a distribuidores de refacciones (socio) · demo guiada de 15 minutos · alta en línea · aplicación web instalable · soporte por WhatsApp y videollamada.
+  <Text 13>
+    PREGUNTAS GUÍA
+  <Text 14>
+    ¿Cómo se entera el cliente de que existimos?
+    ¿Cómo puede probar el producto antes de pagar?
+    ¿Cómo lo contrata, lo instala y lo empieza a usar?
+    ¿Por dónde recibe soporte, capacitación y actualizaciones?
+    ¿Qué canal es el más barato por cliente adquirido?
+  <Text 16>
+    ERROR MÁS COMÚN
+  <Text 17>
+    Suponer que publicar en una tienda de aplicaciones equivale a tener un canal de distribución. Publicar no es distribuir.
+  [NOTAS DEL ORADOR]
+    Bloque 3 — Canales. Las preguntas guía de esta diapositiva corresponden a la sección 3 de la hoja «Cuestionario» del archivo de Excel.
+
+===== Diapositiva 10 (ppt/slides/slide10.xml) =====
+  <Text 1>
+    4
+  <Text 2>
+    Relación con clientes
+  <Text 4>
+    ÁREA: CLIENTE
+  <Text 5>
+    ¿QUÉ RESPONDE ESTE BLOQUE?
+  <Text 6>
+    El tipo de relación que se establece con cada segmento, desde la captación hasta la fidelización. Determina buena parte del costo de operación y de la permanencia del cliente.
+  <Text 7>
+    EN UN PROYECTO DE SOFTWARE
+  <Text 8>
+    Elige el modo: autoservicio, asistencia personal, comunidad, éxito del cliente o cocreación.
+    Diseña el arranque (onboarding): los primeros siete días definen si el cliente se queda.
+    Define cómo mides y reduces el abandono (churn) y cómo detectas al cliente en riesgo.
+    Decide qué se automatiza (correos, tutoriales, base de conocimiento) y qué exige una persona.
+  <Text 10>
+    EJEMPLO — TALLERPRO (caso de la diapositiva 18)
+  <Text 11>
+    Primer mes: acompañamiento en sitio de una hora y migración de datos. Después: autoservicio con base de conocimiento, más soporte por WhatsApp en horario hábil.
+  <Text 13>
+    PREGUNTAS GUÍA
+  <Text 14>
+    ¿Qué tipo de relación espera cada segmento y cuál está dispuesto a pagar?
+    ¿Cómo acompañamos al cliente en sus primeros días de uso?
+    ¿Qué hacemos para que no nos abandone y cómo lo detectamos a tiempo?
+    ¿Qué parte de la relación se automatiza y cuál es humana?
+    ¿Cuánto cuesta al mes sostener esa relación por cliente?
+  <Text 16>
+    ERROR MÁS COMÚN
+  <Text 17>
+    Diseñar con detalle la adquisición y olvidar la retención. En un modelo de suscripción, retener cuesta mucho menos que volver a vender.
+  [NOTAS DEL ORADOR]
+    Bloque 4 — Relación con clientes. Las preguntas guía de esta diapositiva corresponden a la sección 4 de la hoja «Cuestionario» del archivo de Excel.
+
+===== Diapositiva 11 (ppt/slides/slide11.xml) =====
+  <Text 1>
+    5
+  <Text 2>
+    Fuentes de ingresos
+  <Text 4>
+    ÁREA: FINANZAS
+  <Text 5>
+    ¿QUÉ RESPONDE ESTE BLOQUE?
+  <Text 6>
+    El dinero que la empresa genera en cada segmento. Responde por qué valor paga realmente el cliente, cómo paga y cuánto aporta cada fuente al total.
+  <Text 7>
+    EN UN PROYECTO DE SOFTWARE
+  <Text 8>
+    Elige el mecanismo: suscripción, licencia, pago por uso, freemium, comisión, publicidad o servicios.
+    Fija el precio por el valor entregado y por lo que hoy le cuesta el problema, no por tus horas.
+    Define la unidad de cobro: por usuario, por sucursal, por transacción, por volumen de datos.
+    Analiza el momento del flujo: cuándo cobras frente a cuándo gastas en desarrollo e infraestructura.
+  <Text 10>
+    EJEMPLO — TALLERPRO (caso de la diapositiva 18)
+  <Text 11>
+    Suscripción de $899 al mes por taller con hasta cinco usuarios · implementación inicial de $2,500 por única vez · 2% de comisión en compras de refacciones hechas dentro de la aplicación.
+  <Text 13>
+    PREGUNTAS GUÍA
+  <Text 14>
+    ¿Por qué valor concreto está dispuesto a pagar el cliente?
+    ¿Cuánto gasta hoy en resolver ese problema por otros medios?
+    ¿Cómo cobramos: mensual, anual, por uso, único, por comisión?
+    ¿Cuál es el precio, cómo lo justificamos y qué planes ofrecemos?
+    ¿Qué porcentaje del ingreso total aporta cada fuente?
+  <Text 16>
+    ERROR MÁS COMÚN
+  <Text 17>
+    Poner precio sumando el costo de desarrollo más un margen. El cliente no paga tu esfuerzo, paga el resultado que obtiene.
+  [NOTAS DEL ORADOR]
+    Bloque 5 — Fuentes de ingresos. Las preguntas guía de esta diapositiva corresponden a la sección 5 de la hoja «Cuestionario» del archivo de Excel.
+
+===== Diapositiva 12 (ppt/slides/slide12.xml) =====
+  <Text 1>
+    6
+  <Text 2>
+    Recursos clave
+  <Text 4>
+    ÁREA: INFRAESTRUCTURA
+  <Text 5>
+    ¿QUÉ RESPONDE ESTE BLOQUE?
+  <Text 6>
+    Los activos imprescindibles para que el modelo funcione: sin ellos, la propuesta de valor no puede entregarse. Pueden ser humanos, tecnológicos, intelectuales o financieros.
+  <Text 7>
+    EN UN PROYECTO DE SOFTWARE
+  <Text 8>
+    Humanos: perfiles y nivel de experiencia reales que exige el stack elegido.
+    Tecnológicos: infraestructura en la nube, entornos, repositorios, canalizaciones de integración continua.
+    Intelectuales: código propietario, marca, algoritmos, conjuntos de datos, licencias de terceros.
+    Datos: qué datos necesitas, de dónde salen y bajo qué base legal los tratas.
+  <Text 10>
+    EJEMPLO — TALLERPRO (caso de la diapositiva 18)
+  <Text 11>
+    Dos desarrolladores de tiempo completo · un diseñador de experiencia a medio tiempo · infraestructura en la nube (~120 USD al mes) · catálogo de refacciones licenciado · base de datos de precios propia.
+  <Text 13>
+    PREGUNTAS GUÍA
+  <Text 14>
+    ¿Qué perfiles técnicos necesita el equipo y con qué dedicación?
+    ¿Qué infraestructura requiere el sistema y cuánto cuesta al mes?
+    ¿Qué datos necesitamos, cómo los obtenemos y cómo los protegemos?
+    ¿Qué activo es difícil de copiar por un competidor?
+    ¿De qué licencias o servicios de terceros dependemos de forma crítica?
+  <Text 16>
+    ERROR MÁS COMÚN
+  <Text 17>
+    Enlistar «computadoras e internet» y omitir el costo real de la nube, las licencias y el tiempo de las personas.
+  [NOTAS DEL ORADOR]
+    Bloque 6 — Recursos clave. Las preguntas guía de esta diapositiva corresponden a la sección 6 de la hoja «Cuestionario» del archivo de Excel.
+
+===== Diapositiva 13 (ppt/slides/slide13.xml) =====
+  <Text 1>
+    7
+  <Text 2>
+    Actividades clave
+  <Text 4>
+    ÁREA: INFRAESTRUCTURA
+  <Text 5>
+    ¿QUÉ RESPONDE ESTE BLOQUE?
+  <Text 6>
+    Las acciones más importantes que la organización debe realizar de forma sostenida para que el modelo funcione. No son tareas puntuales, son procesos permanentes.
+  <Text 7>
+    EN UN PROYECTO DE SOFTWARE
+  <Text 8>
+    Desarrollo y mantenimiento: proceso, cadencia de entregas, gestión de deuda técnica.
+    Operación de la plataforma: despliegue, monitoreo, respaldos, disponibilidad, incidentes.
+    Seguridad y cumplimiento: protección de datos personales, auditoría, control de accesos.
+    Comercial y posventa: venta, implementación, migración de datos, capacitación y soporte.
+  <Text 10>
+    EJEMPLO — TALLERPRO (caso de la diapositiva 18)
+  <Text 11>
+    Iteraciones de dos semanas · migración de datos históricos de cada cliente nuevo · monitoreo continuo y respaldos diarios · capacitación presencial en la puesta en marcha.
+  <Text 13>
+    PREGUNTAS GUÍA
+  <Text 14>
+    ¿Qué debemos hacer cada semana para que el modelo funcione?
+    ¿Qué actividades sostienen directamente la propuesta de valor?
+    ¿Qué hacemos internamente y qué conviene contratar fuera?
+    ¿Cómo aseguramos calidad, seguridad y disponibilidad del servicio?
+    ¿Qué proceso de desarrollo usaremos y por qué se ajusta a este modelo?
+  <Text 16>
+    ERROR MÁS COMÚN
+  <Text 17>
+    Reducir las actividades clave a «programar». Vender, implementar, operar y dar soporte suelen consumir más esfuerzo que escribir código.
+  [NOTAS DEL ORADOR]
+    Bloque 7 — Actividades clave. Las preguntas guía de esta diapositiva corresponden a la sección 7 de la hoja «Cuestionario» del archivo de Excel.
+
+===== Diapositiva 14 (ppt/slides/slide14.xml) =====
+  <Text 1>
+    8
+  <Text 2>
+    Socios clave
+  <Text 4>
+    ÁREA: INFRAESTRUCTURA
+  <Text 5>
+    ¿QUÉ RESPONDE ESTE BLOQUE?
+  <Text 6>
+    La red de proveedores y aliados que hacen que el modelo funcione. Se busca con ellos optimizar costos, reducir riesgo o adquirir recursos y clientes que no se tienen.
+  <Text 7>
+    EN UN PROYECTO DE SOFTWARE
+  <Text 8>
+    Proveedores de infraestructura y servicios administrados en la nube.
+    Interfaces de programación de terceros: pagos, mensajería, mapas, identidad, facturación electrónica.
+    Socios de distribución: integradores, distribuidores regionales, cámaras y asociaciones del sector.
+    Ecosistema: comunidad de código abierto, incubadoras, universidades, programas de gobierno.
+  <Text 10>
+    EJEMPLO — TALLERPRO (caso de la diapositiva 18)
+  <Text 11>
+    Pasarela de pagos · proveedor de mensajería para notificaciones · distribuidores regionales de refacciones como canal de venta · incubadora del TecNM para acompañamiento.
+  <Text 13>
+    PREGUNTAS GUÍA
+  <Text 14>
+    ¿Quién nos provee lo que hemos decidido no construir?
+    ¿Qué servicios de terceros son críticos y qué ocurre si fallan o suben de precio?
+    ¿Quién nos da acceso rápido a clientes que no alcanzaríamos solos?
+    ¿Qué alianza reduce nuestro riesgo técnico, legal o financiero?
+    ¿Qué aportamos nosotros en cada alianza y bajo qué condiciones?
+  <Text 16>
+    ERROR MÁS COMÚN
+  <Text 17>
+    Depender de un servicio externo crítico sin plan alterno y sin haber leído sus condiciones de uso, límites de consumo ni política de precios.
+  [NOTAS DEL ORADOR]
+    Bloque 8 — Socios clave. Las preguntas guía de esta diapositiva corresponden a la sección 8 de la hoja «Cuestionario» del archivo de Excel.
+
+===== Diapositiva 15 (ppt/slides/slide15.xml) =====
+  <Text 1>
+    9
+  <Text 2>
+    Estructura de costos
+  <Text 4>
+    ÁREA: FINANZAS
+  <Text 5>
+    ¿QUÉ RESPONDE ESTE BLOQUE?
+  <Text 6>
+    Todos los costos en que se incurre para operar el modelo. Se derivan directamente de los recursos, las actividades y los socios que ya declaraste.
+  <Text 7>
+    EN UN PROYECTO DE SOFTWARE
+  <Text 8>
+    Separa costos fijos (nómina, infraestructura base, licencias) de variables (consumo por usuario, comisiones, soporte).
+    Distingue la inversión inicial de desarrollo del costo mensual de operación.
+    Calcula cuánto cuesta atender a un cliente adicional: ahí se decide si el modelo escala.
+    Estima el costo de adquirir un cliente y compáralo con lo que ese cliente deja en toda la relación.
+  <Text 10>
+    EJEMPLO — TALLERPRO (caso de la diapositiva 18)
+  <Text 11>
+    Nómina del equipo · infraestructura en la nube · comisión de la pasarela (3%) · costo de adquisición estimado de $1,800 por taller · punto de equilibrio en 101 talleres activos.
+  <Text 13>
+    PREGUNTAS GUÍA
+  <Text 14>
+    ¿Cuáles son los cinco costos más grandes del modelo?
+    ¿Qué costos crecen con cada cliente o usuario nuevo?
+    ¿Cuánto nos cuesta conseguir un cliente y cuánto atenderlo al mes?
+    ¿El modelo se rige por costos o por valor?
+    ¿Cuántos clientes necesitamos para llegar al punto de equilibrio?
+  <Text 16>
+    ERROR MÁS COMÚN
+  <Text 17>
+    Presentar solo el costo de desarrollo y omitir infraestructura, soporte, comisiones y el costo de adquirir cada cliente.
+  [NOTAS DEL ORADOR]
+    Bloque 9 — Estructura de costos. Las preguntas guía de esta diapositiva corresponden a la sección 9 de la hoja «Cuestionario» del archivo de Excel.
+
+===== Diapositiva 16 (ppt/slides/slide16.xml) =====
+  <Text 0>
+    Cómo cobra el software: modelos de monetización
+  <Text 1>
+    Referencia para el bloque 5 — Fuentes de ingresos
+  <Table 0>
+    [TABLA]
+    | Modelo | Cómo cobra | Cuándo conviene | Riesgo principal |
+    | Suscripción (SaaS) | Cuota recurrente por usuario o por cuenta | El valor se entrega de forma continua y el uso es frecuente | Abandono mensual (churn) |
+    | Freemium | Versión gratuita + funciones de pago | Mercado masivo con crecimiento por recomendación | Sostener a quienes nunca pagarán |
+    | Licencia perpetua | Pago único más mantenimiento anual | Clientes corporativos o de gobierno con compra por proyecto | Ingreso no recurrente |
+    | Pago por uso | Por transacción, llamada a la API o volumen | El consumo varía mucho entre clientes | Ingreso difícil de predecir |
+    | Comisión (marketplace) | Porcentaje de cada transacción intermediada | La plataforma conecta oferta y demanda | Arranque en frío de los dos lados |
+    | Publicidad | Impresiones, clics o patrocinios | Gran volumen de usuarios sin disposición a pagar | Requiere escala muy alta |
+    | Núcleo abierto | Núcleo libre + edición empresarial | Producto técnico con comunidad activa | Competir contra tu propia versión gratuita |
+    | Servicios profesionales | Implementación, integración y capacitación | El producto exige adopción y configuración | No escala de forma proporcional |
+    [/TABLA]
+  <Text 3>
+    Modelo
+  <Text 4>
+    Cómo cobra
+  <Text 5>
+    Cuándo conviene
+  <Text 6>
+    Riesgo principal
+  <Text 7>
+    Puedes combinar modelos, pero justifica cada uno: qué segmento lo paga, qué valor cubre y qué porcentaje del ingreso representa.
+  [NOTAS DEL ORADOR]
+    Pedir a cada equipo que elija uno principal y a lo sumo uno secundario, y que lo capture en la hoja «Monetización» del Excel.
+
+===== Diapositiva 17 (ppt/slides/slide17.xml) =====
+  <Text 0>
+    Caso ejemplo: TallerPro
+  <Text 1>
+    Un modelo resuelto para comparar con el de tu equipo
+  <Text 3>
+    El problema observado
+  <Text 4>
+    En talleres mecánicos pequeños las órdenes de servicio se llevan en libretas y WhatsApp. El dueño no sabe cuánto ganó por orden, se instalan refacciones que nunca se cobran y el cliente final no recibe información del avance de su vehículo.
+  <Text 5>
+    La solución propuesta
+  <Text 6>
+    Aplicación web instalable para registrar órdenes de servicio, controlar refacciones e inventario, calcular la utilidad por orden y notificar automáticamente al cliente final por mensajería el avance de su reparación.
+  <Text 8>
+    Este caso es ficticio y sirve como referencia de nivel de detalle esperado, no como respuesta modelo a copiar.
+  <Text 10>
+    Cifras que sostienen el modelo
+  <Text 11>
+    $899
+  <Text 12>
+    ingreso mensual por taller (plan base, 5 usuarios)
+  <Text 13>
+    $1,800
+  <Text 14>
+    costo estimado de adquirir un taller (CAC)
+  <Text 15>
+    $16,487
+  <Text 16>
+    valor estimado del cliente en 18 meses (LTV)
+  <Text 17>
+    101
+  <Text 18>
+    talleres activos necesarios para el punto de equilibrio
+  <Text 19>
+    Relación LTV/CAC ≈ 9:1. Una relación menor a 3:1 obliga a revisar precio, retención o canal.
+  [NOTAS DEL ORADOR]
+    Las cifras son ilustrativas. Lo importante es que el equipo entienda que todo número declarado debe poder explicarse.
+
+===== Diapositiva 18 (ppt/slides/slide18.xml) =====
+  <Text 0>
+    Caso TallerPro: el lienzo completo
+  <Text 3>
+    8
+  <Text 4>
+    Socios clave
+  <Text 5>
+    • Pasarela de pagos
+    • Proveedor de mensajería (notificaciones al cliente final)
+    • Distribuidores regionales de refacciones (canal de venta)
+    • Proveedor de nube
+    • Incubadora del TecNM
+  <Text 8>
+    7
+  <Text 9>
+    Actividades clave
+  <Text 10>
+    • Desarrollo en iteraciones de 2 semanas
+    • Migración de datos del taller
+    • Operación, respaldos y monitoreo
+    • Venta en campo y capacitación
+  <Text 13>
+    6
+  <Text 14>
+    Recursos clave
+  <Text 15>
+    • 2 desarrolladores full-stack
+    • 1 diseñador UX medio tiempo
+    • Infraestructura en la nube
+    • Catálogo de refacciones licenciado
+  <Text 18>
+    2
+  <Text 19>
+    Propuesta de valor
+  <Text 20>
+    Control total de la orden de servicio en una sola pantalla.
+    • De 3 h a 20 min diarios de control administrativo
+    • Cero refacciones instaladas sin cobrar
+    • Utilidad real por orden, visible al cierre del día
+    • El cliente final recibe avisos del avance sin llamar al taller
+    No incluye: facturación electrónica ni contabilidad (se integra con terceros).
+  <Text 23>
+    4
+  <Text 24>
+    Relación con clientes
+  <Text 25>
+    • Implementación acompañada el primer mes
+    • Después, autoservicio con base de conocimiento
+    • Soporte por mensajería en horario hábil
+  <Text 28>
+    3
+  <Text 29>
+    Canales
+  <Text 30>
+    • Distribuidores de refacciones
+    • Demo guiada de 15 min
+    • Alta y contratación en línea
+    • App web instalable
+  <Text 33>
+    1
+  <Text 34>
+    Segmentos de clientes
+  <Text 35>
+    Talleres mecánicos independientes de 3 a 10 empleados, en ciudades medias del Bajío.
+    • Usuario: jefe de taller y mecánicos
+    • Paga y decide: el dueño
+    • Beneficiario indirecto: el cliente final del taller
+    Entrada: talleres ya digitalizados en cobro con terminal.
+  <Text 38>
+    9
+  <Text 39>
+    Estructura de costos
+  <Text 40>
+    Fijos: nómina del equipo · infraestructura base · licencia del catálogo.   Variables: consumo de nube y mensajería por taller · 3% de comisión de la pasarela · soporte.   Adquisición: $1,800 por taller.   Punto de equilibrio: 101 talleres activos.
+  <Text 43>
+    5
+  <Text 44>
+    Fuentes de ingresos
+  <Text 45>
+    Suscripción mensual de $899 por taller (hasta 5 usuarios) · Plan ampliado de $1,499 con inventario multialmacén · Implementación inicial de $2,500 por única vez · 2% de comisión sobre compras de refacciones hechas dentro de la aplicación.
+  <Text 46>
+    Observa la coherencia: cada canal tiene un segmento, cada actividad tiene un recurso que la sostiene y cada costo se deriva de un recurso, actividad o socio ya declarado.
+  [NOTAS DEL ORADOR]
+    Ejercicio en clase: pedir a los equipos que señalen una incoherencia o un supuesto no validado en este lienzo. Siempre hay varios.
+
+===== Diapositiva 19 (ppt/slides/slide19.xml) =====
+  <Text 0>
+    Errores frecuentes al presentar el Canvas
+  <Text 1>
+    Revisa esta lista antes de exponer
+  <Text 4>
+    !
+  <Text 5>
+    Enamorarse de la solución
+Se describe el sistema durante diez minutos y el problema del cliente nunca aparece.
+  <Text 8>
+    !
+  <Text 9>
+    El segmento «todos»
+Un mercado sin límites es un mercado que no se puede alcanzar ni medir.
+  <Text 12>
+    !
+  <Text 13>
+    Funcionalidades disfrazadas de valor
+«Tiene panel de control y reportes» no es una propuesta de valor; es una pantalla.
+  <Text 16>
+    !
+  <Text 17>
+    Números sin origen
+Cifras de mercado o de precio que nadie puede explicar de dónde salieron.
+  <Text 20>
+    !
+  <Text 21>
+    Costos incompletos
+Se calcula el desarrollo y se olvidan nube, soporte, comisiones y adquisición de clientes.
+  <Text 24>
+    !
+  <Text 25>
+    Bloques inconexos
+Hay un canal que no sirve a ningún segmento, o un recurso que ninguna actividad usa.
+  <Text 28>
+    !
+  <Text 29>
+    Competencia inexistente
+«No tenemos competencia» casi siempre significa que no se buscó o que no hay mercado.
+  <Text 32>
+    !
+  <Text 33>
+    Todo es hipótesis, nada está validado
+Ninguna entrevista, ninguna prueba, ningún dato: solo opiniones del equipo.
+  [NOTAS DEL ORADOR]
+    Cada uno de estos errores corresponde a un criterio de evaluación de la exposición.
+
+===== Diapositiva 20 (ppt/slides/slide20.xml) =====
+  <Text 0>
+    Validación mínima antes de exponer
+  <Text 1>
+    Cada casilla del lienzo es una hipótesis hasta que alguien externo la confirma
+  <Text 4>
+    01
+  <Text 5>
+    Entrevistas
+  <Text 6>
+    Al menos 8 conversaciones con personas del segmento real. Pregunta por lo que hacen hoy, no por si les gustaría tu idea.
+  <Text 10>
+    02
+  <Text 11>
+    Prueba de la propuesta
+  <Text 12>
+    Un prototipo navegable o una página de aterrizaje. Mide si el problema descrito les resulta suyo.
+  <Text 16>
+    03
+  <Text 17>
+    Producto mínimo viable
+  <Text 18>
+    La versión más pequeña que entrega el valor prometido a un usuario real, no una demostración.
+  <Text 22>
+    04
+  <Text 23>
+    Prueba de precio
+  <Text 24>
+    Pregunta cuánto pagarían y, mejor aún, pide una carta de intención o un anticipo.
+  <Text 28>
+    05
+  <Text 29>
+    Métricas y decisión
+  <Text 30>
+    Activación, retención a 30 días y conversión. Define de antemano qué resultado te haría cambiar el modelo.
+  <Text 31>
+    Presentar un Canvas con cero validación es presentar una opinión. Una sola entrevista bien documentada ya cambia la conversación con el jurado.
+
+===== Diapositiva 21 (ppt/slides/slide21.xml) =====
+  <Text 0>
+    Prueba de coherencia del modelo
+  <Text 1>
+    Ocho cruces que debes poder responder con «sí» antes de entregar
+  <Text 4>
+    Cada segmento de clientes tiene al menos un canal que lo alcanza.
+  <Text 7>
+    Cada segmento tiene una propuesta de valor escrita en sus términos, no en los tuyos.
+  <Text 10>
+    Cada propuesta de valor tiene asociada al menos una fuente de ingresos.
+  <Text 13>
+    Cada actividad clave se sostiene con algún recurso clave o algún socio declarado.
+  <Text 16>
+    Cada costo relevante se origina en un recurso, una actividad o un socio de tu lienzo.
+  <Text 19>
+    El precio se justifica con el valor entregado, no con el costo de desarrollo.
+  <Text 22>
+    El tipo de relación con el cliente es compatible con el precio y con el costo de atenderlo.
+  <Text 25>
+    Sabes cuál es el supuesto más riesgoso del modelo y cómo piensas ponerlo a prueba.
+  [NOTAS DEL ORADOR]
+    Esta lista está replicada en la hoja «Checklist» del Excel, con semáforo automático.
+
+===== Diapositiva 22 (ppt/slides/slide22.xml) =====
+  <Text 0>
+    Guion para exponer tu propuesta en 10 minutos
+  <Text 1>
+    Estructura sugerida para la presentación del equipo
+  <Text 3>
+    0:00 – 1:30
+  <Text 4>
+    Problema y segmento
+  <Text 5>
+    Quién sufre qué, con un dato o una cita de tus entrevistas.
+  <Text 7>
+    1:30 – 3:00
+  <Text 8>
+    Propuesta de valor
+  <Text 9>
+    Qué cambia para ese cliente, en resultados medibles.
+  <Text 11>
+    3:00 – 4:30
+  <Text 12>
+    Demostración o prototipo
+  <Text 13>
+    Un recorrido corto por el flujo principal, no por todos los módulos.
+  <Text 15>
+    4:30 – 6:00
+  <Text 16>
+    Modelo de ingresos y costos
+  <Text 17>
+    Cómo cobras, cuánto cuesta operar y el punto de equilibrio.
+  <Text 19>
+    6:00 – 7:30
+  <Text 20>
+    Cómo se entrega y se sostiene
+  <Text 21>
+    Canales, relación con el cliente, recursos, actividades y socios.
+  <Text 23>
+    7:30 – 8:30
+  <Text 24>
+    Validación y riesgos
+  <Text 25>
+    Qué ya comprobaste, qué sigue siendo hipótesis y cuál es tu mayor riesgo.
+  <Text 27>
+    8:30 – 10:00
+  <Text 28>
+    Cierre y petición
+  <Text 29>
+    Qué necesitas para el siguiente paso y preguntas del jurado.
+  <Text 30>
+    Lleva el lienzo completo impreso o en una diapositiva de respaldo: el jurado casi siempre pregunta por costos y por el supuesto más riesgoso.
+
+===== Diapositiva 23 (ppt/slides/slide23.xml) =====
+  <imagen: Imagen 24>
+  <Text 2>
+    ALLY-EDUC
+  <Text 3>
+    Transformamos equipos inactivos en Aulas Interactivas y proveemos una Intranet comunitaria offline con Tutor IA, eliminando la dependencia económica de internet en zonas rurales.
+  <Text 5>
+    EQUIPO
+  <Text 6>
+    Rafael Piedra Sánchez
+  <Text 8>
+    MATERIA Y GRUPO
+  <Text 9>
+    Ingeniería de Software · Grupo B
+  <Text 11>
+    SEGMENTO OBJETIVO
+  <Text 12>
+    Escuelas rurales
+    Estudiantes y habitantes de comunidades rurales
+  <Text 14>
+    MODELO DE INGRESOS
+  <Text 15>
+    Venta de infraestructura Inicial, Pólizas de mantenimiento institucional y Micro-suscripciones Locales (Venta de fichas en efectivo)
+  <Text 17>
+    ETAPA ACTUAL
+  <Text 18>
+    IDEA
+  <Text 20>
+    FECHA DE ENTREGA
+  <Text 21>
+    17 / 09 / 2026
+  [NOTAS DEL ORADOR]
+    PLANTILLA: sustituye todos los textos en gris por el contenido de tu proyecto.
+
+===== Diapositiva 24 (ppt/slides/slide24.xml) =====
+  <Text 1>
+    PLANTILLA · LLENA ESTE LIENZO
+  <Text 2>
+    Lienzo del modelo de negocio de nuestro proyecto
+  <Text 5>
+    8
+  <Text 6>
+    Socios clave
+  <Text 10>
+    7
+  <Text 11>
+    Actividades clave
+  <Text 15>
+    6
+  <Text 16>
+    Recursos clave
+  <Text 20>
+    2
+  <Text 21>
+    Propuesta de valor
+  <Text 22>
+    Aula especializada con acceso gratuito a un repositorio educativo de terabytes (Wikipedia, PhET) y un Tutor Privado con Inteligencia Artificial 24/7 que funcionará 100% offline, eliminando el gasto en datos celulares y renta de proveedores de internet
+  <Text 25>
+    4
+  <Text 26>
+    Relación con clientes
+  <Text 30>
+    3
+  <Text 31>
+    Canales
+  <Text 32>
+    Canal de Venta/Acuerdo: Trato directo presencial en reunions con Asambleas Ejidales y Ayuntamientos
+    Canal de entrega (Tecnologico): Portal Cautivo de Wifi al que los usuarios se conectan desde sus dispositivos a traves de los radioenlaces de 5GHz
+  <Text 35>
+    1
+  <Text 36>
+    Segmentos de clientes
+  <Text 37>
+    Estudiantes de distintos niveles educativos en comunidades rurales marginadas.
+    Escuelas rurales con equipo inactivo
+    Tomadores de decisiones y fondeadores: Ayuntamientos locales y autoridades educativas.
+  <Text 40>
+    9
+  <Text 41>
+    Estructura de costos
+  <Text 45>
+    5
+  <Text 46>
+    Fuentes de ingresos
+  <Text 32>
+    Capacitación técnica presencial a docents
+    Soporte de hardware programado
+    Medios accesibles para adquirir el servicio (comprar fichas en efectivo) de manera general.
+  <Text 32>
+    Micro-suscripciones: Venta de “fichas” o pines de acceso en sitios locales en efectivo
+    Pólizas anuales de mantenimiento y actualización
+    Venta de infraestructura inicial
+    Patrocinios de Responsabilidad Social (ONGs): Donativos o fondos de fundaciones privadas que buscan reducir la brecha digital rural.
+  <Text 32>
+    Tecnologicos (Hardware y Red): Microservidor central, antenas exteriores (5GHz), dispositivos de red.
+    Intelectuales (Software): Sistema RAG, LLMs, repositorio interactivo
+    Humanos: Talento de ingenieria de software y redes para el despliegue
+  <Text 32>
+    Despliegue e Instalación física del aula especializada
+    Despliegue de red en toda la comunidad
+    Mantenimiento y Actualización presencial
+    Logica de distribución de pines de acceso (fichas)
+  <Text 32>
+    Ayuntamientos locales
+    Asambleas Ejidales / Jefaturas de tenencia
+    Comercios locales (venden las fichas por comision)
+    CONAFE
+  <Text 32>
+    Compra del hardware inicial (servidor y antenas)
+    Viáticos de instalación y mantenimiento
+    Logistica de impresión de fichas
+    Mano de obra de red
+
+===== Diapositiva 25 (ppt/slides/slide25.xml) =====
+  <Text 1>
+    PLANTILLA · LLENA ESTAS FICHAS
+  <Text 2>
+    Detalle, validación y entrega
+  <Text 5>
+    Propuesta de valor en una frase
+  <Text 6>
+    Ayudamos a comunidades rurales a  mejorar la accesibilidad a la educación mediante una intranet offline con IA y aulas especializadas, a diferencia de los costosos y limitados proveedores de internet.
+  <Text 9>
+    Modelo de ingresos y precio
+  <Text 10>
+    Venta de infraestructura inicial, pólizas de mantenimiento a escuelas y micro-suscripciones (fichas fisicas prepago en efectivo) para el público
+  <Text 13>
+    Tres costos principales
+  <Text 14>
+    Hardware (microservidor y antenas 5GHz)
+    Viáticos de instalación y mantenimiento
+    Logistica e impresión de fichas
+  <Text 17>
+    Qué validamos y con quién
+  <Text 18>
+    Validado con directivos y asambleas: confirmamos la existencia de equipos inutilizados y viabilidad de cobrar micro-suscripciones en efectivo localmente
+  <Text 21>
+    Supuesto más riesgoso
+  <Text 22>
+    Que los comercios locales (tienditas/cooperativas) acepten distribuir las fichas fisicas a cambio de una comisión de manera confiable
+  <Text 25>
+    Siguiente paso y petición
+  <Text 26>
+    Desplegar un microservidor piloto en una escula rural para medir como adoptarán esta aula especializada y medir las ventas del lote de prueba de las fichas.
+  <Text 27>
+    Entrega: este archivo con las diapositivas 23 a 25 completas, más el archivo de Excel con el cuestionario contestado y el checklist en verde.
+  [NOTAS DEL ORADOR]
+    PLANTILLA: cada ficha se responde en tres o cuatro líneas. Si no cabe, el equipo todavía no tiene clara la respuesta.
+
+===== Diapositiva 26 (ppt/slides/slide26.xml) =====
+  <Text 1>
+    PLANTILLA · LLENA ESTAS FICHAS
+  <Text 2>
+    Detalle, validación y entrega
+  <Text 5>
+    Propuesta de valor en una frase
+  <Text 6>
+    «Ayudamos a [segmento] a [resultado medible] mediante [solución], a diferencia de [alternativa actual].»
+    Ayudamos a comunidades rurales a
+  <Text 9>
+    Modelo de ingresos y precio
+  <Text 10>
+    Modelo elegido, unidad de cobro, precio y su justificación. Ingreso mensual estimado.
+    Modelo de micro-suscripciones
+  <Text 13>
+    Tres costos principales
+  <Text 14>
+    Los costos más grandes del modelo y cuáles crecen con cada cliente nuevo.
+    Microservidor Central
+  <Text 17>
+    Qué validamos y con quién
+  <Text 18>
+    Número de entrevistas, a quién, qué aprendimos y qué cambió en el lienzo por eso.
+  <Text 21>
+    Supuesto más riesgoso
+  <Text 22>
+    El supuesto que, de ser falso, derrumba el modelo. Cómo piensan ponerlo a prueba y cuándo.
+  <Text 25>
+    Siguiente paso y petición
+  <Text 26>
+    Qué harán en las próximas cuatro semanas y qué necesitan para lograrlo.
+  <Text 27>
+    Entrega: este archivo con las diapositivas 23 a 25 completas, más el archivo de Excel con el cuestionario contestado y el checklist en verde.
+  [NOTAS DEL ORADOR]
+    PLANTILLA: cada ficha se responde en tres o cuatro líneas. Si no cabe, el equipo todavía no tiene clara la respuesta.
+
+################ Business_Model_Canvas_Software.pptx ################
+
+===== Diapositiva 1 (ppt/slides/slide1.xml) =====
+  <Text 3>
+    INGENIERÍA DE SOFTWARE
+  <Text 4>
+    Modelo de Negocio
+    CANVAS
+  <Text 5>
+    Cómo convertir una propuesta de proyecto de software en un modelo de negocio explicable, coherente y defendible.
+  <Text 7>
+    Guía de clase + plantilla de entrega para equipos
+    Dr. Claudio Ernesto Florián Arenas  ·  Instituto Tecnológico de Morelia  ·  TecNM
+  [NOTAS DEL ORADOR]
+    Presentación en dos partes: la primera explica el modelo (diapositivas 2-22) y la segunda es la plantilla que cada equipo llena y entrega (diapositivas 23-25). Duración estimada de la exposición: 90-110 minutos con ejercicio en clase.
+
+===== Diapositiva 2 (ppt/slides/slide2.xml) =====
+  <Text 0>
+    Cómo usar este material
+  <Text 1>
+    Una misma presentación sirve para la clase y para la entrega del equipo
+  <Text 4>
+    1
+  <Text 5>
+    Aprende el modelo
+  <Text 6>
+    Diapositivas 3 a 6: qué es el Canvas, para qué sirve y en qué orden se llena.
+  <Text 9>
+    2
+  <Text 10>
+    Estudia los 9 bloques
+  <Text 11>
+    Diapositivas 7 a 16: cada bloque con definición, enfoque de software, preguntas guía y error común.
+  <Text 14>
+    3
+  <Text 15>
+    Analiza el caso
+  <Text 16>
+    Diapositivas 17 a 22: un modelo resuelto, errores frecuentes, validación y guion de exposición.
+  <Text 19>
+    4
+  <Text 20>
+    Llena tu plantilla
+  <Text 21>
+    Diapositivas 23 a 25: el equipo escribe aquí su propuesta y entrega este mismo archivo.
+  <Text 23>
+    Complemento obligatorio:  el archivo de Excel «Cuestionario Business Model Canvas» contiene las 45 preguntas guía con celdas de captura, un lienzo que se arma solo con tus respuestas, una calculadora de monetización y un semáforo de avance. Llénalo antes de vaciar el contenido en la plantilla de estas diapositivas.
+  [NOTAS DEL ORADOR]
+    Aclarar desde el inicio que el entregable son dos archivos: el Excel con el cuestionario contestado y la plantilla del PowerPoint llena.
+
+===== Diapositiva 3 (ppt/slides/slide3.xml) =====
+  <Text 0>
+    Un buen software que nadie necesita sigue siendo un fracaso
+  <Text 1>
+    Por qué un ingeniero de software debe saber modelar un negocio
+  <Text 3>
+    La causa número uno de fracaso en startups tecnológicas no es técnica
+  <Text 4>
+    Es construir algo para lo que no existe una necesidad real de mercado. El código funcionaba; el modelo de negocio nunca existió.
+    Fuente: CB Insights, «The Top Reasons Startups Fail».
+  <Text 5>
+    Lo que el Canvas te obliga a decidir antes de escribir la primera línea de código
+  <Text 6>
+    Quién paga, quién usa y quién decide (casi nunca son la misma persona).
+    Qué problema medible resuelve el sistema y contra qué alternativa compite.
+    Cómo entra el dinero y cuánto cuesta realmente operar y sostener el software.
+    Qué requisitos son negociables y cuáles sostienen el modelo completo.
+  <Text 8>
+    El Canvas conecta decisiones técnicas con decisiones de negocio
+  <Text 10>
+    Segmentos de clientes  →  Historias de usuario y perfiles de acceso
+  <Text 12>
+    Propuesta de valor  →  Requisitos funcionales prioritarios y MVP
+  <Text 14>
+    Canales y relación  →  Onboarding, soporte, actualizaciones, telemetría
+  <Text 16>
+    Fuentes de ingresos  →  Módulo de cobro, planes, límites de uso, facturación
+  <Text 18>
+    Recursos y actividades  →  Arquitectura, stack, equipo, proceso de desarrollo
+  <Text 20>
+    Estructura de costos  →  Decisiones de infraestructura, escalabilidad y deuda técnica
+  [NOTAS DEL ORADOR]
+    Insistir: el Canvas no sustituye la ingeniería de requisitos, la alimenta. Cada bloque del lienzo aterriza en una decisión técnica concreta.
+
+===== Diapositiva 4 (ppt/slides/slide4.xml) =====
+  <Text 0>
+    ¿Qué es el Business Model Canvas?
+  <Text 1>
+    Osterwalder & Pigneur (2010), «Business Model Generation»
+  <Text 3>
+    Un lienzo de una sola página que describe cómo una organización crea, entrega y captura valor.
+  <Text 4>
+    Cuatro preguntas, nueve bloques
+  <Text 6>
+    ¿A QUIÉN?
+  <Text 7>
+    Segmentos de clientes · Canales · Relación con clientes
+  <Text 9>
+    ¿QUÉ?
+  <Text 10>
+    Propuesta de valor
+  <Text 12>
+    ¿CÓMO?
+  <Text 13>
+    Recursos clave · Actividades clave · Socios clave
+  <Text 15>
+    ¿CUÁNTO?
+  <Text 16>
+    Fuentes de ingresos · Estructura de costos
+  <Text 18>
+    Para qué sirve en tu proyecto
+  <Text 19>
+    Obliga a explicar el proyecto completo en una sola página, sin refugiarse en tecnicismos.
+    Hace visibles los supuestos: lo que escribes en una nota adhesiva es una hipótesis, no un hecho.
+    Revela incoherencias: una propuesta de valor sin canal, o costos que no corresponden a los recursos declarados.
+    Facilita comparar alternativas: dos modelos distintos para el mismo software se ven lado a lado.
+    Es el lenguaje común con inversionistas, jurados de concurso, directivos y clientes.
+  [NOTAS DEL ORADOR]
+    Recalcar la idea de hipótesis: el Canvas no es un documento de verdades, es un tablero de apuestas que deben validarse.
+
+===== Diapositiva 5 (ppt/slides/slide5.xml) =====
+  <Text 0>
+    El lienzo: los nueve bloques y su posición
+  <Text 3>
+    8
+  <Text 4>
+    Socios clave
+  <Text 5>
+    Quién nos ayuda: proveedores, APIs de terceros, distribuidores, aliados que reducen riesgo o costo.
+  <Text 8>
+    7
+  <Text 9>
+    Actividades clave
+  <Text 10>
+    Qué hacemos: desarrollo, operación, seguridad, venta, soporte, implementación.
+  <Text 13>
+    6
+  <Text 14>
+    Recursos clave
+  <Text 15>
+    Qué necesitamos: personas, infraestructura, datos, propiedad intelectual, capital.
+  <Text 18>
+    2
+  <Text 19>
+    Propuesta de valor
+  <Text 20>
+    Qué ofrecemos y por qué el cliente lo prefiere sobre su alternativa actual.
+    Es el corazón del lienzo: todo lo demás existe para sostenerlo.
+  <Text 23>
+    4
+  <Text 24>
+    Relación con clientes
+  <Text 25>
+    Cómo interactuamos: autoservicio, acompañamiento, comunidad, éxito del cliente.
+  <Text 28>
+    3
+  <Text 29>
+    Canales
+  <Text 30>
+    Cómo llegamos: descubrimiento, prueba, venta, entrega, soporte.
+  <Text 33>
+    1
+  <Text 34>
+    Segmentos de clientes
+  <Text 35>
+    Para quién creamos valor: usuario, cliente que paga y quien decide la compra.
+    Si el segmento es «todos», el modelo no está definido.
+  <Text 38>
+    9
+  <Text 39>
+    Estructura de costos
+  <Text 40>
+    Qué gastamos para sostener recursos, actividades y socios. Fijos y variables.
+  <Text 43>
+    5
+  <Text 44>
+    Fuentes de ingresos
+  <Text 45>
+    Cómo entra el dinero desde cada segmento: suscripción, licencia, uso, comisión, servicios.
+  <Text 46>
+    Izquierda = eficiencia (cómo se produce el valor)          ·          Centro = la propuesta de valor          ·          Derecha = valor para el cliente (cómo se entrega)
+  [NOTAS DEL ORADOR]
+    La posición no es decorativa: la mitad izquierda responde a la eficiencia interna y la derecha al valor percibido por el cliente. La propuesta de valor es la bisagra entre ambas.
+
+===== Diapositiva 6 (ppt/slides/slide6.xml) =====
+  <Text 0>
+    ¿En qué orden se llena?
+  <Text 1>
+    El número del bloque no es el orden de llenado
+  <Text 4>
+    1
+  <Text 5>
+    Segmentos de clientes
+Todo empieza por saber a quién sirves.
+  <Text 8>
+    2
+  <Text 9>
+    Propuesta de valor
+Qué problema de ese segmento resuelves.
+  <Text 12>
+    3
+  <Text 13>
+    Canales
+Cómo llega tu propuesta hasta el cliente.
+  <Text 16>
+    4
+  <Text 17>
+    Relación con clientes
+Cómo lo conservas después de la venta.
+  <Text 20>
+    5
+  <Text 21>
+    Fuentes de ingresos
+Por qué valor está dispuesto a pagar.
+  <Text 24>
+    6
+  <Text 25>
+    Recursos clave
+Qué necesitas para entregar todo lo anterior.
+  <Text 28>
+    7
+  <Text 29>
+    Actividades clave
+Qué tienes que hacer de forma sostenida.
+  <Text 32>
+    8
+  <Text 33>
+    Socios clave
+Qué no haces tú y quién lo hace por ti.
+  <Text 36>
+    9
+  <Text 37>
+    Estructura de costos
+Cuánto cuesta sostener el modelo completo.
+  <Text 39>
+    Regla práctica: si cambias el segmento de clientes, vuelve a revisar los nueve bloques. Ningún bloque es independiente.
+  [NOTAS DEL ORADOR]
+    Pedir que llenen en ese orden en el Excel: la hoja Cuestionario ya está ordenada así.
+
+===== Diapositiva 7 (ppt/slides/slide7.xml) =====
+  <Text 1>
+    1
+  <Text 2>
+    Segmentos de clientes
+  <Text 4>
+    ÁREA: CLIENTE
+  <Text 5>
+    ¿QUÉ RESPONDE ESTE BLOQUE?
+  <Text 6>
+    Los grupos distintos de personas u organizaciones a los que el software sirve. Cada segmento tiene un problema, un lenguaje y una disposición a pagar diferentes.
+  <Text 7>
+    EN UN PROYECTO DE SOFTWARE
+  <Text 8>
+    Separa tres papeles: quién usa el sistema, quién paga la licencia y quién autoriza la compra.
+    Construye arquetipos (personas) con su contexto técnico real: dispositivos, conectividad, nivel digital.
+    Decide mercado de nicho o masivo, y si es B2B, B2C, B2G o multilateral (plataforma de dos lados).
+    Elige un segmento de entrada (beachhead): el que más sufre el problema y es más fácil de alcanzar.
+  <Text 10>
+    EJEMPLO — TALLERPRO (caso de la diapositiva 18)
+  <Text 11>
+    Talleres mecánicos independientes de 3 a 10 empleados en ciudades medias del Bajío. Usuario diario: jefe de taller. Quien paga y decide: el dueño.
+  <Text 13>
+    PREGUNTAS GUÍA
+  <Text 14>
+    ¿Para quién creamos valor, en una frase?
+    ¿Quién usa el software a diario y quién firma el pago?
+    ¿Qué segmento sufre el problema con más intensidad y frecuencia?
+    ¿Cuántos son, dónde están y cómo los contactamos?
+    ¿Con qué segmento arrancamos y cuál dejamos para después?
+  <Text 16>
+    ERROR MÁS COMÚN
+  <Text 17>
+    Declarar que el mercado es «cualquier persona con un teléfono». Un segmento que no se puede describir, contar ni contactar no es un segmento.
+  [NOTAS DEL ORADOR]
+    Bloque 1 — Segmentos de clientes. Las preguntas guía de esta diapositiva corresponden a la sección 1 de la hoja «Cuestionario» del archivo de Excel.
+
+===== Diapositiva 8 (ppt/slides/slide8.xml) =====
+  <Text 1>
+    2
+  <Text 2>
+    Propuesta de valor
+  <Text 4>
+    ÁREA: OFERTA
+  <Text 5>
+    ¿QUÉ RESPONDE ESTE BLOQUE?
+  <Text 6>
+    El conjunto de productos y servicios que resuelven un problema o satisfacen una necesidad del segmento. Es la razón por la que el cliente te elige a ti y no a su alternativa actual.
+  <Text 7>
+    EN UN PROYECTO DE SOFTWARE
+  <Text 8>
+    Formúlala como resultado medible para el cliente, no como lista de funcionalidades.
+    Identifica la alternativa real que hoy usa: Excel, papel, WhatsApp, otro sistema o no hacer nada.
+    Elige tu palanca de valor: automatización, desempeño, personalización, accesibilidad, precio o reducción de riesgo.
+    Define explícitamente qué NO hace el producto; el alcance también es propuesta de valor.
+  <Text 10>
+    EJEMPLO — TALLERPRO (caso de la diapositiva 18)
+  <Text 11>
+    «Reduce de 3 horas a 20 minutos diarios el control de órdenes de servicio y elimina las refacciones que hoy se instalan sin cobrarse.»
+  <Text 13>
+    PREGUNTAS GUÍA
+  <Text 14>
+    ¿Qué problema específico resolvemos y para quién?
+    ¿Qué hace hoy el cliente sin nosotros y qué le cuesta?
+    ¿Qué gana de forma medible: tiempo, dinero, errores evitados, cumplimiento?
+    ¿Por qué nosotros y no la alternativa que ya tiene?
+    ¿Qué queda fuera del alcance de la primera versión?
+  <Text 16>
+    ERROR MÁS COMÚN
+  <Text 17>
+    Presentar un catálogo de módulos y pantallas. Las funcionalidades son el medio; el valor es el cambio que produce en el trabajo del cliente.
+  [NOTAS DEL ORADOR]
+    Bloque 2 — Propuesta de valor. Las preguntas guía de esta diapositiva corresponden a la sección 2 de la hoja «Cuestionario» del archivo de Excel.
+
+===== Diapositiva 9 (ppt/slides/slide9.xml) =====
+  <Text 1>
+    3
+  <Text 2>
+    Canales
+  <Text 4>
+    ÁREA: CLIENTE
+  <Text 5>
+    ¿QUÉ RESPONDE ESTE BLOQUE?
+  <Text 6>
+    Cómo la empresa se comunica con sus segmentos y les entrega la propuesta de valor. Abarca desde que el cliente se entera de que existes hasta la posventa.
+  <Text 7>
+    EN UN PROYECTO DE SOFTWARE
+  <Text 8>
+    Cubre las cinco fases: conocimiento, evaluación, compra, entrega y posventa.
+    Define el canal de prueba: demo guiada, versión de prueba, sandbox o entorno de evaluación.
+    Define el canal de entrega técnica: web, tienda de aplicaciones, instalación en sitio o nube privada.
+    Distingue canales propios (sitio, equipo de venta) de canales de socios (distribuidores, integradores).
+  <Text 10>
+    EJEMPLO — TALLERPRO (caso de la diapositiva 18)
+  <Text 11>
+    Visita a distribuidores de refacciones (socio) · demo guiada de 15 minutos · alta en línea · aplicación web instalable · soporte por WhatsApp y videollamada.
+  <Text 13>
+    PREGUNTAS GUÍA
+  <Text 14>
+    ¿Cómo se entera el cliente de que existimos?
+    ¿Cómo puede probar el producto antes de pagar?
+    ¿Cómo lo contrata, lo instala y lo empieza a usar?
+    ¿Por dónde recibe soporte, capacitación y actualizaciones?
+    ¿Qué canal es el más barato por cliente adquirido?
+  <Text 16>
+    ERROR MÁS COMÚN
+  <Text 17>
+    Suponer que publicar en una tienda de aplicaciones equivale a tener un canal de distribución. Publicar no es distribuir.
+  [NOTAS DEL ORADOR]
+    Bloque 3 — Canales. Las preguntas guía de esta diapositiva corresponden a la sección 3 de la hoja «Cuestionario» del archivo de Excel.
+
+===== Diapositiva 10 (ppt/slides/slide10.xml) =====
+  <Text 1>
+    4
+  <Text 2>
+    Relación con clientes
+  <Text 4>
+    ÁREA: CLIENTE
+  <Text 5>
+    ¿QUÉ RESPONDE ESTE BLOQUE?
+  <Text 6>
+    El tipo de relación que se establece con cada segmento, desde la captación hasta la fidelización. Determina buena parte del costo de operación y de la permanencia del cliente.
+  <Text 7>
+    EN UN PROYECTO DE SOFTWARE
+  <Text 8>
+    Elige el modo: autoservicio, asistencia personal, comunidad, éxito del cliente o cocreación.
+    Diseña el arranque (onboarding): los primeros siete días definen si el cliente se queda.
+    Define cómo mides y reduces el abandono (churn) y cómo detectas al cliente en riesgo.
+    Decide qué se automatiza (correos, tutoriales, base de conocimiento) y qué exige una persona.
+  <Text 10>
+    EJEMPLO — TALLERPRO (caso de la diapositiva 18)
+  <Text 11>
+    Primer mes: acompañamiento en sitio de una hora y migración de datos. Después: autoservicio con base de conocimiento, más soporte por WhatsApp en horario hábil.
+  <Text 13>
+    PREGUNTAS GUÍA
+  <Text 14>
+    ¿Qué tipo de relación espera cada segmento y cuál está dispuesto a pagar?
+    ¿Cómo acompañamos al cliente en sus primeros días de uso?
+    ¿Qué hacemos para que no nos abandone y cómo lo detectamos a tiempo?
+    ¿Qué parte de la relación se automatiza y cuál es humana?
+    ¿Cuánto cuesta al mes sostener esa relación por cliente?
+  <Text 16>
+    ERROR MÁS COMÚN
+  <Text 17>
+    Diseñar con detalle la adquisición y olvidar la retención. En un modelo de suscripción, retener cuesta mucho menos que volver a vender.
+  [NOTAS DEL ORADOR]
+    Bloque 4 — Relación con clientes. Las preguntas guía de esta diapositiva corresponden a la sección 4 de la hoja «Cuestionario» del archivo de Excel.
+
+===== Diapositiva 11 (ppt/slides/slide11.xml) =====
+  <Text 1>
+    5
+  <Text 2>
+    Fuentes de ingresos
+  <Text 4>
+    ÁREA: FINANZAS
+  <Text 5>
+    ¿QUÉ RESPONDE ESTE BLOQUE?
+  <Text 6>
+    El dinero que la empresa genera en cada segmento. Responde por qué valor paga realmente el cliente, cómo paga y cuánto aporta cada fuente al total.
+  <Text 7>
+    EN UN PROYECTO DE SOFTWARE
+  <Text 8>
+    Elige el mecanismo: suscripción, licencia, pago por uso, freemium, comisión, publicidad o servicios.
+    Fija el precio por el valor entregado y por lo que hoy le cuesta el problema, no por tus horas.
+    Define la unidad de cobro: por usuario, por sucursal, por transacción, por volumen de datos.
+    Analiza el momento del flujo: cuándo cobras frente a cuándo gastas en desarrollo e infraestructura.
+  <Text 10>
+    EJEMPLO — TALLERPRO (caso de la diapositiva 18)
+  <Text 11>
+    Suscripción de $899 al mes por taller con hasta cinco usuarios · implementación inicial de $2,500 por única vez · 2% de comisión en compras de refacciones hechas dentro de la aplicación.
+  <Text 13>
+    PREGUNTAS GUÍA
+  <Text 14>
+    ¿Por qué valor concreto está dispuesto a pagar el cliente?
+    ¿Cuánto gasta hoy en resolver ese problema por otros medios?
+    ¿Cómo cobramos: mensual, anual, por uso, único, por comisión?
+    ¿Cuál es el precio, cómo lo justificamos y qué planes ofrecemos?
+    ¿Qué porcentaje del ingreso total aporta cada fuente?
+  <Text 16>
+    ERROR MÁS COMÚN
+  <Text 17>
+    Poner precio sumando el costo de desarrollo más un margen. El cliente no paga tu esfuerzo, paga el resultado que obtiene.
+  [NOTAS DEL ORADOR]
+    Bloque 5 — Fuentes de ingresos. Las preguntas guía de esta diapositiva corresponden a la sección 5 de la hoja «Cuestionario» del archivo de Excel.
+
+===== Diapositiva 12 (ppt/slides/slide12.xml) =====
+  <Text 1>
+    6
+  <Text 2>
+    Recursos clave
+  <Text 4>
+    ÁREA: INFRAESTRUCTURA
+  <Text 5>
+    ¿QUÉ RESPONDE ESTE BLOQUE?
+  <Text 6>
+    Los activos imprescindibles para que el modelo funcione: sin ellos, la propuesta de valor no puede entregarse. Pueden ser humanos, tecnológicos, intelectuales o financieros.
+  <Text 7>
+    EN UN PROYECTO DE SOFTWARE
+  <Text 8>
+    Humanos: perfiles y nivel de experiencia reales que exige el stack elegido.
+    Tecnológicos: infraestructura en la nube, entornos, repositorios, canalizaciones de integración continua.
+    Intelectuales: código propietario, marca, algoritmos, conjuntos de datos, licencias de terceros.
+    Datos: qué datos necesitas, de dónde salen y bajo qué base legal los tratas.
+  <Text 10>
+    EJEMPLO — TALLERPRO (caso de la diapositiva 18)
+  <Text 11>
+    Dos desarrolladores de tiempo completo · un diseñador de experiencia a medio tiempo · infraestructura en la nube (~120 USD al mes) · catálogo de refacciones licenciado · base de datos de precios propia.
+  <Text 13>
+    PREGUNTAS GUÍA
+  <Text 14>
+    ¿Qué perfiles técnicos necesita el equipo y con qué dedicación?
+    ¿Qué infraestructura requiere el sistema y cuánto cuesta al mes?
+    ¿Qué datos necesitamos, cómo los obtenemos y cómo los protegemos?
+    ¿Qué activo es difícil de copiar por un competidor?
+    ¿De qué licencias o servicios de terceros dependemos de forma crítica?
+  <Text 16>
+    ERROR MÁS COMÚN
+  <Text 17>
+    Enlistar «computadoras e internet» y omitir el costo real de la nube, las licencias y el tiempo de las personas.
+  [NOTAS DEL ORADOR]
+    Bloque 6 — Recursos clave. Las preguntas guía de esta diapositiva corresponden a la sección 6 de la hoja «Cuestionario» del archivo de Excel.
+
+===== Diapositiva 13 (ppt/slides/slide13.xml) =====
+  <Text 1>
+    7
+  <Text 2>
+    Actividades clave
+  <Text 4>
+    ÁREA: INFRAESTRUCTURA
+  <Text 5>
+    ¿QUÉ RESPONDE ESTE BLOQUE?
+  <Text 6>
+    Las acciones más importantes que la organización debe realizar de forma sostenida para que el modelo funcione. No son tareas puntuales, son procesos permanentes.
+  <Text 7>
+    EN UN PROYECTO DE SOFTWARE
+  <Text 8>
+    Desarrollo y mantenimiento: proceso, cadencia de entregas, gestión de deuda técnica.
+    Operación de la plataforma: despliegue, monitoreo, respaldos, disponibilidad, incidentes.
+    Seguridad y cumplimiento: protección de datos personales, auditoría, control de accesos.
+    Comercial y posventa: venta, implementación, migración de datos, capacitación y soporte.
+  <Text 10>
+    EJEMPLO — TALLERPRO (caso de la diapositiva 18)
+  <Text 11>
+    Iteraciones de dos semanas · migración de datos históricos de cada cliente nuevo · monitoreo continuo y respaldos diarios · capacitación presencial en la puesta en marcha.
+  <Text 13>
+    PREGUNTAS GUÍA
+  <Text 14>
+    ¿Qué debemos hacer cada semana para que el modelo funcione?
+    ¿Qué actividades sostienen directamente la propuesta de valor?
+    ¿Qué hacemos internamente y qué conviene contratar fuera?
+    ¿Cómo aseguramos calidad, seguridad y disponibilidad del servicio?
+    ¿Qué proceso de desarrollo usaremos y por qué se ajusta a este modelo?
+  <Text 16>
+    ERROR MÁS COMÚN
+  <Text 17>
+    Reducir las actividades clave a «programar». Vender, implementar, operar y dar soporte suelen consumir más esfuerzo que escribir código.
+  [NOTAS DEL ORADOR]
+    Bloque 7 — Actividades clave. Las preguntas guía de esta diapositiva corresponden a la sección 7 de la hoja «Cuestionario» del archivo de Excel.
+
+===== Diapositiva 14 (ppt/slides/slide14.xml) =====
+  <Text 1>
+    8
+  <Text 2>
+    Socios clave
+  <Text 4>
+    ÁREA: INFRAESTRUCTURA
+  <Text 5>
+    ¿QUÉ RESPONDE ESTE BLOQUE?
+  <Text 6>
+    La red de proveedores y aliados que hacen que el modelo funcione. Se busca con ellos optimizar costos, reducir riesgo o adquirir recursos y clientes que no se tienen.
+  <Text 7>
+    EN UN PROYECTO DE SOFTWARE
+  <Text 8>
+    Proveedores de infraestructura y servicios administrados en la nube.
+    Interfaces de programación de terceros: pagos, mensajería, mapas, identidad, facturación electrónica.
+    Socios de distribución: integradores, distribuidores regionales, cámaras y asociaciones del sector.
+    Ecosistema: comunidad de código abierto, incubadoras, universidades, programas de gobierno.
+  <Text 10>
+    EJEMPLO — TALLERPRO (caso de la diapositiva 18)
+  <Text 11>
+    Pasarela de pagos · proveedor de mensajería para notificaciones · distribuidores regionales de refacciones como canal de venta · incubadora del TecNM para acompañamiento.
+  <Text 13>
+    PREGUNTAS GUÍA
+  <Text 14>
+    ¿Quién nos provee lo que hemos decidido no construir?
+    ¿Qué servicios de terceros son críticos y qué ocurre si fallan o suben de precio?
+    ¿Quién nos da acceso rápido a clientes que no alcanzaríamos solos?
+    ¿Qué alianza reduce nuestro riesgo técnico, legal o financiero?
+    ¿Qué aportamos nosotros en cada alianza y bajo qué condiciones?
+  <Text 16>
+    ERROR MÁS COMÚN
+  <Text 17>
+    Depender de un servicio externo crítico sin plan alterno y sin haber leído sus condiciones de uso, límites de consumo ni política de precios.
+  [NOTAS DEL ORADOR]
+    Bloque 8 — Socios clave. Las preguntas guía de esta diapositiva corresponden a la sección 8 de la hoja «Cuestionario» del archivo de Excel.
+
+===== Diapositiva 15 (ppt/slides/slide15.xml) =====
+  <Text 1>
+    9
+  <Text 2>
+    Estructura de costos
+  <Text 4>
+    ÁREA: FINANZAS
+  <Text 5>
+    ¿QUÉ RESPONDE ESTE BLOQUE?
+  <Text 6>
+    Todos los costos en que se incurre para operar el modelo. Se derivan directamente de los recursos, las actividades y los socios que ya declaraste.
+  <Text 7>
+    EN UN PROYECTO DE SOFTWARE
+  <Text 8>
+    Separa costos fijos (nómina, infraestructura base, licencias) de variables (consumo por usuario, comisiones, soporte).
+    Distingue la inversión inicial de desarrollo del costo mensual de operación.
+    Calcula cuánto cuesta atender a un cliente adicional: ahí se decide si el modelo escala.
+    Estima el costo de adquirir un cliente y compáralo con lo que ese cliente deja en toda la relación.
+  <Text 10>
+    EJEMPLO — TALLERPRO (caso de la diapositiva 18)
+  <Text 11>
+    Nómina del equipo · infraestructura en la nube · comisión de la pasarela (3%) · costo de adquisición estimado de $1,800 por taller · punto de equilibrio en 101 talleres activos.
+  <Text 13>
+    PREGUNTAS GUÍA
+  <Text 14>
+    ¿Cuáles son los cinco costos más grandes del modelo?
+    ¿Qué costos crecen con cada cliente o usuario nuevo?
+    ¿Cuánto nos cuesta conseguir un cliente y cuánto atenderlo al mes?
+    ¿El modelo se rige por costos o por valor?
+    ¿Cuántos clientes necesitamos para llegar al punto de equilibrio?
+  <Text 16>
+    ERROR MÁS COMÚN
+  <Text 17>
+    Presentar solo el costo de desarrollo y omitir infraestructura, soporte, comisiones y el costo de adquirir cada cliente.
+  [NOTAS DEL ORADOR]
+    Bloque 9 — Estructura de costos. Las preguntas guía de esta diapositiva corresponden a la sección 9 de la hoja «Cuestionario» del archivo de Excel.
+
+===== Diapositiva 16 (ppt/slides/slide16.xml) =====
+  <Text 0>
+    Cómo cobra el software: modelos de monetización
+  <Text 1>
+    Referencia para el bloque 5 — Fuentes de ingresos
+  <Table 0>
+    [TABLA]
+    | Modelo | Cómo cobra | Cuándo conviene | Riesgo principal |
+    | Suscripción (SaaS) | Cuota recurrente por usuario o por cuenta | El valor se entrega de forma continua y el uso es frecuente | Abandono mensual (churn) |
+    | Freemium | Versión gratuita + funciones de pago | Mercado masivo con crecimiento por recomendación | Sostener a quienes nunca pagarán |
+    | Licencia perpetua | Pago único más mantenimiento anual | Clientes corporativos o de gobierno con compra por proyecto | Ingreso no recurrente |
+    | Pago por uso | Por transacción, llamada a la API o volumen | El consumo varía mucho entre clientes | Ingreso difícil de predecir |
+    | Comisión (marketplace) | Porcentaje de cada transacción intermediada | La plataforma conecta oferta y demanda | Arranque en frío de los dos lados |
+    | Publicidad | Impresiones, clics o patrocinios | Gran volumen de usuarios sin disposición a pagar | Requiere escala muy alta |
+    | Núcleo abierto | Núcleo libre + edición empresarial | Producto técnico con comunidad activa | Competir contra tu propia versión gratuita |
+    | Servicios profesionales | Implementación, integración y capacitación | El producto exige adopción y configuración | No escala de forma proporcional |
+    [/TABLA]
+  <Text 3>
+    Modelo
+  <Text 4>
+    Cómo cobra
+  <Text 5>
+    Cuándo conviene
+  <Text 6>
+    Riesgo principal
+  <Text 7>
+    Puedes combinar modelos, pero justifica cada uno: qué segmento lo paga, qué valor cubre y qué porcentaje del ingreso representa.
+  [NOTAS DEL ORADOR]
+    Pedir a cada equipo que elija uno principal y a lo sumo uno secundario, y que lo capture en la hoja «Monetización» del Excel.
+
+===== Diapositiva 17 (ppt/slides/slide17.xml) =====
+  <Text 0>
+    Caso ejemplo: TallerPro
+  <Text 1>
+    Un modelo resuelto para comparar con el de tu equipo
+  <Text 3>
+    El problema observado
+  <Text 4>
+    En talleres mecánicos pequeños las órdenes de servicio se llevan en libretas y WhatsApp. El dueño no sabe cuánto ganó por orden, se instalan refacciones que nunca se cobran y el cliente final no recibe información del avance de su vehículo.
+  <Text 5>
+    La solución propuesta
+  <Text 6>
+    Aplicación web instalable para registrar órdenes de servicio, controlar refacciones e inventario, calcular la utilidad por orden y notificar automáticamente al cliente final por mensajería el avance de su reparación.
+  <Text 8>
+    Este caso es ficticio y sirve como referencia de nivel de detalle esperado, no como respuesta modelo a copiar.
+  <Text 10>
+    Cifras que sostienen el modelo
+  <Text 11>
+    $899
+  <Text 12>
+    ingreso mensual por taller (plan base, 5 usuarios)
+  <Text 13>
+    $1,800
+  <Text 14>
+    costo estimado de adquirir un taller (CAC)
+  <Text 15>
+    $16,487
+  <Text 16>
+    valor estimado del cliente en 18 meses (LTV)
+  <Text 17>
+    101
+  <Text 18>
+    talleres activos necesarios para el punto de equilibrio
+  <Text 19>
+    Relación LTV/CAC ≈ 9:1. Una relación menor a 3:1 obliga a revisar precio, retención o canal.
+  [NOTAS DEL ORADOR]
+    Las cifras son ilustrativas. Lo importante es que el equipo entienda que todo número declarado debe poder explicarse.
+
+===== Diapositiva 18 (ppt/slides/slide18.xml) =====
+  <Text 0>
+    Caso TallerPro: el lienzo completo
+  <Text 3>
+    8
+  <Text 4>
+    Socios clave
+  <Text 5>
+    • Pasarela de pagos
+    • Proveedor de mensajería (notificaciones al cliente final)
+    • Distribuidores regionales de refacciones (canal de venta)
+    • Proveedor de nube
+    • Incubadora del TecNM
+  <Text 8>
+    7
+  <Text 9>
+    Actividades clave
+  <Text 10>
+    • Desarrollo en iteraciones de 2 semanas
+    • Migración de datos del taller
+    • Operación, respaldos y monitoreo
+    • Venta en campo y capacitación
+  <Text 13>
+    6
+  <Text 14>
+    Recursos clave
+  <Text 15>
+    • 2 desarrolladores full-stack
+    • 1 diseñador UX medio tiempo
+    • Infraestructura en la nube
+    • Catálogo de refacciones licenciado
+  <Text 18>
+    2
+  <Text 19>
+    Propuesta de valor
+  <Text 20>
+    Control total de la orden de servicio en una sola pantalla.
+    • De 3 h a 20 min diarios de control administrativo
+    • Cero refacciones instaladas sin cobrar
+    • Utilidad real por orden, visible al cierre del día
+    • El cliente final recibe avisos del avance sin llamar al taller
+    No incluye: facturación electrónica ni contabilidad (se integra con terceros).
+  <Text 23>
+    4
+  <Text 24>
+    Relación con clientes
+  <Text 25>
+    • Implementación acompañada el primer mes
+    • Después, autoservicio con base de conocimiento
+    • Soporte por mensajería en horario hábil
+  <Text 28>
+    3
+  <Text 29>
+    Canales
+  <Text 30>
+    • Distribuidores de refacciones
+    • Demo guiada de 15 min
+    • Alta y contratación en línea
+    • App web instalable
+  <Text 33>
+    1
+  <Text 34>
+    Segmentos de clientes
+  <Text 35>
+    Talleres mecánicos independientes de 3 a 10 empleados, en ciudades medias del Bajío.
+    • Usuario: jefe de taller y mecánicos
+    • Paga y decide: el dueño
+    • Beneficiario indirecto: el cliente final del taller
+    Entrada: talleres ya digitalizados en cobro con terminal.
+  <Text 38>
+    9
+  <Text 39>
+    Estructura de costos
+  <Text 40>
+    Fijos: nómina del equipo · infraestructura base · licencia del catálogo.   Variables: consumo de nube y mensajería por taller · 3% de comisión de la pasarela · soporte.   Adquisición: $1,800 por taller.   Punto de equilibrio: 101 talleres activos.
+  <Text 43>
+    5
+  <Text 44>
+    Fuentes de ingresos
+  <Text 45>
+    Suscripción mensual de $899 por taller (hasta 5 usuarios) · Plan ampliado de $1,499 con inventario multialmacén · Implementación inicial de $2,500 por única vez · 2% de comisión sobre compras de refacciones hechas dentro de la aplicación.
+  <Text 46>
+    Observa la coherencia: cada canal tiene un segmento, cada actividad tiene un recurso que la sostiene y cada costo se deriva de un recurso, actividad o socio ya declarado.
+  [NOTAS DEL ORADOR]
+    Ejercicio en clase: pedir a los equipos que señalen una incoherencia o un supuesto no validado en este lienzo. Siempre hay varios.
+
+===== Diapositiva 19 (ppt/slides/slide19.xml) =====
+  <Text 0>
+    Errores frecuentes al presentar el Canvas
+  <Text 1>
+    Revisa esta lista antes de exponer
+  <Text 4>
+    !
+  <Text 5>
+    Enamorarse de la solución
+Se describe el sistema durante diez minutos y el problema del cliente nunca aparece.
+  <Text 8>
+    !
+  <Text 9>
+    El segmento «todos»
+Un mercado sin límites es un mercado que no se puede alcanzar ni medir.
+  <Text 12>
+    !
+  <Text 13>
+    Funcionalidades disfrazadas de valor
+«Tiene panel de control y reportes» no es una propuesta de valor; es una pantalla.
+  <Text 16>
+    !
+  <Text 17>
+    Números sin origen
+Cifras de mercado o de precio que nadie puede explicar de dónde salieron.
+  <Text 20>
+    !
+  <Text 21>
+    Costos incompletos
+Se calcula el desarrollo y se olvidan nube, soporte, comisiones y adquisición de clientes.
+  <Text 24>
+    !
+  <Text 25>
+    Bloques inconexos
+Hay un canal que no sirve a ningún segmento, o un recurso que ninguna actividad usa.
+  <Text 28>
+    !
+  <Text 29>
+    Competencia inexistente
+«No tenemos competencia» casi siempre significa que no se buscó o que no hay mercado.
+  <Text 32>
+    !
+  <Text 33>
+    Todo es hipótesis, nada está validado
+Ninguna entrevista, ninguna prueba, ningún dato: solo opiniones del equipo.
+  [NOTAS DEL ORADOR]
+    Cada uno de estos errores corresponde a un criterio de evaluación de la exposición.
+
+===== Diapositiva 20 (ppt/slides/slide20.xml) =====
+  <Text 0>
+    Validación mínima antes de exponer
+  <Text 1>
+    Cada casilla del lienzo es una hipótesis hasta que alguien externo la confirma
+  <Text 4>
+    01
+  <Text 5>
+    Entrevistas
+  <Text 6>
+    Al menos 8 conversaciones con personas del segmento real. Pregunta por lo que hacen hoy, no por si les gustaría tu idea.
+  <Text 10>
+    02
+  <Text 11>
+    Prueba de la propuesta
+  <Text 12>
+    Un prototipo navegable o una página de aterrizaje. Mide si el problema descrito les resulta suyo.
+  <Text 16>
+    03
+  <Text 17>
+    Producto mínimo viable
+  <Text 18>
+    La versión más pequeña que entrega el valor prometido a un usuario real, no una demostración.
+  <Text 22>
+    04
+  <Text 23>
+    Prueba de precio
+  <Text 24>
+    Pregunta cuánto pagarían y, mejor aún, pide una carta de intención o un anticipo.
+  <Text 28>
+    05
+  <Text 29>
+    Métricas y decisión
+  <Text 30>
+    Activación, retención a 30 días y conversión. Define de antemano qué resultado te haría cambiar el modelo.
+  <Text 31>
+    Presentar un Canvas con cero validación es presentar una opinión. Una sola entrevista bien documentada ya cambia la conversación con el jurado.
+
+===== Diapositiva 21 (ppt/slides/slide21.xml) =====
+  <Text 0>
+    Prueba de coherencia del modelo
+  <Text 1>
+    Ocho cruces que debes poder responder con «sí» antes de entregar
+  <Text 4>
+    Cada segmento de clientes tiene al menos un canal que lo alcanza.
+  <Text 7>
+    Cada segmento tiene una propuesta de valor escrita en sus términos, no en los tuyos.
+  <Text 10>
+    Cada propuesta de valor tiene asociada al menos una fuente de ingresos.
+  <Text 13>
+    Cada actividad clave se sostiene con algún recurso clave o algún socio declarado.
+  <Text 16>
+    Cada costo relevante se origina en un recurso, una actividad o un socio de tu lienzo.
+  <Text 19>
+    El precio se justifica con el valor entregado, no con el costo de desarrollo.
+  <Text 22>
+    El tipo de relación con el cliente es compatible con el precio y con el costo de atenderlo.
+  <Text 25>
+    Sabes cuál es el supuesto más riesgoso del modelo y cómo piensas ponerlo a prueba.
+  [NOTAS DEL ORADOR]
+    Esta lista está replicada en la hoja «Checklist» del Excel, con semáforo automático.
+
+===== Diapositiva 22 (ppt/slides/slide22.xml) =====
+  <Text 0>
+    Guion para exponer tu propuesta en 10 minutos
+  <Text 1>
+    Estructura sugerida para la presentación del equipo
+  <Text 3>
+    0:00 – 1:30
+  <Text 4>
+    Problema y segmento
+  <Text 5>
+    Quién sufre qué, con un dato o una cita de tus entrevistas.
+  <Text 7>
+    1:30 – 3:00
+  <Text 8>
+    Propuesta de valor
+  <Text 9>
+    Qué cambia para ese cliente, en resultados medibles.
+  <Text 11>
+    3:00 – 4:30
+  <Text 12>
+    Demostración o prototipo
+  <Text 13>
+    Un recorrido corto por el flujo principal, no por todos los módulos.
+  <Text 15>
+    4:30 – 6:00
+  <Text 16>
+    Modelo de ingresos y costos
+  <Text 17>
+    Cómo cobras, cuánto cuesta operar y el punto de equilibrio.
+  <Text 19>
+    6:00 – 7:30
+  <Text 20>
+    Cómo se entrega y se sostiene
+  <Text 21>
+    Canales, relación con el cliente, recursos, actividades y socios.
+  <Text 23>
+    7:30 – 8:30
+  <Text 24>
+    Validación y riesgos
+  <Text 25>
+    Qué ya comprobaste, qué sigue siendo hipótesis y cuál es tu mayor riesgo.
+  <Text 27>
+    8:30 – 10:00
+  <Text 28>
+    Cierre y petición
+  <Text 29>
+    Qué necesitas para el siguiente paso y preguntas del jurado.
+  <Text 30>
+    Lleva el lienzo completo impreso o en una diapositiva de respaldo: el jurado casi siempre pregunta por costos y por el supuesto más riesgoso.
+
+===== Diapositiva 23 (ppt/slides/slide23.xml) =====
+  <Text 1>
+    PLANTILLA · LLENA ESTA SECCIÓN
+  <Text 2>
+    Nombre del proyecto
+  <Text 3>
+    Escribe en una frase el concepto de tu proyecto
+  <Text 5>
+    EQUIPO
+  <Text 6>
+    Nombres de los integrantes
+  <Text 8>
+    MATERIA Y GRUPO
+  <Text 9>
+    Ingeniería de Software · Grupo
+  <Text 11>
+    SEGMENTO OBJETIVO
+  <Text 14>
+    MODELO DE INGRESOS
+  <Text 15>
+    Cómo cobraras los servicios.
+  <Text 17>
+    ETAPA ACTUAL
+  <Text 18>
+    Estado actual en el que se encuentra tu producto
+  <Text 20>
+    FECHA DE ENTREGA
+  <Text 21>
+    Día / mes / año
+  [NOTAS DEL ORADOR]
+    PLANTILLA: sustituye todos los textos en gris por el contenido de tu proyecto.
+
+===== Diapositiva 24 (ppt/slides/slide24.xml) =====
+  <Text 1>
+    PLANTILLA · LLENA ESTE LIENZO
+  <Text 2>
+    Lienzo del modelo de negocio de nuestro proyecto
+  <Text 5>
+    8
+  <Text 6>
+    Socios clave
+  <Text 7>
+    Escribe aquí…
+  <Text 10>
+    7
+  <Text 11>
+    Actividades clave
+  <Text 12>
+    Escribe aquí…
+  <Text 15>
+    6
+  <Text 16>
+    Recursos clave
+  <Text 17>
+    Escribe aquí…
+  <Text 20>
+    2
+  <Text 21>
+    Propuesta de valor
+  <Text 22>
+    Escribe aquí…
+  <Text 25>
+    4
+  <Text 26>
+    Relación con clientes
+  <Text 27>
+    Escribe aquí…
+  <Text 30>
+    3
+  <Text 31>
+    Canales
+  <Text 32>
+    Escribe aquí…
+  <Text 35>
+    1
+  <Text 36>
+    Segmentos de clientes
+  <Text 37>
+    Escribe aquí…
+  <Text 40>
+    9
+  <Text 41>
+    Estructura de costos
+  <Text 42>
+    Escribe aquí…
+  <Text 45>
+    5
+  <Text 46>
+    Fuentes de ingresos
+  <Text 47>
+    Escribe aquí…
+  <Text 48>
+    Sugerencia: llena primero la hoja «Cuestionario» del Excel y resume aquí, en tres o cuatro viñetas por bloque, lo esencial de cada respuesta.
+
+===== Diapositiva 25 (ppt/slides/slide25.xml) =====
+  <Text 1>
+    PLANTILLA · LLENA ESTAS FICHAS
+  <Text 2>
+    Detalle, validación y entrega
+  <Text 5>
+    Propuesta de valor en una frase
+  <Text 6>
+    «Ayudamos a [segmento] a [resultado medible] mediante [solución], a diferencia de [alternativa actual].»
+  <Text 9>
+    Modelo de ingresos y precio
+  <Text 10>
+    Modelo elegido, unidad de cobro, precio y su justificación. Ingreso mensual estimado.
+  <Text 13>
+    Tres costos principales
+  <Text 14>
+    Los costos más grandes del modelo y cuáles crecen con cada cliente nuevo.
+  <Text 17>
+    Qué validamos y con quién
+  <Text 18>
+    Número de entrevistas, a quién, qué aprendimos y qué cambió en el lienzo por eso.
+  <Text 21>
+    Supuesto más riesgoso
+  <Text 22>
+    El supuesto que, de ser falso, derrumba el modelo. Cómo piensan ponerlo a prueba y cuándo.
+  <Text 25>
+    Siguiente paso y petición
+  <Text 26>
+    Qué harán en las próximas cuatro semanas y qué necesitan para lograrlo.
+  <Text 27>
+    Entrega: este archivo con las diapositivas 23 a 25 completas, más el archivo de Excel con el cuestionario contestado y el checklist en verde.
+  [NOTAS DEL ORADOR]
+    PLANTILLA: cada ficha se responde en tres o cuatro líneas. Si no cabe, el equipo todavía no tiene clara la respuesta.

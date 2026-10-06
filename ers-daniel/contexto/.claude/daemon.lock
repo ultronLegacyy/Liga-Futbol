@@ -1,0 +1,16 @@
+{
+  "pid": 45886,
+  "version": "2.1.280",
+  "jsonPath": "/home/ultron_gges/.claude/daemon.json",
+  "logPath": "/home/ultron_gges/.claude/daemon.log",
+  "startedAt": 1791074116999,
+  "origin": "transient",
+  "spawnedBy": {
+    "label": "claude",
+    "cwd": "/home/ultron_gges/Projects/Liga-Futbol/ers-daniel",
+    "pid": 45716
+  },
+  "procStart": "2937882",
+  "launchTarget": "/opt/claude-code/bin/claude",
+  "processWrapper": ""
+}
