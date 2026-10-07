@@ -1,0 +1,311 @@
+#!/usr/bin/env python3
+"""Extractor de texto de .docx / .pptx / .xlsx usando solo la biblioteca estándar."""
+import posixpath
+import re
+import sys
+import zipfile
+import xml.etree.ElementTree as ET
+
+NS = {
+    "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+    "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
+    "p": "http://schemas.openxmlformats.org/presentationml/2006/main",
+    "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+    "s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+    "rel": "http://schemas.openxmlformats.org/package/2006/relationships",
+}
+W = "{%s}" % NS["w"]
+A = "{%s}" % NS["a"]
+
+
+def rels_map(z, rels_path):
+    out = {}
+    if rels_path not in z.namelist():
+        return out
+    root = ET.fromstring(z.read(rels_path))
+    for rel in root.findall("rel:Relationship", NS):
+        out[rel.get("Id")] = (rel.get("Target"), rel.get("Type"), rel.get("TargetMode"))
+    return out
+
+
+# ---------------------------------------------------------------- DOCX
+def docx_par_text(p):
+    parts = []
+    for el in p.iter():
+        if el.tag == W + "t":
+            parts.append(el.text or "")
+        elif el.tag == W + "tab":
+            parts.append("\t")
+        elif el.tag in (W + "br", W + "cr"):
+            parts.append(" / ")
+    return "".join(parts)
+
+
+def docx(path):
+    z = zipfile.ZipFile(path)
+    # estilos: id -> nombre
+    styles = {}
+    if "word/styles.xml" in z.namelist():
+        sroot = ET.fromstring(z.read("word/styles.xml"))
+        for st in sroot.findall("w:style", NS):
+            sid = st.get(W + "styleId")
+            name = st.find("w:name", NS)
+            styles[sid] = name.get(W + "val") if name is not None else sid
+    root = ET.fromstring(z.read("word/document.xml"))
+    body = root.find("w:body", NS)
+
+    def emit_par(p, indent=""):
+        txt = docx_par_text(p).strip()
+        ppr = p.find("w:pPr", NS)
+        style = ""
+        numbered = False
+        if ppr is not None:
+            ps = ppr.find("w:pStyle", NS)
+            if ps is not None:
+                style = styles.get(ps.get(W + "val"), ps.get(W + "val"))
+            if ppr.find("w:numPr", NS) is not None:
+                numbered = True
+        if not txt:
+            return
+        prefix = ""
+        m = re.match(r"(?i)(heading|título|titulo|encabezado)\s*(\d)", style or "")
+        if m:
+            prefix = "#" * (int(m.group(2)) + 1) + " "
+        elif (style or "").lower() in ("title", "título", "titulo"):
+            prefix = "# "
+        elif numbered or "list" in (style or "").lower():
+            prefix = "- "
+        tag = f"  [estilo: {style}]" if style and not prefix.startswith("#") else ""
+        print(f"{indent}{prefix}{txt}{tag}")
+
+    def emit_tbl(tbl, depth=0):
+        print(f"\n{'  '*depth}[TABLA]")
+        for tr in tbl.findall("w:tr", NS):
+            cells = []
+            for tc in tr.findall("w:tc", NS):
+                ctext = []
+                for child in tc:
+                    if child.tag == W + "p":
+                        t = docx_par_text(child).strip()
+                        if t:
+                            ctext.append(t)
+                    elif child.tag == W + "tbl":
+                        ctext.append("[tabla anidada]")
+                cells.append(" ¶ ".join(ctext))
+            print(f"{'  '*depth}| " + " | ".join(cells) + " |")
+        print(f"{'  '*depth}[/TABLA]\n")
+
+    for child in body:
+        if child.tag == W + "p":
+            emit_par(child)
+        elif child.tag == W + "tbl":
+            emit_tbl(child)
+        elif child.tag == W + "sdt":
+            content = child.find("w:sdtContent", NS)
+            if content is not None:
+                for c in content:
+                    if c.tag == W + "p":
+                        emit_par(c)
+                    elif c.tag == W + "tbl":
+                        emit_tbl(c)
+
+    # encabezados / pies / comentarios / notas
+    for name in sorted(z.namelist()):
+        if re.match(r"word/(header|footer)\d*\.xml", name) or name in (
+            "word/comments.xml",
+            "word/footnotes.xml",
+            "word/endnotes.xml",
+        ):
+            r = ET.fromstring(z.read(name))
+            texts = [docx_par_text(p).strip() for p in r.iter(W + "p")]
+            texts = [t for t in texts if t]
+            if texts:
+                print(f"\n--- {name} ---")
+                for t in texts:
+                    print(t)
+    # propiedades del documento
+    if "docProps/core.xml" in z.namelist():
+        print("\n--- docProps/core.xml ---")
+        r = ET.fromstring(z.read("docProps/core.xml"))
+        for el in r:
+            if el.text and el.text.strip():
+                print(f"{el.tag.split('}')[-1]}: {el.text.strip()}")
+
+
+# ---------------------------------------------------------------- PPTX
+def pptx_shape_texts(elem):
+    """Recorre el árbol en orden de documento y devuelve líneas de texto (párrafos y tablas)."""
+    lines = []
+    for el in elem.iter():
+        if el.tag == A + "tbl":
+            lines.append("[TABLA]")
+            for tr in el.findall("a:tr", NS):
+                cells = []
+                for tc in tr.findall("a:tc", NS):
+                    ps = []
+                    for p in tc.iter(A + "p"):
+                        t = "".join((x.text or "") for x in p.iter(A + "t")).strip()
+                        if t:
+                            ps.append(t)
+                    cells.append(" ¶ ".join(ps))
+                lines.append("| " + " | ".join(cells) + " |")
+            lines.append("[/TABLA]")
+    return lines
+
+
+def pptx_slide_text(root):
+    out = []
+    sptree = root.find(".//p:cSld/p:spTree", NS)
+    if sptree is None:
+        return out
+
+    def walk(node, depth=0):
+        for child in node:
+            tag = child.tag.split("}")[-1]
+            if tag == "grpSp":
+                walk(child, depth + 1)
+            elif tag in ("sp", "cxnSp"):
+                name_el = child.find(".//p:cNvPr", NS)
+                name = name_el.get("name") if name_el is not None else ""
+                txb = child.find(".//p:txBody", NS)
+                if txb is None:
+                    continue
+                paras = []
+                for p in txb.findall("a:p", NS):
+                    t = "".join((x.text or "") for x in p.iter(A + "t")).strip()
+                    if not t:
+                        continue
+                    ppr = p.find("a:pPr", NS)
+                    lvl = int(ppr.get("lvl", "0")) if ppr is not None else 0
+                    paras.append("  " * lvl + t)
+                if paras:
+                    out.append(f"  <{name}>")
+                    for t in paras:
+                        out.append("    " + t)
+            elif tag == "graphicFrame":
+                name_el = child.find(".//p:cNvPr", NS)
+                name = name_el.get("name") if name_el is not None else ""
+                tl = pptx_shape_texts(child)
+                if tl:
+                    out.append(f"  <{name}>")
+                    out.extend("    " + l for l in tl)
+            elif tag == "pic":
+                name_el = child.find(".//p:cNvPr", NS)
+                descr = name_el.get("descr", "") if name_el is not None else ""
+                name = name_el.get("name", "") if name_el is not None else ""
+                out.append(f"  <imagen: {name}{' — ' + descr if descr else ''}>")
+
+    walk(sptree)
+    return out
+
+
+def pptx(path):
+    z = zipfile.ZipFile(path)
+    pres = ET.fromstring(z.read("ppt/presentation.xml"))
+    prels = rels_map(z, "ppt/_rels/presentation.xml.rels")
+    order = []
+    for sid in pres.findall(".//p:sldIdLst/p:sldId", NS):
+        rid = sid.get("{%s}id" % NS["r"])
+        target = prels[rid][0]
+        order.append(posixpath.normpath(posixpath.join("ppt", target)))
+    for i, slide_path in enumerate(order, 1):
+        root = ET.fromstring(z.read(slide_path))
+        print(f"\n===== Diapositiva {i} ({slide_path}) =====")
+        for line in pptx_slide_text(root):
+            print(line)
+        srels = rels_map(
+            z, posixpath.join(posixpath.dirname(slide_path), "_rels", posixpath.basename(slide_path) + ".rels")
+        )
+        for rid, (target, typ, mode) in srels.items():
+            if typ.endswith("/notesSlide"):
+                npath = posixpath.normpath(posixpath.join(posixpath.dirname(slide_path), target))
+                nroot = ET.fromstring(z.read(npath))
+                notes = []
+                for sp in nroot.findall(".//p:sp", NS):
+                    ph = sp.find(".//p:nvPr/p:ph", NS)
+                    if ph is not None and ph.get("type") in ("sldNum", "sldImg"):
+                        continue
+                    for p in sp.findall(".//a:p", NS):
+                        t = "".join((x.text or "") for x in p.iter(A + "t")).strip()
+                        if t:
+                            notes.append(t)
+                if notes:
+                    print("  [NOTAS DEL ORADOR]")
+                    for t in notes:
+                        print("    " + t)
+            elif mode == "External":
+                print(f"  [enlace externo: {target}]")
+
+
+# ---------------------------------------------------------------- XLSX
+def col_to_num(col):
+    n = 0
+    for ch in col:
+        n = n * 26 + (ord(ch) - 64)
+    return n
+
+
+def xlsx(path):
+    z = zipfile.ZipFile(path)
+    shared = []
+    if "xl/sharedStrings.xml" in z.namelist():
+        sroot = ET.fromstring(z.read("xl/sharedStrings.xml"))
+        for si in sroot.findall("s:si", NS):
+            shared.append("".join((t.text or "") for t in si.iter("{%s}t" % NS["s"])))
+    wb = ET.fromstring(z.read("xl/workbook.xml"))
+    wrels = rels_map(z, "xl/_rels/workbook.xml.rels")
+    for sh in wb.findall(".//s:sheets/s:sheet", NS):
+        name = sh.get("name")
+        rid = sh.get("{%s}id" % NS["r"])
+        target = wrels[rid][0]
+        spath = target.lstrip("/") if target.startswith("/") else posixpath.normpath(posixpath.join("xl", target))
+        print(f"\n===== Hoja: {name} ({spath}) =====")
+        root = ET.fromstring(z.read(spath))
+        merges = [m.get("ref") for m in root.findall(".//s:mergeCells/s:mergeCell", NS)]
+        for row in root.findall(".//s:sheetData/s:row", NS):
+            vals = []
+            for c in row.findall("s:c", NS):
+                ref = c.get("r")
+                t = c.get("t")
+                v = c.find("s:v", NS)
+                f = c.find("s:f", NS)
+                val = None
+                if t == "s" and v is not None:
+                    val = shared[int(v.text)]
+                elif t == "inlineStr":
+                    is_ = c.find("s:is", NS)
+                    val = "".join((x.text or "") for x in is_.iter("{%s}t" % NS["s"])) if is_ is not None else ""
+                elif v is not None:
+                    val = v.text
+                if f is not None and f.text:
+                    val = f"{val}  (fórmula: ={f.text})"
+                if val is not None and str(val).strip():
+                    vals.append(f"{ref}: {str(val).strip()}")
+            if vals:
+                print("  " + "  ‖  ".join(vals))
+        if merges:
+            print(f"  [celdas combinadas: {', '.join(merges[:40])}{' …' if len(merges) > 40 else ''}]")
+        # comentarios de la hoja
+        srels = rels_map(z, posixpath.join(posixpath.dirname(spath), "_rels", posixpath.basename(spath) + ".rels"))
+        for rid, (tgt, typ, mode) in srels.items():
+            if typ.endswith("/comments"):
+                cpath = posixpath.normpath(posixpath.join(posixpath.dirname(spath), tgt))
+                croot = ET.fromstring(z.read(cpath))
+                print("  [COMENTARIOS]")
+                for cm in croot.findall(".//s:comment", NS):
+                    txt = "".join((t.text or "") for t in cm.iter("{%s}t" % NS["s"])).strip()
+                    print(f"    {cm.get('ref')}: {txt}")
+
+
+if __name__ == "__main__":
+    for path in sys.argv[1:]:
+        print(f"\n################ {path} ################")
+        low = path.lower()
+        if low.endswith(".docx"):
+            docx(path)
+        elif low.endswith(".pptx"):
+            pptx(path)
+        elif low.endswith(".xlsx"):
+            xlsx(path)
+        else:
+            print("formato no soportado")

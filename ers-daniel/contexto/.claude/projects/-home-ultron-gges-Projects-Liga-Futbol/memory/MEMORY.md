@@ -1,0 +1,3 @@
+- [Proyecto ERS Liga](liga-ers-project.md) — fuentes, decisiones del usuario, hallazgos (reglamento PDF es de Argentina) y estado: sección 1 entregada en ers-daniel.docx
+- [Reglas del ERS](ers-working-rules.md) — no inventar, [POR DEFINIR] con impacto, 29148/25010, atributos obligatorios por requisito
+- [Herramientas Office](office-file-tooling.md) — sin pandoc/LibreOffice/npm; OOXML con stdlib, validar con venv+lxml, renderizar con OnlyOffice x2t

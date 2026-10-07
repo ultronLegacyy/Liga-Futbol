@@ -1,0 +1,17 @@
+---
+name: office-file-tooling
+description: "En esta máquina no hay pandoc, markitdown, LibreOffice ni librerías Python de Office; cómo leer los archivos del proyecto"
+metadata:
+  node_type: memory
+  type: project
+  originSessionId: b0eb4969-ffa1-4028-947a-e60155236c87
+  modified: 2026-10-03T19:04:08.466Z
+---
+
+Verificado 2026-10-03: no están instalados pandoc, markitdown, soffice/LibreOffice, python-docx, python-pptx, openpyxl, pandas, olefile ni el paquete npm `docx`. Sí hay python3 (stdlib), node, pdftotext/pdftoppm/pdfimages, ImageMagick (montage) y PIL. El usuario abre los documentos con OnlyOffice (/opt/onlyoffice).
+- .docx/.pptx/.xlsx: leer con zipfile + xml.etree (stdlib).
+- `contexto/ERS simplificado.docx` es en realidad un .doc de Word 97-2003 (OLE2): requiere parser CFB + tabla de piezas (CLX).
+- `contexto/SCRUM_ONLY.pdf` no tiene capa de texto: pdftoppm + montage para verlo.
+
+**Why:** evita volver a descubrir las herramientas que faltan en cada sesión.
+**How to apply:** usar directamente los enfoques con stdlib; si al final se pide .docx, instalar `docx` (npm) primero. Ver [[liga-ers-project]].
