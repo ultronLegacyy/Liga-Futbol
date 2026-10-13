@@ -1,0 +1,41 @@
+{
+ "lote": "02",
+ "estado": "ejecutado y verificado 2026-10-13",
+ "claves": {
+  "HAB-S1": "SCRUM-92",
+  "S1-T01": "SCRUM-93",
+  "S1-T02": "SCRUM-94",
+  "S1-T03": "SCRUM-95",
+  "S1-T04": "SCRUM-96",
+  "S1-T05": "SCRUM-97",
+  "S1-T06": "SCRUM-98",
+  "S1-T07": "SCRUM-99",
+  "S1-T08": "SCRUM-100",
+  "S1-T09": "SCRUM-101",
+  "S1-T10": "SCRUM-102",
+  "S1-T11": "SCRUM-103",
+  "S1-T12": "SCRUM-104",
+  "S1-T13": "SCRUM-105",
+  "S1-T14": "SCRUM-106",
+  "S1-T15": "SCRUM-107",
+  "S1-T16": "SCRUM-108",
+  "S1-T17": "SCRUM-109"
+ },
+ "asignaciones": {
+  "SCRUM-13": "Rafa",
+  "SCRUM-20": "Gael",
+  "SCRUM-21": "Gael",
+  "SCRUM-92": "Daniel"
+ },
+ "pendiente_manual": null,
+ "plantilla": {
+  "SCRUM-3": "ya no existía (404)",
+  "SCRUM-4": "marcada '[Ejemplo de la plantilla de Jira, eliminar]' con etiqueta plantilla-jira"
+ },
+ "sprint_1": {
+  "id": 1,
+  "tablero": 1,
+  "verificado": "2026-10-13",
+  "nota": "SCRUM-13, SCRUM-20, SCRUM-21, SCRUM-92 y sus 17 subtareas están en el Sprint 1 con su responsable."
+ }
+}
