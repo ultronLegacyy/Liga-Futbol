@@ -1,0 +1,45 @@
+# SGLD · archivos que no deben subirse al repositorio.
+# Ojo: .gitignore solo evita que se agreguen archivos nuevos. Lo que ya está
+# rastreado se deja de rastrear con `git rm --cached` y sigue en el historial.
+
+# --- Claude Code (configuración local, agentes, memoria, sesiones, credenciales)
+.claude/
+.claude.json
+.claude.json.backup*
+CLAUDE.local.md
+.mcp.json
+
+# --- Credenciales y secretos
+.env
+.env.*
+!.env.example
+auth.json
+.credentials.json
+credentials.json
+*.pem
+*.key
+*.p12
+*.pfx
+*.ppk
+id_rsa*
+id_ed25519*
+
+# --- Túnel de Cloudflare
+.cloudflared/
+
+# --- Respaldos y volcados de la base de datos (datos personales)
+*.sql
+!/database/schema/*.sql
+*.sql.gz
+*.dump
+/backups/
+/respaldos/
+
+# --- Laravel: documentos privados subidos y bitácoras (RNF-30)
+/storage/app/private/*
+!/storage/app/private/.gitignore
+/storage/logs/*
+!/storage/logs/.gitignore
+
+# --- Personal
+ers-daniel/scrum/desarrolladores/
