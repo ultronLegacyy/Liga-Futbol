@@ -13,6 +13,8 @@ Proyecto base desarrollado con Laravel 13 y MariaDB/MySQL para la administracion
   - Lenguaje: PHP 8.4+
   - Motor de Base de Datos: MariaDB 12.2+ (puerto 3306) / MySQL 8.0+
   - Driver de Persistencia: PDO MySQL (`pdo_mysql`)
+  - Autenticacion: Laravel Fortify 1.41 (Autenticacion headless, 2FA, passkeys)
+  - Autorizacion y RBAC: Spatie Laravel-Permission 8.3 (Control de acceso basado en roles y permisos)
   - Testing: PHPUnit 11
 - **Estrategia de Ramas:**
   - Rama principal de integracion: `develop`
@@ -53,18 +55,24 @@ DB_PASSWORD=7500
 
 ## 4. Arquitectura de la Base de Datos
 
-El diseno e implementacion del esquema relacional comprende un total de 35 tablas organizadas en 6 modulos estructurales, de estricto apego a la especificacion funcional `BASE_DE_DATOS.md`:
+El diseno e implementacion del esquema relacional comprende un total de 41 tablas (35 tablas de logica de negocio y 6 tablas de seguridad y RBAC), organizadas en apego a la especificacion funcional `BASE_DE_DATOS.md` y las especificaciones de seguridad:
 
-### Modulo 1: Core, Gobernanza y Autenticacion
+### Modulo 1: Core, Gobernanza, Autenticacion y RBAC
 - `ligas`: Parametrizacion general de la liga deportiva, configuracion y estado.
 - `clubes`: Entidades juridicas/deportivas afiliadas a la liga.
-- `usuarios`: Cuentas de acceso con roles tipificados y credenciales.
+- `usuarios`: Cuentas de acceso y credenciales (incluye soporte 2FA: `two_factor_secret`, `two_factor_recovery_codes`, `two_factor_confirmed_at`).
 - `password_reset_tokens`: Tokens de recuperacion de credenciales.
 - `sessions`: Control de sesiones de usuario activas.
 - `auditoria_logs`: Trazabilidad completa de acciones y cambios de datos.
 - `asambleas`: Registro de convocatorias, quorum y actas de asambleas.
 - `comunicados_noticias`: Boletines informativos oficiales de la liga.
 - `registro_notificaciones`: Notificaciones enviadas por correo, SMS o internas.
+- `roles`: Catalogo de roles de usuario (Spatie Laravel-Permission).
+- `permissions`: Permisos especificos y granulares del sistema (Spatie Laravel-Permission).
+- `model_has_roles`: Relacion polimorfica entre modelos (usuarios) y roles.
+- `model_has_permissions`: Asignacion directa de permisos individuales a modelos.
+- `role_has_permissions`: Matriz relacional de permisos asociados a cada rol.
+- `passkeys`: Llaves de acceso y autenticacion WebAuthn vinculadas a la tabla `usuarios` (Laravel Fortify).
 
 ### Modulo 2: Estructura Deportiva y Temporadas
 - `temporadas`: Ciclos deportivos anuales o semestrales.
@@ -116,6 +124,9 @@ Las migraciones fueron estructuradas modularmente en `database/migrations/`:
 4. `2026_10_13_000004_create_logistica_programacion_tables.php`
 5. `2026_10_13_000005_create_operacion_arbitraje_disciplina_tables.php`
 6. `2026_10_13_000006_create_competencia_finanzas_tables.php`
+7. `2026_10_14_182649_add_two_factor_columns_to_users_table.php` (Columnas 2FA en tabla `usuarios` via Fortify)
+8. `2026_10_14_182650_create_passkeys_table.php` (Tabla de passkeys con llave foranea a `usuarios`)
+9. `2026_10_14_182723_create_permission_tables.php` (Tablas relacionales RBAC de Spatie Permission)
 
 Para ejecutar las migraciones desde cero:
 
@@ -127,10 +138,11 @@ php artisan migrate:fresh
 
 ## 6. Seeders y Datos de Prueba
 
-El seeder integral se encuentra en `database/seeders/DatabaseSeeder.php`. Pobla un conjunto cohesionado de datos de prueba cubriendo las 35 tablas:
+El seeder integral se encuentra en `database/seeders/DatabaseSeeder.php`. Pobla un conjunto cohesionado de datos de prueba cubriendo las entidades del sistema y la infraestructura de seguridad/RBAC:
 
 - Liga activa de muestra: Liga Municipal de Futbol Amateur de Morelia, A.C.
-- Usuarios con roles de Administrador General, Directivo de Club y Arbitro.
+- Generacion de los 8 roles base del sistema via Spatie: `Administrador General`, `Presidente`, `Secretario`, `Tesorero`, `Comision Disciplinaria`, `Directivo de Club`, `Arbitro` y `Consulta Publica`.
+- Asignacion automatica de roles Spatie a los usuarios seed (`Administrador General`, `Directivo de Club` y `Arbitro`).
 - 2 Clubes con directivos, historial y 2 equipos por club.
 - Temporada 2026-2027 con convocatorias, categoria Primera Especial, grupos y fases.
 - 4 Jugadores federados con expediente documental y asignacion de equipo.
@@ -158,10 +170,17 @@ php artisan migrate:fresh --seed
 
 ## 7. Pruebas Automatizadas
 
-Se crearon pruebas automatizadas con PHPUnit en `tests/Feature/DatabaseSchemaTest.php` para validar:
+Se crearon suites de pruebas automatizadas con PHPUnit en `tests/Feature/`:
 
-1. Existencia e integridad de las 35 tablas en el motor de base de datos.
-2. Correcta ejecucion e insercion de datos de los seeders en entidades maestras y transaccionales.
+1. `DatabaseSchemaTest.php`:
+   - Existencia e integridad de las 35 tablas maestras y transaccionales de negocio.
+   - Correcta ejecucion e insercion de datos del seeder en todas las entidades.
+2. `AuthenticationAndRbacTest.php`:
+   - Existencia de las tablas de seguridad y RBAC (`roles`, `permissions`, `model_has_roles`, `model_has_permissions`, `role_has_permissions`, `passkeys`).
+   - Existencia de las columnas 2FA (`two_factor_secret`, `two_factor_recovery_codes`, `two_factor_confirmed_at`) en la tabla `usuarios`.
+   - Existencia y definicion de los 8 roles oficiales del sistema y su correcta asignacion a los usuarios de prueba.
+   - Registro y resolucion de rutas y componentes de autenticacion de Laravel Fortify.
+   - Evaluacion dinamica de asignacion y revocacion de permisos mediante el trait `HasRoles` en el modelo `User`.
 
 ### Comando para ejecutar las pruebas:
 
@@ -172,8 +191,8 @@ php artisan test
 ### Resultado de ejecucion:
 
 ```text
-Tests:    4 passed (42 assertions)
-Duration: 0.18s
+Tests:    8 passed (68 assertions)
+Duration: 0.28s
 Result:   100% exitoso
 ```
 
@@ -243,4 +262,64 @@ En este apartado se documenta el historial de tareas tecnicas implementadas en e
 | Seeder integral | Cumplido | Seeder en `DatabaseSeeder.php` con cobertura total de las 35 entidades |
 | Pruebas automatizadas | Cumplido | 4 tests y 42 aserciones pasando sin errores |
 | Flujo de ramas y Git | Cumplido | Desarrollado en rama `Backend-Lead-Rafa`, listo para PR hacia `develop` |
-| Restriccion de estilo | Cumplido | Cero emojis en codigo, mensajes y documentacion |
+
+---
+
+### Tarea 2: SCRUM-95 (S1-T03) — Instalacion y Configuracion de Laravel Fortify 1.41 y Spatie Laravel-Permission 8.3
+
+- **Identificador Jira:** `SCRUM-95`
+- **Codigo Interno:** `S1-T03`
+- **Responsable:** Rafael Piedra (Dev 2 — Backend Lead)
+- **Sprint:** Sprint 1
+- **Rama de Trabajo:** `Backend-Lead-Rafa`
+- **Estado:** Completada y validada
+
+#### Descripcion del Alcance Tecnico
+1. **Instalacion de Dependencias:** Incorporacion de paquetes oficiales via Composer:
+   - `laravel/fortify` (v1.41.0): Backend de autenticacion headless (registro, login, recuperacion de credenciales, verificacion de correo, autenticacion en dos factores 2FA y passkeys).
+   - `spatie/laravel-permission` (v8.3.0): Control de acceso granular basado en roles y permisos (RBAC) con persistencia relacional y cache optimizado.
+2. **Configuracion de Laravel Fortify:**
+   - Publicacion del archivo de configuracion `config/fortify.php`.
+   - Registro del proveedor `FortifyServiceProvider` en `bootstrap/providers.php`.
+   - Publicacion de acciones de autenticacion en `app/Actions/Fortify/*`.
+   - Habilitacion de caracteristicas de seguridad, incluyendo restablecimiento de contrasenas, actualizacion de perfiles y autenticacion de dos factores (2FA).
+3. **Adaptacion al Esquema de Base de Datos (`usuarios`):**
+   - Ajuste de la migracion `2026_10_14_182649_add_two_factor_columns_to_users_table.php` para anadir las columnas `two_factor_secret`, `two_factor_recovery_codes` y `two_factor_confirmed_at` a la tabla `usuarios`.
+   - Ajuste de la migracion `2026_10_14_182650_create_passkeys_table.php` para establecer la llave foranea `user_id` vinculada a la tabla `usuarios` con eliminacion en cascada.
+4. **Configuracion de Spatie Laravel-Permission:**
+   - Publicacion de configuracion `config/permission.php`.
+   - Publicacion y ejecucion de la migracion relacional `2026_10_14_182723_create_permission_tables.php` que crea las tablas `roles`, `permissions`, `model_has_roles`, `model_has_permissions` y `role_has_permissions`.
+   - Integracion de los traits `HasRoles` y `TwoFactorAuthenticatable` en el modelo `app/Models/User.php`.
+5. **Registro de Middleware en Laravel 13:**
+   - Registro de alias de middleware en `bootstrap/app.php`: `role`, `permission` y `role_or_permission` asociados a los manejadores de Spatie para proteccion granular de rutas y controladores.
+6. **Poblado de Roles Oficiales del Sistema:**
+   - Actualizacion de `database/seeders/DatabaseSeeder.php` para instanciar los 8 roles oficiales del sistema deportivo:
+     - `Administrador General`
+     - `Presidente`
+     - `Secretario`
+     - `Tesorero`
+     - `Comision Disciplinaria`
+     - `Directivo de Club`
+     - `Arbitro`
+     - `Consulta Publica`
+   - Asignacion automatica de roles correspondientes a los usuarios sembrados (`adminUser` recibe `Administrador General`, `directivoUser` recibe `Directivo de Club`, y `arbitroUser` recibe `Arbitro`).
+7. **Pruebas Automatizadas de Verificacion:**
+   - Creacion de `tests/Feature/AuthenticationAndRbacTest.php` con 4 casos de prueba y 26 aserciones que certifican:
+     - Presencia de tablas de seguridad y columnas 2FA en MariaDB.
+     - Registro y asociacion efectiva de los 8 roles con los usuarios de prueba.
+     - Integracion funcional de rutas y servicios de Laravel Fortify.
+     - Dinamica de concesion, evaluacion y revocacion de permisos en el modelo `User`.
+
+#### Matriz de Cumplimiento (DoD)
+
+| Requerimiento | Estado | Detalle de Implementacion |
+|---|---|---|
+| Instalacion de Laravel Fortify 1.41 | Cumplido | Instalado via Composer; proveedor registrado en `bootstrap/providers.php` |
+| Instalacion de Spatie Laravel-Permission 8.3 | Cumplido | Instalado via Composer; configuracion y migraciones publicadas |
+| Adaptacion a tabla personalizada `usuarios` | Cumplido | Migraciones 2FA y passkeys enlazadas a `usuarios` en vez de `users` |
+| Traits integrados en modelo User | Cumplido | `HasRoles` y `TwoFactorAuthenticatable` configurados en `app/Models/User.php` |
+| Alias de middleware en Laravel 13 | Cumplido | `role`, `permission` y `role_or_permission` registrados en `bootstrap/app.php` |
+| Definicion y poblado de 8 roles base | Cumplido | Generados en `DatabaseSeeder.php` y asignados a usuarios de muestra |
+| Suite de pruebas de autenticacion y RBAC | Cumplido | 4 tests nuevos y 26 aserciones en `AuthenticationAndRbacTest.php` |
+| Integridad de pruebas del proyecto | Cumplido | 8 tests y 68 aserciones ejecutadas exitosamente (100% aprobadas) |
+| Flujo de ramas y Git | Cumplido | Desarrollado en rama `Backend-Lead-Rafa`, listo para integracion a `develop` |

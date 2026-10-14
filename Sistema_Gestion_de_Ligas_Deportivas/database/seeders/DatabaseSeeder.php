@@ -6,6 +6,10 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Carbon\Carbon;
+use App\Models\User;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
 
 class DatabaseSeeder extends Seeder
 {
@@ -123,6 +127,39 @@ class DatabaseSeeder extends Seeder
             'created_at' => $now,
             'updated_at' => $now,
         ]);
+
+        // Registrar Roles de Spatie (RBAC) y asignar a usuarios
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
+
+        $rolesSpatie = [
+            'Administrador General',
+            'Presidente',
+            'Secretario',
+            'Tesorero',
+            'Comision Disciplinaria',
+            'Directivo de Club',
+            'Arbitro',
+            'Consulta Publica',
+        ];
+
+        foreach ($rolesSpatie as $roleName) {
+            Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'web']);
+        }
+
+        $adminUser = User::find($adminId);
+        if ($adminUser) {
+            $adminUser->assignRole('Administrador General');
+        }
+
+        $directivoUser = User::find($directivoId);
+        if ($directivoUser) {
+            $directivoUser->assignRole('Directivo de Club');
+        }
+
+        $arbitroUser = User::find($arbitroUserId);
+        if ($arbitroUser) {
+            $arbitroUser->assignRole('Arbitro');
+        }
 
         // 4. auditoria_logs
         DB::table('auditoria_logs')->insert([
