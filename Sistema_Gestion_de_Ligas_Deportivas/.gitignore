@@ -1,0 +1,71 @@
+# SGLD - Archivos que no deben subirse al repositorio
+
+# --- Entorno, credenciales y secretos locales
+.env
+.env.*
+!.env.example
+.env.backup
+.env.production
+auth.json
+.credentials.json
+credentials.json
+*.pem
+*.key
+*.p12
+*.pfx
+*.ppk
+id_rsa*
+id_ed25519*
+*.token
+jira_query.ps1
+.cloudflared/
+
+# --- Dependencias y modulos
+/vendor
+/node_modules
+
+# --- Cache, logs y temporales del sistema
+*.log
+.DS_Store
+Thumbs.db
+.phpunit.result.cache
+/.phpunit.cache
+/.codex
+/.cursor/
+/.idea
+/.nova
+/.vscode
+/.zed
+.phpactor.json
+_ide_helper.php
+Homestead.json
+Homestead.yaml
+
+# --- Herramientas de IA y asistentes (Claude Code, etc.)
+.claude/
+.claude.json
+.claude.json.backup*
+CLAUDE.local.md
+.mcp.json
+
+# --- Compilados publicos y assets
+/public/build
+/public/fonts-manifest.dev.json
+/public/hot
+/public/storage
+
+# --- Almacenamiento, claves y bitacoras de Laravel (RNF-30)
+/storage/*.key
+/storage/pail
+/storage/app/private/*
+!/storage/app/private/.gitignore
+/storage/logs/*
+!/storage/logs/.gitignore
+
+# --- Respaldos y volcados de base de datos
+*.sql
+!/database/schema/*.sql
+*.sql.gz
+*.dump
+/backups/
+/respaldos/
