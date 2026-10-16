@@ -12,7 +12,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, HasRoles, TwoFactorAuthenticatable;
+    use HasFactory, HasRoles, Notifiable, TwoFactorAuthenticatable;
 
     /**
      * Nombre de la tabla asociada al modelo.
@@ -30,6 +30,7 @@ class User extends Authenticatable
         'password',
         'password_hash',
         'rol',
+        'estatus',
         'club_id',
     ];
 

@@ -38,7 +38,7 @@ El archivo `.env` del proyecto se encuentra configurado para interactuar con la 
 ```env
 APP_NAME="Sistema de Gestion de Ligas Deportivas"
 APP_ENV=local
-APP_KEY=base64:33pQW8lWkG42oDqZg2g0B76L69cffw2eW0uKk+B7U/g=
+APP_KEY=base64:generar_con_php_artisan_key_generate
 APP_DEBUG=true
 APP_TIMEZONE=UTC
 APP_URL=http://localhost
@@ -230,11 +230,15 @@ http://127.0.0.1:8000
 
 ## 9. Reporte Tecnico de Avance y Registro de Tareas
 
-En este apartado se documenta el historial de tareas tecnicas implementadas en el proyecto, su responsable, alcance y evidencia de cumplimiento.
+En este apartado se documenta el historial de tareas tecnicas implementadas en el proyecto, organizadas por Sprint y clasificadas por cada desarrollador del equipo de ingenieria, detallando su alcance, componentes afectados y matrices de definicion de terminado (DoD).
 
 ---
 
-### Tarea 1: SCRUM-94 (S1-T02) — Diseno e Implementacion del Esquema Relacional de Base de Datos y Seeders
+### Sprint 1
+
+#### 1. Rafael Piedra Sanchez (Dev 2 — Backend Lead)
+
+##### Tarea 1: SCRUM-94 (S1-T02) — Diseno e Implementacion del Esquema Relacional de Base de Datos y Seeders
 
 - **Identificador Jira:** `SCRUM-94`
 - **Codigo Interno:** `S1-T02`
@@ -244,14 +248,14 @@ En este apartado se documenta el historial de tareas tecnicas implementadas en e
 - **Commit de Respaldo:** `4a57634`
 - **Estado:** Completada y validada
 
-#### Descripcion del Alcance Tecnico
+###### Descripcion del Alcance Tecnico
 1. **Inicializacion y Arquitectura:** Creacion del proyecto Laravel `Sistema_Gestion_de_Ligas_Deportivas` con configuracion de entorno `.env` enlazada a MariaDB (`sgld_db`).
 2. **Persistencia Relacional (35 Tablas):** Codificacion de 6 migraciones modulares cubriendo los 6 modulos funcionales estipulados en `BASE_DE_DATOS.md` (Core/Gobernanza, Estructura Deportiva, Participantes/Documentos, Logistica/Programacion, Arbitraje/Disciplina, y Competencia/Finanzas).
 3. **Poblado de Datos (Seeders):** Creacion del seeder maestro `DatabaseSeeder.php` con datos consistentes y estructurados para las 35 tablas, permitiendo recrear un ecosistema representativo completo de la liga deportiva.
 4. **Verificacion Automatizada:** Creacion y ejecucion de la suite `tests/Feature/DatabaseSchemaTest.php` verificando la existencia fisica de todas las tablas y la integridad referencial de los datos sembrados (4 pruebas, 42 aserciones, 100% exitosas).
 5. **Autonomia del Proyecto:** Integracion de `BASE_DE_DATOS.md` y un `.gitignore` integral dentro del proyecto que excluye credenciales, volcados SQL, bitacoras y dependencias pesadas.
 
-#### Matriz de Cumplimiento (DoD)
+###### Matriz de Cumplimiento (DoD)
 
 | Requerimiento | Estado | Detalle de Implementacion |
 |---|---|---|
@@ -265,7 +269,7 @@ En este apartado se documenta el historial de tareas tecnicas implementadas en e
 
 ---
 
-### Tarea 2: SCRUM-95 (S1-T03) — Instalacion y Configuracion de Laravel Fortify 1.41 y Spatie Laravel-Permission 8.3
+##### Tarea 2: SCRUM-95 (S1-T03) — Instalacion y Configuracion de Laravel Fortify 1.41 y Spatie Laravel-Permission 8.3
 
 - **Identificador Jira:** `SCRUM-95`
 - **Codigo Interno:** `S1-T03`
@@ -274,7 +278,7 @@ En este apartado se documenta el historial de tareas tecnicas implementadas en e
 - **Rama de Trabajo:** `Backend-Lead-Rafa`
 - **Estado:** Completada y validada
 
-#### Descripcion del Alcance Tecnico
+###### Descripcion del Alcance Tecnico
 1. **Instalacion de Dependencias:** Incorporacion de paquetes oficiales via Composer:
    - `laravel/fortify` (v1.41.0): Backend de autenticacion headless (registro, login, recuperacion de credenciales, verificacion de correo, autenticacion en dos factores 2FA y passkeys).
    - `spatie/laravel-permission` (v8.3.0): Control de acceso granular basado en roles y permisos (RBAC) con persistencia relacional y cache optimizado.
@@ -310,7 +314,7 @@ En este apartado se documenta el historial de tareas tecnicas implementadas en e
      - Integracion funcional de rutas y servicios de Laravel Fortify.
      - Dinamica de concesion, evaluacion y revocacion de permisos en el modelo `User`.
 
-#### Matriz de Cumplimiento (DoD)
+###### Matriz de Cumplimiento (DoD)
 
 | Requerimiento | Estado | Detalle de Implementacion |
 |---|---|---|
@@ -321,5 +325,157 @@ En este apartado se documenta el historial de tareas tecnicas implementadas en e
 | Alias de middleware en Laravel 13 | Cumplido | `role`, `permission` y `role_or_permission` registrados en `bootstrap/app.php` |
 | Definicion y poblado de 8 roles base | Cumplido | Generados en `DatabaseSeeder.php` y asignados a usuarios de muestra |
 | Suite de pruebas de autenticacion y RBAC | Cumplido | 4 tests nuevos y 26 aserciones en `AuthenticationAndRbacTest.php` |
-| Integridad de pruebas del proyecto | Cumplido | 8 tests y 68 aserciones ejecutadas exitosamente (100% aprobadas) |
-| Flujo de ramas y Git | Cumplido | Desarrollado en rama `Backend-Lead-Rafa`, listo para integracion a `develop` |
+| Flujo de ramas y Git | Cumplido | Desarrollado en rama `Backend-Lead-Rafa`, integrado en `develop` via PR #4 |
+
+---
+
+##### Tarea 3: SCRUM-98 (S1-T06) — Flujo de Login/Logout con Fortify, Validacion de Estatus y Expiracion Diferenciada de Sesiones
+
+- **Identificador Jira:** `SCRUM-98`
+- **Codigo Interno:** `S1-T06`
+- **Responsable:** Rafael Piedra (Dev 2 — Backend Lead)
+- **Sprint:** Sprint 1
+- **Rama de Trabajo:** `Backend-Lead-Rafa`
+- **Estado:** Completada y validada
+
+###### Descripcion del Alcance Tecnico
+1. **Esquema de Usuarios y Estatus de Cuenta:**
+   - Creacion y ejecucion de la migracion `database/migrations/2026_10_16_192041_add_estatus_to_usuarios_table.php`, agregando el campo `estatus` (`enum('activo', 'inactivo', 'suspendido')`, valor por defecto `'activo'`) a la tabla `usuarios`.
+   - Incorporacion de la propiedad `estatus` dentro del arreglo `$fillable` en `app/Models/User.php`.
+2. **Logica de Autenticacion Restringida por Estatus:**
+   - Personalizacion del callback de autenticacion en `app/Providers/FortifyServiceProvider.php` mediante `Fortify::authenticateUsing()`.
+   - Verificacion de correspondencia de credenciales hash (`Hash::check`).
+   - Evaluacion obligatoria de cuenta activa (`$user->estatus === 'activo'`).
+   - Emision de excepcion de validacion con mensaje claro en espanol ante cuentas no activas o suspendidas: *"Su cuenta no se encuentra activa en el sistema. Contacte al administrador."*.
+3. **Controladores de Respuesta Fortify (Login / Logout):**
+   - Creacion de `app/Http/Responses/LoginResponse.php` implementando `LoginResponseContract`: inicializa en la sesion el marcador `last_activity_time` con la estampa de tiempo actual (`now()->timestamp`) y redirige a la ruta destino configurada (`Fortify::redirects('login')`, default `/home`) o genera respuesta JSON 200 en peticiones asincronas.
+   - Creacion de `app/Http/Responses/LogoutResponse.php` implementando `LogoutResponseContract`: remueve la marca de actividad, invalida la sesion de usuario, regenera el token CSRF y redirige al formulario de acceso con mensaje informativo en espanol.
+   - Vinculacion de ambos contratos en el metodo `register()` de `FortifyServiceProvider`.
+4. **Middleware de Expiracion Diferenciada de Sesiones (`CheckSessionTimeout`):**
+   - Implementacion de `app/Http/Middleware/CheckSessionTimeout.php` con analisis en tiempo de ejecucion sobre los roles de Spatie asignados al usuario autenticado.
+   - **Politica de 30 minutos (1,800 segundos):** Aplicada estrictamente a roles administrativos y de toma de decisiones criticas (`Administrador General`, `Presidente`, `Secretario`, `Tesorero`, `Comision Disciplinaria`).
+   - **Politica de 8 horas (28,800 segundos):** Aplicada a roles operativos y de consulta (`Directivo de Club`, `Arbitro`, `Consulta Publica` u otros usuarios sin privilegios administrativos).
+   - Accion ante expiracion: Cierre forzoso de sesion (`Auth::logout()`), invalidacion total de sesion, regeneracion de token CSRF y redireccion a `/login` con mensaje de alerta en espanol: *"Su sesion ha expirado por inactividad por motivos de seguridad."* (o emision de estado HTTP 401 Unauthorized en peticiones JSON).
+   - Renovacion automatica de `last_activity_time` en cada interaccion valida dentro del periodo permitido.
+5. **Registro de Middleware y Vistas en Laravel 13:**
+   - Registro del alias `'session.timeout'` y anexion al grupo de middleware `'web'` en `bootstrap/app.php`.
+   - Definicion de la vista de inicio de sesion en `FortifyServiceProvider` vinculada a `auth.login`.
+6. **Interfaz de Usuario (Vista Blade de Autenticacion):**
+   - Creacion de `resources/views/auth/login.blade.php` con maquetacion responsiva en Tailwind CSS.
+   - Inyeccion obligatoria de directiva `@csrf`.
+   - Despliegue de banners de alerta para estados de sesion (`session('status')`) y listado/resaltado de errores de validacion en espanol.
+7. **Suite de Pruebas Automatizadas (PHPUnit):**
+   - Creacion de `tests/Feature/SessionAndAuthFlowTest.php` con 9 casos de prueba exhaustivos bajo estrategia transaccional (`DatabaseTransactions`):
+     - `test_usuario_activo_puede_iniciar_sesion_satisfactoriamente`
+     - `test_usuario_inactivo_no_puede_iniciar_sesion_y_recibe_error_en_espanol`
+     - `test_usuario_suspendido_no_puede_iniciar_sesion`
+     - `test_credenciales_con_contrasena_invalida_son_rechazadas`
+     - `test_cierre_de_sesion_destruye_la_sesion_y_regenera_tokens`
+     - `test_sesion_de_administrador_expira_tras_30_minutos_de_inactividad`
+     - `test_sesion_de_administrador_permanece_activa_dentro_de_los_30_minutos`
+     - `test_sesion_de_usuario_operativo_continua_activa_a_los_45_minutos`
+     - `test_sesion_de_usuario_operativo_expira_al_superar_las_8_horas`
+   - Cobertura: 9 pruebas aprobadas, 37 aserciones exitosas, elevando la suite general del proyecto a 17 pruebas y 105 aserciones superadas sin errores.
+
+###### Matriz de Cumplimiento (DoD)
+
+| Requerimiento | Estado | Detalle de Implementacion |
+|---|---|---|
+| Campo de estatus en base de datos | Cumplido | Migracion ejecutada agregando columna `estatus` (`activo`, `inactivo`, `suspendido`) en `usuarios` |
+| Modelo User actualizado | Cumplido | Campo `estatus` incluido en `$fillable` de `app/Models/User.php` |
+| Autenticacion Fortify personalizada | Cumplido | `Fortify::authenticateUsing` valida credenciales y restringe acceso a usuarios no activos |
+| Mensajeria de error en espanol | Cumplido | Mensajes descriptivos en espanol para cuentas inactivas, suspendidas y sesiones expiradas |
+| Flujo de Login y registro de actividad | Cumplido | `LoginResponse.php` registra `last_activity_time` en la sesion y redirige a ruta destino |
+| Flujo de Logout seguro | Cumplido | `LogoutResponse.php` limpia sesion, invalida credenciales y regenera token CSRF |
+| Middleware de expiracion diferenciada | Cumplido | `CheckSessionTimeout.php` aplica regla de 30 minutos (roles administrativos) y 8 horas (roles operativos) |
+| Registro de middleware en Laravel 13 | Cumplido | Alias `'session.timeout'` y grupo `'web'` configurados en `bootstrap/app.php` |
+| Vista Blade de inicio de sesion | Cumplido | Implementada en `resources/views/auth/login.blade.php` con CSRF y estilos Tailwind CSS |
+| Suite de pruebas automatizadas | Cumplido | 9 pruebas y 37 aserciones verificadas al 100% en `SessionAndAuthFlowTest.php` |
+| Flujo de ramas y Git | Cumplido | Desarrollado en rama `Backend-Lead-Rafa` |
+
+---
+
+#### 2. Jose Gael Cruz Aviles (Dev 3 — Logica de Negocio y Algoritmos)
+
+##### Tarea 1: SCRUM-106 (S1-T14) — Modelos y Controlador de Temporadas y Convocatorias con Bloqueo de Estado
+
+- **Identificador Jira:** `SCRUM-106`
+- **Codigo Interno:** `S1-T14`
+- **Responsable:** Jose Gael Cruz Aviles (Dev 3 — Logica de Negocio y Algoritmos)
+- **Sprint:** Sprint 1
+- **Rama de Trabajo:** `feature/S1-T14-temporadas`
+- **Pull Request de Integracion:** Merged en PR #5 hacia `develop` (Commit `b31db27`)
+- **Estado:** Completada y validada en `develop`
+
+###### Descripcion del Alcance Tecnico
+1. **Modelos Eloquent de Dominio:**
+   - Creacion del modelo `Temporada` en `app/Models/Temporada.php` enlazado a la tabla relacional `temporadas`, con asignacion masiva protegida (`liga_id`, `nombre`, `fecha_inicio`, `fecha_fin`, `estado`).
+   - Creacion del modelo `Convocatoria` en `app/Models/Convocatoria.php` enlazado a la tabla relacional `convocatorias`, con soporte para almacenamiento de ruta del PDF y reglas versionadas.
+2. **Controlador de Temporadas (`TemporadaController`):**
+   - Implementacion de `app/Http/Controllers/TemporadaController.php` con logica RESTful completa:
+     - Metodo `create()` para renderizar el formulario visual de alta.
+     - Metodo `store()` con validacion de campos requeridos, validacion de coherencia temporal (`fecha_fin` posterior a `fecha_inicio`), recepcion y almacenamiento seguro de archivos PDF de convocatoria (hasta 5MB en disco local) e insercion atomica de registros en `temporadas` y `convocatorias`.
+     - Metodos `edit()` y `destroy()` con regla de bloqueo de negocio: si la temporada se encuentra con `estado === 'cerrada'`, el sistema aborta la peticion con codigo HTTP 403 Forbidden impidiendo modificaciones o eliminaciones.
+3. **Interfaz de Usuario (Vista Blade):**
+   - Diseno e implementacion del formulario en `resources/views/temporadas/create.blade.php` para la captura de nombre de temporada, rango de fechas y subida del documento PDF de la convocatoria.
+4. **Enrutamiento Web:**
+   - Registro de las rutas de recurso en `routes/web.php` a traves de `Route::resource('temporadas', TemporadaController::class)`.
+
+###### Matriz de Cumplimiento (DoD)
+
+| Requerimiento | Estado | Detalle de Implementacion |
+|---|---|---|
+| Modelos Eloquent de Dominio | Cumplido | `Temporada.php` y `Convocatoria.php` estructurados en `app/Models/` |
+| Validacion estricta en creacion | Cumplido | Validacion de tipo, tamano de PDF (5MB) y regla `after:fecha_inicio` |
+| Almacenamiento seguro de PDF | Cumplido | Subida de archivos PDF a disco local enlazados a la convocatoria |
+| Regla de negocio de temporada cerrada | Cumplido | Bloqueo con HTTP 403 Forbidden en edicion y borrado si el estado es `cerrada` |
+| Vista Blade de creacion | Cumplido | Formulario responsivo implementado en `resources/views/temporadas/create.blade.php` |
+| Rutas resource RESTful | Cumplido | Rutas de temporadas registradas y operativas en `routes/web.php` |
+| Flujo de ramas y Git | Cumplido | Desarrollado en `feature/S1-T14-temporadas`, integrado en `develop` via PR #5 |
+
+---
+
+#### 3. Carlos Daniel Gaona Gomez (Dev 4 — Scrum Master / QA y Despliegue)
+
+##### Tarea 1: SCRUM-92 (HAB-S1) y SCRUM-93 (S1-T01) — Habilitadoras Tecnicas, Estrategia de Ramas y Workflows de Calidad
+
+- **Identificador Jira:** `SCRUM-92` / `SCRUM-93`
+- **Codigo Interno:** `HAB-S1` / `S1-T01`
+- **Responsable:** Carlos Daniel Gaona Gomez (Dev 4 — Scrum Master / QA y Despliegue)
+- **Sprint:** Sprint 1
+- **Rama de Trabajo:** `chore/SCRUM-93-sincronizar-main-develop` / workflows
+- **Pull Requests de Integracion:** Merged en PR #6, PR #7 y PR #8 hacia `develop`
+- **Estado:** Completada y validada en `develop`
+
+###### Descripcion del Alcance Tecnico
+1. **Estrategia de Ramas y Gobernanza Git (`SCRUM-93` / `S1-T01`):**
+   - Definicion y unificacion de la estructura de ramas del repositorio: rama de produccion (`main`), rama de integracion continua (`develop`) y ramas tematicas por rol (`Backend-Lead-Rafa`, `feature/*`, `chore/*`).
+   - Sincronizacion de historiales y reglas estrictas de integracion mediante revision obligatoria de Pull Requests (PR #6 y PR #7).
+2. **Workflows de Calidad y Asistencia (`SCRUM-92` / `HAB-S1`):**
+   - Configuracion de flujos automatizados de GitHub Actions en `.github/workflows/claude.yml` y `.github/workflows/claude-code-review.yml` para revision automatica de codigo en Pull Requests (PR #8).
+3. **Pipeline de Integracion Continua CI (`SCRUM-96` / `S1-T04` - En Revision):**
+   - En desarrollo activo y actualmente en revision en el **Pull Request #9**: pipeline con tres verificaciones automatizadas obligatorias (Laravel Pint con preset PSR-12, analisis estatico con Larastan nivel 5 y ejecucion de suite PHPUnit contra MariaDB 12.3).
+
+###### Matriz de Cumplimiento (DoD)
+
+| Requerimiento | Estado | Detalle de Implementacion |
+|---|---|---|
+| Estrategia de Ramas | Cumplido | Ramas `develop` y `main` estructuradas con reglas de merge obligatorio |
+| Sincronizacion de Historial | Cumplido | Unificacion de commits y ramas base validada en PR #6 y PR #7 |
+| Workflows de Calidad | Cumplido | Flujos automatizados configurados en `.github/workflows/` via PR #8 |
+| Preparacion de Pipeline CI | En revision | PR #9 abierto con configuracion de Pint (PSR-12), Larastan nivel 5 y PHPUnit |
+
+---
+
+#### 4. Jose Luis Medina Ramirez (Dev 1 — Product Owner / Frontend Lead)
+
+##### Estado de Tareas Asignadas (Sprint 1)
+
+- **Identificador Jira:** `SCRUM-101` (S1-T09) — Layout base y navegacion administrativa con Blade y Tailwind CSS.
+  - **Estado:** Pendiente / En cola de desarrollo.
+- **Identificador Jira:** `SCRUM-102` (S1-T10) — Vistas Blade para gestion de roles y asignacion de permisos RBAC.
+  - **Estado:** Pendiente / En cola de desarrollo.
+- **Identificador Jira:** `SCRUM-109` (S1-T17) — Vistas Blade para gestion de temporadas y convocatorias.
+  - **Estado:** Pendiente / En cola de desarrollo.
+
+
