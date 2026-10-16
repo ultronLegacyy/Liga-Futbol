@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\ClubController;
+use App\Http\Controllers\EquipoController;
 use App\Http\Controllers\TemporadaController;
 use Illuminate\Support\Facades\Route;
 
@@ -38,4 +40,14 @@ Route::middleware(['auth', 'permission:usuarios.ver'])->prefix('admin/gestion')-
             'estado' => 'autorizado',
         ]);
     })->name('usuarios');
+});
+
+// Rutas de gestion de clubes y equipos con proteccion contra ID Tampering (RNF-29)
+Route::middleware(['auth'])->group(function () {
+    Route::get('/clubes/{club}', [ClubController::class, 'show'])->name('clubes.show');
+    Route::put('/clubes/{club}', [ClubController::class, 'update'])->name('clubes.update');
+    Route::get('/clubes/{club}/equipos', [ClubController::class, 'equipos'])->name('clubes.equipos');
+
+    Route::get('/equipos/{equipo}', [EquipoController::class, 'show'])->name('equipos.show');
+    Route::put('/equipos/{equipo}', [EquipoController::class, 'update'])->name('equipos.update');
 });

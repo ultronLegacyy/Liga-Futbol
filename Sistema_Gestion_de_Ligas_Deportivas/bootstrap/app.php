@@ -10,6 +10,7 @@ use Spatie\Permission\Exceptions\UnauthorizedException;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -51,6 +52,24 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Control de respuesta 403 Forbidden para excepciones de politicas de autorizacion
         $exceptions->render(function (AuthorizationException $exception, Request $request) {
+            $mensaje = $exception->getMessage() ?: 'No posee la autorizacion requerida para realizar esta operacion.';
+
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json([
+                    'error' => 'Acceso denegado',
+                    'mensaje' => $mensaje,
+                    'status' => 403,
+                ], 403);
+            }
+
+            return response()->view('errors.403', [
+                'mensaje' => $mensaje,
+                'exception' => $exception,
+            ], 403);
+        });
+
+        // Control de respuesta 403 Forbidden para excepciones http de denegacion de acceso
+        $exceptions->render(function (AccessDeniedHttpException $exception, Request $request) {
             $mensaje = $exception->getMessage() ?: 'No posee la autorizacion requerida para realizar esta operacion.';
 
             if ($request->expectsJson() || $request->is('api/*')) {
