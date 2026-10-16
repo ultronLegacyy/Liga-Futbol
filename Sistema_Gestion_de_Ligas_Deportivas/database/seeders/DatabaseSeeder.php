@@ -2,14 +2,10 @@
 
 namespace Database\Seeders;
 
+use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Carbon\Carbon;
-use App\Models\User;
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\PermissionRegistrar;
 
 class DatabaseSeeder extends Seeder
 {
@@ -128,38 +124,8 @@ class DatabaseSeeder extends Seeder
             'updated_at' => $now,
         ]);
 
-        // Registrar Roles de Spatie (RBAC) y asignar a usuarios
-        app()[PermissionRegistrar::class]->forgetCachedPermissions();
-
-        $rolesSpatie = [
-            'Administrador General',
-            'Presidente',
-            'Secretario',
-            'Tesorero',
-            'Comision Disciplinaria',
-            'Directivo de Club',
-            'Arbitro',
-            'Consulta Publica',
-        ];
-
-        foreach ($rolesSpatie as $roleName) {
-            Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'web']);
-        }
-
-        $adminUser = User::find($adminId);
-        if ($adminUser) {
-            $adminUser->assignRole('Administrador General');
-        }
-
-        $directivoUser = User::find($directivoId);
-        if ($directivoUser) {
-            $directivoUser->assignRole('Directivo de Club');
-        }
-
-        $arbitroUser = User::find($arbitroUserId);
-        if ($arbitroUser) {
-            $arbitroUser->assignRole('Arbitro');
-        }
+        // Ejecucion del seeder de roles y permisos de gobernanza RBAC
+        $this->call(RoleAndPermissionSeeder::class);
 
         // 4. auditoria_logs
         DB::table('auditoria_logs')->insert([
@@ -182,7 +148,7 @@ class DatabaseSeeder extends Seeder
                 'valores_nuevos' => json_encode(['nombre' => 'Temporada 2026-2027']),
                 'ip' => '127.0.0.1',
                 'created_at' => $now,
-            ]
+            ],
         ]);
 
         // 5. asambleas
@@ -320,7 +286,7 @@ class DatabaseSeeder extends Seeder
                 'firma_digital_url' => 'storage/firmas/dir_valladolid.png',
                 'created_at' => $now,
                 'updated_at' => $now,
-            ]
+            ],
         ]);
 
         // 14. historial_ventas_club
@@ -715,7 +681,7 @@ class DatabaseSeeder extends Seeder
                 'puntos' => 0,
                 'created_at' => $now,
                 'updated_at' => $now,
-            ]
+            ],
         ]);
 
         // 33. llaves_liguilla

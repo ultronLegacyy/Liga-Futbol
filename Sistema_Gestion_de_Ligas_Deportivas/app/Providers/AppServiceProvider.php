@@ -2,6 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\Temporada;
+use App\Models\User;
+use App\Policies\TemporadaPolicy;
+use App\Policies\UserPolicy;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +24,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Registro explicito de politicas de autorizacion para el dominio del sistema
+        Gate::policy(Temporada::class, TemporadaPolicy::class);
+        Gate::policy(User::class, UserPolicy::class);
     }
 }

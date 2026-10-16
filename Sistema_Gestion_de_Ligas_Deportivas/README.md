@@ -395,6 +395,67 @@ En este apartado se documenta el historial de tareas tecnicas implementadas en e
 
 ---
 
+##### Tarea 4: SCRUM-99 (S1-T07) — Rol Administrador General, Permisos Base de Gobernanza y Respuesta 403
+
+- **Identificador Jira:** `SCRUM-99`
+- **Codigo Interno:** `S1-T07`
+- **Responsable:** Rafael Piedra (Dev 2 — Backend Lead)
+- **Sprint:** Sprint 1
+- **Rama de Trabajo:** `Backend-Lead-Rafa`
+- **Estado:** Completada y validada
+
+###### Descripcion del Alcance Tecnico
+1. **Seeder de Roles y Permisos Granulares de Gobernanza:**
+   - Creacion de `database/seeders/RoleAndPermissionSeeder.php` e integracion dentro del flujo principal de `database/seeders/DatabaseSeeder.php`.
+   - Registro de 27 permisos atomicos que cubren la totalidad de los modulos de administracion deportiva (panel de gobernanza, ligas, temporadas, convocatorias, categorias, clubes, campos, usuarios, roles y auditoria).
+   - Asignacion consolidada del 100% de los permisos al rol `Administrador General`.
+   - Asignacion de permisos base diferenciados a roles operativos (`Presidente`, `Secretario`, `Directivo de Club`, `Arbitro`, `Consulta Publica`).
+2. **Politicas de Autorizacion (Policies):**
+   - Creacion de `app/Policies/TemporadaPolicy.php` para la autorizacion de lectura, alta, edicion y eliminacion de temporadas, integrando la regla de negocio que bloquea cualquier modificacion o borrado sobre temporadas en estado `cerrada`.
+   - Creacion de `app/Policies/UserPolicy.php` para la gestion de cuentas y perfiles de usuario, con proteccion estricta contra autoeliminacion de la cuenta en sesion.
+   - Registro de politicas en `app/Providers/AppServiceProvider.php` mediante `Gate::policy()`.
+3. **Proteccion de Rutas y Grupos de Gobernanza:**
+   - Configuracion de rutas protegidas en `routes/web.php` bajo prefijo `/admin`:
+     - `/admin/dashboard` y `/admin/gobernanza`: Protegidas con middleware `auth` y `role:Administrador General`.
+     - `/admin/gestion/usuarios`: Protegida con middleware `auth` y `permission:usuarios.ver`.
+4. **Manejo Estandarizado de Respuestas HTTP 403 Forbidden:**
+   - Configuracion del interceptor de excepciones en `bootstrap/app.php` para capturar `UnauthorizedException` de Spatie y `AuthorizationException` de Laravel.
+   - Peticiones Web: Renderizan la vista visual de error `resources/views/errors/403.blade.php`.
+   - Peticiones AJAX / JSON / API: Devuelven una respuesta JSON estandarizada con codigo HTTP 403 (`error: Acceso denegado`, mensaje descriptivo y status 403), evitando la exposicion de trazas de depuracion, variables de entorno o estructura de base de datos.
+5. **Vista Blade de Error 403:**
+   - Creacion de `resources/views/errors/403.blade.php` con diseno limpio y responsivo en Tailwind CSS, informando al usuario que la accion requiere privilegios administrativos de RBAC, con opciones para volver atras o ir a la portada.
+6. **Suite de Pruebas Automatizadas (PHPUnit):**
+   - Creacion de `tests/Feature/RbacGovernanceAnd403Test.php` con 9 casos de prueba ejecutados bajo estrategia transaccional (`DatabaseTransactions`):
+     - `test_rol_administrador_general_posee_todos_los_permisos_de_gobernanza`
+     - `test_administrador_general_puede_acceder_a_rutas_de_gobernanza`
+     - `test_usuario_sin_rol_administrativo_es_rechazado_con_codigo_403_en_rutas_de_gobernanza`
+     - `test_solicitud_ajax_o_json_sin_permiso_retorna_403_estructurado`
+     - `test_usuario_no_autenticado_es_redirigido_a_login`
+     - `test_usuario_con_permiso_especifico_puede_acceder_a_su_modulo_correspondiente`
+     - `test_politica_temporada_policy_permite_creacion_al_administrador`
+     - `test_politica_temporada_policy_bloquea_modificacion_de_temporada_cerrada`
+     - `test_politica_user_policy_impide_que_un_usuario_se_elimine_a_si_mismo`
+   - Cobertura global: 26 pruebas y 147 aserciones superadas sin errores en todo el proyecto.
+
+###### Matriz de Cumplimiento (DoD)
+
+| Requerimiento | Estado | Detalle de Implementacion |
+|---|---|---|
+| Seeder de permisos atomicos | Cumplido | 27 permisos de gobernanza sembrados en `RoleAndPermissionSeeder.php` |
+| Permisos asignados a Administrador General | Cumplido | Asignacion del 100% de permisos del sistema al rol maestro |
+| Politica de autorizacion TemporadaPolicy | Cumplido | Implementada en `app/Policies/TemporadaPolicy.php` con bloqueo de estado cerrada |
+| Politica de autorizacion UserPolicy | Cumplido | Implementada en `app/Policies/UserPolicy.php` con restriccion de autoeliminacion |
+| Registro de politicas en AppServiceProvider | Cumplido | Mapeadas en el metodo `boot()` mediante `Gate::policy()` |
+| Rutas administrativas protegidas | Cumplido | Prefijo `/admin` asegurado con middleware `role:Administrador General` y permisos |
+| Manejador de error HTTP 403 Forbidden | Cumplido | Configurado en `bootstrap/app.php` para excepciones de Spatie y de autorizacion |
+| Vista Blade para error 403 | Cumplido | Disenada en `resources/views/errors/403.blade.php` en espanol y sin exponer datos sensibles |
+| Respuesta JSON para API / AJAX | Cumplido | Retorno de JSON estructurado con status HTTP 403 ante solicitudes asincronas |
+| Suite de pruebas automatizadas | Cumplido | 9 pruebas y 41 aserciones verificadas al 100% en `RbacGovernanceAnd403Test.php` |
+| Formato y estilo PSR-12 | Cumplido | Codigo validado y aprobado mediante Laravel Pint |
+| Flujo de ramas y Git | Cumplido | Desarrollado en rama `Backend-Lead-Rafa` |
+
+---
+
 #### 2. Jose Gael Cruz Aviles (Dev 3 — Logica de Negocio y Algoritmos)
 
 ##### Tarea 1: SCRUM-106 (S1-T14) — Modelos y Controlador de Temporadas y Convocatorias con Bloqueo de Estado

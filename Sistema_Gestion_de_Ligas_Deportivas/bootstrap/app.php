@@ -1,10 +1,12 @@
 <?php
 
 use App\Http\Middleware\CheckSessionTimeout;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Spatie\Permission\Exceptions\UnauthorizedException;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
@@ -30,4 +32,38 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+
+        // Control de respuesta 403 Forbidden para excepciones de permisos y roles de Spatie
+        $exceptions->render(function (UnauthorizedException $exception, Request $request) {
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json([
+                    'error' => 'Acceso denegado',
+                    'mensaje' => 'No posee los permisos requeridos para acceder a este recurso administrativo.',
+                    'status' => 403,
+                ], 403);
+            }
+
+            return response()->view('errors.403', [
+                'mensaje' => 'No posee los permisos requeridos para acceder a este recurso administrativo.',
+                'exception' => $exception,
+            ], 403);
+        });
+
+        // Control de respuesta 403 Forbidden para excepciones de politicas de autorizacion
+        $exceptions->render(function (AuthorizationException $exception, Request $request) {
+            $mensaje = $exception->getMessage() ?: 'No posee la autorizacion requerida para realizar esta operacion.';
+
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json([
+                    'error' => 'Acceso denegado',
+                    'mensaje' => $mensaje,
+                    'status' => 403,
+                ], 403);
+            }
+
+            return response()->view('errors.403', [
+                'mensaje' => $mensaje,
+                'exception' => $exception,
+            ], 403);
+        });
     })->create();
