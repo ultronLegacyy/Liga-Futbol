@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Temporada;
@@ -7,8 +8,9 @@ use Illuminate\Http\Request;
 
 class TemporadaController extends Controller
 {
-    public function create() { 
-        return view('temporadas.create'); 
+    public function create()
+    {
+        return view('temporadas.create');
     }
 
     public function store(Request $request)
@@ -21,7 +23,7 @@ class TemporadaController extends Controller
         ]);
 
         // 1. Crear la temporada con la liga_id 1 y estado 'activa' (respetando el ENUM)
-       $temporada = Temporada::create([
+        $temporada = Temporada::create([
     'liga_id' => 1,
     'nombre' => $request->nombre,
     'fecha_inicio' => $request->fecha_inicio,

@@ -6,7 +6,6 @@ use Tests\TestCase;
 use App\Models\User;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Route;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 
 class AuthenticationAndRbacTest extends TestCase
