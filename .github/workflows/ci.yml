@@ -88,6 +88,9 @@ jobs:
       DB_DATABASE: sgld_testing
       DB_USERNAME: sgld
       DB_PASSWORD: secret
+      # Root del servicio: permite probar el usuario de BD sin UPDATE ni DELETE en la auditoría (SCRUM-103)
+      DB_ADMIN_USERNAME: root
+      DB_ADMIN_PASSWORD: root
     steps:
       - uses: actions/checkout@v4
 
