@@ -33,6 +33,7 @@ class User extends Authenticatable
         'password',
         'password_hash',
         'rol',
+        'estatus',
         'club_id',
     ];
 
