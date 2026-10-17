@@ -33,7 +33,8 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            // RNF-30: sin ruta /storage; los documentos privados solo se entregan por controladores con autorizacion
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],
