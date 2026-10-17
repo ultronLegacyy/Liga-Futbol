@@ -1,0 +1,16 @@
+{
+  "preset": "psr12",
+  "notPath": [
+    "database/migrations/0001_01_01_000001_create_cache_table.php",
+    "database/migrations/0001_01_01_000002_create_jobs_table.php",
+    "database/migrations/2026_10_13_000001_create_core_gobernanza_tables.php",
+    "database/migrations/2026_10_13_000002_create_estructura_deportiva_tables.php",
+    "database/migrations/2026_10_13_000003_create_participantes_documentos_tables.php",
+    "database/migrations/2026_10_13_000004_create_logistica_programacion_tables.php",
+    "database/migrations/2026_10_13_000005_create_operacion_arbitraje_disciplina_tables.php",
+    "database/migrations/2026_10_13_000006_create_competencia_finanzas_tables.php",
+    "database/migrations/2026_10_14_182649_add_two_factor_columns_to_users_table.php",
+    "database/migrations/2026_10_14_182650_create_passkeys_table.php",
+    "database/migrations/2026_10_14_182723_create_permission_tables.php"
+  ]
+}

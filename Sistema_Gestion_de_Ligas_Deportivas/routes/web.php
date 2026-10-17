@@ -51,3 +51,4 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/equipos/{equipo}', [EquipoController::class, 'show'])->name('equipos.show');
     Route::put('/equipos/{equipo}', [EquipoController::class, 'update'])->name('equipos.update');
 });
+Route::resource('temporadas', TemporadaController::class);
