@@ -12,7 +12,10 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, HasRoles, TwoFactorAuthenticatable;
+    use HasFactory;
+    use Notifiable;
+    use HasRoles;
+    use TwoFactorAuthenticatable;
 
     /**
      * Nombre de la tabla asociada al modelo.

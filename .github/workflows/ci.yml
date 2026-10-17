@@ -1,0 +1,114 @@
+# CI del SGLD (SCRUM-96): formato, análisis estático y pruebas en cada PR.
+# Corre en todos los PR hacia develop y main, sin paths-ignore: un check
+# obligatorio que no se ejecuta deja el PR bloqueado (D-026).
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PHP_VERSION: '8.5'
+  APP_DIR: Sistema_Gestion_de_Ligas_Deportivas
+
+defaults:
+  run:
+    working-directory: Sistema_Gestion_de_Ligas_Deportivas
+
+jobs:
+  pint:
+    name: Pint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+
+      - uses: ramsey/composer-install@v3
+        with:
+          working-directory: ${{ env.APP_DIR }}
+
+      - name: Revisar el formato PSR-12
+        run: vendor/bin/pint --test
+
+  larastan:
+    name: Larastan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+
+      - uses: ramsey/composer-install@v3
+        with:
+          working-directory: ${{ env.APP_DIR }}
+
+      - name: Análisis estático (nivel 5)
+        run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+
+  phpunit:
+    name: PHPUnit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      mariadb:
+        image: mariadb:12.3
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: sgld_testing
+          MARIADB_USER: sgld
+          MARIADB_PASSWORD: secret
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: sgld_testing
+      DB_USERNAME: sgld
+      DB_PASSWORD: secret
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: bcmath, intl, mbstring, pdo_mysql
+          coverage: none
+
+      - uses: ramsey/composer-install@v3
+        with:
+          working-directory: ${{ env.APP_DIR }}
+
+      - name: Preparar el entorno
+        run: |
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+
+      # Las pruebas actuales esperan la base migrada y con los seeders.
+      - name: Migrar y sembrar la base de pruebas
+        run: php artisan migrate --seed --force --no-interaction
+
+      - name: Ejecutar las pruebas
+        run: php artisan test

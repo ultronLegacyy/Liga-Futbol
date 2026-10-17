@@ -1,0 +1,14 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+    # Hallazgos previos a la CI (SCRUM-96), pendientes de corregir por su autor.
+    # No se agregan entradas nuevas: el código nuevo debe pasar limpio.
+    - phpstan-baseline.neon
+
+parameters:
+    # Nivel mínimo exigido por la Definition of Done (RNF-38).
+    level: 5
+    paths:
+        - app/
+        - config/
+        - database/
+        - routes/
