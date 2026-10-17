@@ -19,6 +19,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // cloudflared corre en el mismo equipo y reenvia las peticiones con X-Forwarded-Proto: https
+        // Solo se confia en el proxy local para que un cliente externo no falsifique su IP (la auditoria la guarda) ni el esquema
+        // Sin esto, detras del tunel se generan enlaces http:// y el CSS y los formularios fallan por contenido mixto
+        $middleware->trustProxies(at: ['127.0.0.1', '::1']);
+
         $middleware->alias([
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,
