@@ -16,6 +16,10 @@ Route::middleware(['auth'])->group(function () {
     // Entrega de la convocatoria desde almacenamiento privado, sin URL publica (RNF-30)
     Route::get('/temporadas/{temporada}/convocatoria', [TemporadaController::class, 'convocatoria'])
         ->name('temporadas.convocatoria');
+
+    // Nueva version de la convocatoria cuando cambian las reglas, con motivo obligatorio (RF-01.3)
+    Route::post('/temporadas/{temporada}/convocatoria', [TemporadaController::class, 'versionarConvocatoria'])
+        ->name('temporadas.convocatoria.versionar');
 });
 
 // Grupo de rutas de administracion de gobernanza protegidas estrictamente por rol Administrador General
