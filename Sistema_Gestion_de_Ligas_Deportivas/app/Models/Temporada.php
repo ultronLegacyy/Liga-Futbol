@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
 use Database\Factories\TemporadaFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,6 +12,7 @@ class Temporada extends Model
 {
     /** @use HasFactory<TemporadaFactory> */
     use HasFactory;
+    use Auditable;
     protected $table = 'temporadas';
     protected $fillable = ['liga_id', 'nombre', 'fecha_inicio', 'fecha_fin', 'estado'];
 
