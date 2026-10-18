@@ -212,6 +212,7 @@ class ConvocatoriaPrivadaTest extends TestCase
             'fecha_inicio' => '2027-01-10',
             'fecha_fin' => '2027-06-30',
             'convocatoria_pdf' => $archivo ?? UploadedFile::fake()->create('convocatoria.pdf', 100, 'application/pdf'),
+            'motivo' => 'Alta de la temporada con su convocatoria aprobada en asamblea.',
         ];
     }
 

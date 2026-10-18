@@ -10,7 +10,6 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -44,15 +43,16 @@ class TemporadaController extends Controller
     {
         Gate::authorize('create', Temporada::class);
 
-        $request->validate($this->reglasTemporada() + [
+        $datos = $request->validate($this->reglasTemporada() + [
             'convocatoria_pdf' => 'required|mimes:pdf|max:5120',
+            'motivo' => 'required|string|max:1000',
         ]);
 
         $rutaPdf = null;
 
-        // Temporada, archivo y convocatoria se registran juntos o no se registra nada (RNF-22)
+        // Temporada, archivo, version 1 y su auditoria con el motivo se registran juntos o nada (RNF-22, RF-01.3)
         try {
-            DB::transaction(function () use ($request, &$rutaPdf) {
+            app(AuditService::class)->conMotivo($datos['motivo'], function () use ($request, &$rutaPdf) {
                 // 1. Crear la temporada con la liga_id 1 y estado 'activa' (respetando el ENUM)
                 $temporada = Temporada::create([
                     'liga_id' => 1,

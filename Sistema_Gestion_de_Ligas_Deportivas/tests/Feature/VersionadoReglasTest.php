@@ -31,6 +31,10 @@ class VersionadoReglasTest extends TestCase
 
     private const CONTENIDO_V2 = '%PDF-1.4 convocatoria version 2';
 
+    private const NOMBRE_ALTA = 'Temporada Alta con Motivo 2027';
+
+    private const MOTIVO_ALTA = 'Alta de la temporada con la convocatoria aprobada en asamblea.';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -118,6 +122,84 @@ class VersionadoReglasTest extends TestCase
         $this->actingAs($admin)->post($ruta, $this->datosVersion('   '))->assertSessionHasErrors('motivo');
 
         $this->assertSoloExisteLaVersionUno($temporada, $rutaV1);
+    }
+
+    public function test_alta_de_temporada_registra_la_version_1_con_su_motivo(): void
+    {
+        $admin = $this->crearUsuario('admin_alta_motivo@liga.com', 'Administrador General', 'Administrador General');
+        $this->asegurarLigaUno();
+
+        $respuesta = $this->actingAs($admin)
+            ->withServerVariables(['REMOTE_ADDR' => self::IP_PRUEBA])
+            ->post(route('temporadas.store'), $this->datosAlta());
+
+        $respuesta->assertRedirect();
+        $respuesta->assertSessionHas('success', 'Temporada creada correctamente.');
+
+        $temporada = Temporada::where('nombre', self::NOMBRE_ALTA)->sole();
+        $versionUno = Convocatoria::where('temporada_id', $temporada->id)->sole();
+        $this->assertSame(1, $versionUno->version);
+
+        // La temporada y la version 1 quedan auditadas con el motivo del alta (RF-01.3)
+        foreach (['temporadas' => $temporada->id, 'convocatorias' => $versionUno->id] as $tabla => $registroId) {
+            $log = AuditoriaLog::where('tabla_afectada', $tabla)
+                ->where('registro_id', $registroId)
+                ->where('accion', 'crear')
+                ->sole();
+
+            $this->assertSame(self::MOTIVO_ALTA, $log->motivo);
+            $this->assertSame($admin->id, $log->usuario_id);
+            $this->assertSame(self::IP_PRUEBA, $log->ip);
+        }
+
+        // El detalle muestra el motivo y el usuario de la version 1
+        $this->actingAs($admin)->get(route('temporadas.show', $temporada))
+            ->assertOk()
+            ->assertJsonPath('convocatorias.0.version', 1)
+            ->assertJsonPath('convocatorias.0.motivo', self::MOTIVO_ALTA)
+            ->assertJsonPath('convocatorias.0.usuario', $admin->name);
+    }
+
+    public function test_alta_sin_motivo_se_rechaza_y_no_se_crea_temporada_ni_archivo(): void
+    {
+        $admin = $this->crearUsuario('admin_alta_sin_motivo@liga.com', 'Administrador General', 'Administrador General');
+        $this->asegurarLigaUno();
+
+        // Sin el campo motivo
+        $datos = $this->datosAlta();
+        unset($datos['motivo']);
+        $this->actingAs($admin)->post(route('temporadas.store'), $datos)->assertSessionHasErrors('motivo');
+
+        // Con el motivo vacio o solo con espacios
+        $this->actingAs($admin)->post(route('temporadas.store'), $this->datosAlta(''))->assertSessionHasErrors('motivo');
+        $this->actingAs($admin)->post(route('temporadas.store'), $this->datosAlta('   '))->assertSessionHasErrors('motivo');
+
+        $this->assertDatabaseMissing('temporadas', ['nombre' => self::NOMBRE_ALTA]);
+        Storage::disk('local')->assertDirectoryEmpty('convocatorias');
+    }
+
+    public function test_formulario_de_alta_muestra_el_campo_motivo_y_su_error(): void
+    {
+        $admin = $this->crearUsuario('admin_formulario_alta@liga.com', 'Administrador General', 'Administrador General');
+        $this->asegurarLigaUno();
+
+        // El campo es obligatorio y su etiqueta esta asociada para lectores de pantalla y teclado
+        $this->actingAs($admin)->get(route('temporadas.create'))
+            ->assertOk()
+            ->assertSee('<label for="motivo">Motivo:</label>', false)
+            ->assertSee('id="motivo" name="motivo"', false);
+
+        // Al faltar el motivo, el formulario vuelve con el mensaje de error del campo
+        $datos = $this->datosAlta();
+        unset($datos['motivo']);
+
+        $this->actingAs($admin)
+            ->from(route('temporadas.create'))
+            ->followingRedirects()
+            ->post(route('temporadas.store'), $datos)
+            ->assertOk()
+            ->assertSee('id="motivo-error"', false)
+            ->assertSee('aria-invalid="true"', false);
     }
 
     public function test_archivo_que_no_es_pdf_se_rechaza_y_no_se_crea_version(): void
@@ -357,6 +439,30 @@ class VersionadoReglasTest extends TestCase
             'convocatoria_pdf' => UploadedFile::fake()->createWithContent('convocatoria-v2.pdf', self::CONTENIDO_V2),
             'motivo' => $motivo,
         ];
+    }
+
+    // Datos validos para el alta de una temporada con la version 1 de su convocatoria
+    private function datosAlta(string $motivo = self::MOTIVO_ALTA): array
+    {
+        return [
+            'nombre' => self::NOMBRE_ALTA,
+            'fecha_inicio' => '2027-01-10',
+            'fecha_fin' => '2027-06-30',
+            'convocatoria_pdf' => UploadedFile::fake()->createWithContent('convocatoria-v1.pdf', self::CONTENIDO_V1),
+            'motivo' => $motivo,
+        ];
+    }
+
+    // El alta de temporadas asigna liga_id = 1; se garantiza que exista esa liga
+    private function asegurarLigaUno(): void
+    {
+        DB::table('ligas')->insertOrIgnore([
+            'id' => 1,
+            'nombre' => 'Liga Municipal de Futbol Amateur de Morelia, A.C.',
+            'estado' => 'activa',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     // Prepara una temporada con la version 1 de su convocatoria guardada en el disco privado
