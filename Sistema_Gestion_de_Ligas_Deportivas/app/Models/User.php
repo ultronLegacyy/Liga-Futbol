@@ -46,6 +46,9 @@ class User extends Authenticatable
         'password',
         'password_hash',
         'remember_token',
+        // Secretos de 2FA: tampoco se serializan ni llegan a la auditoría
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
 
     /**

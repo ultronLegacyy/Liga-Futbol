@@ -10,6 +10,7 @@ use App\Policies\ClubPolicy;
 use App\Policies\EquipoPolicy;
 use App\Policies\TemporadaPolicy;
 use App\Policies\UserPolicy;
+use App\Services\AuditService;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -20,7 +21,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Una instancia por petición: el motivo de la auditoría no se comparte entre peticiones
+        $this->app->scoped(AuditService::class);
     }
 
     /**
