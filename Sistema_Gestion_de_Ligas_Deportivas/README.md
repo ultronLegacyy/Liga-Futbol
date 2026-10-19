@@ -243,3 +243,49 @@ http://127.0.0.1:8000
 El registro detallado del avance tecnico, el historial de tareas completadas por cada desarrollador del equipo de ingenieria, sus componentes afectados y las matrices de definicion de terminado (DoD) de cada Sprint se encuentran centralizados en el documento exclusivo:
 
 - [Reporte Tecnico de Avance y Registro de Tareas](Reporte%20Tecnico%20de%20Avance%20y%20Registro%20de%20Tareas.md) (`Reporte Tecnico de Avance y Registro de Tareas.md`).
+
+---
+
+## 10. Correo local con Mailpit
+
+Mailpit atrapa todos los correos que envía la aplicación en desarrollo; ninguno sale a internet. `.env.example` ya trae su configuración (`MAIL_MAILER=smtp`, `MAIL_HOST=127.0.0.1`, `MAIL_PORT=1025`); si tu `.env` es anterior, copia esos valores.
+
+Con Docker:
+
+```bash
+docker run -d --name mailpit -p 127.0.0.1:1025:1025 -p 127.0.0.1:8025:8025 axllent/mailpit:v1.31.6
+```
+
+- Bandeja de entrada: http://localhost:8025
+- Detenerlo o reanudarlo: `docker stop mailpit` / `docker start mailpit`.
+- Alternativa sin Docker: instalar el binario nativo de Mailpit (https://github.com/axllent/mailpit) y ejecutar `mailpit`, que usa los mismos puertos por defecto.
+
+Prueba rápida de envío:
+
+```bash
+php artisan tinker --execute="Illuminate\Support\Facades\Mail::raw('Prueba SGLD', fn (\$m) => \$m->to('prueba@example.com')->subject('Prueba Mailpit SGLD'));"
+```
+
+---
+
+## 11. Túnel HTTPS para las Reviews
+
+Para mostrar la aplicación en las Reviews con HTTPS (RNF-32) se usa el túnel rápido de Cloudflare, que no requiere cuenta. Hace falta tener instalado `cloudflared`.
+
+1. Compilar los assets, porque el servidor de desarrollo de Vite no es accesible por el túnel (si `npm run dev` está corriendo, detenlo: mientras exista `public/hot` las vistas piden los assets a Vite):
+   ```bash
+   npm run build
+   ```
+2. Levantar la aplicación en el puerto 8000:
+   ```bash
+   php artisan serve
+   ```
+3. En otra terminal, abrir el túnel:
+   ```bash
+   cloudflared tunnel --url http://localhost:8000
+   ```
+   `cloudflared` muestra una URL `https://<aleatorio>.trycloudflare.com` que cambia en cada ejecución; esa es la que se comparte en la Review.
+
+- La aplicación solo confía en los encabezados `X-Forwarded-*` cuando la petición llega desde `127.0.0.1` o `::1` (ver `bootstrap/app.php`); así genera enlaces `https://` detrás del túnel y registra la IP real del visitante sin que un cliente externo pueda falsificarla.
+- Cerrar el túnel (`Ctrl+C`) al terminar la Review: mientras esté abierto, cualquiera con la URL puede entrar.
+- Usarlo solo con datos de prueba (`php artisan migrate:fresh --seed`), nunca con datos reales.
