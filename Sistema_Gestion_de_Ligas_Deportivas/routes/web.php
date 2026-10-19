@@ -9,8 +9,14 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-// Rutas de temporadas deportivas
-Route::resource('temporadas', TemporadaController::class);
+// Rutas de temporadas deportivas: requieren sesion y TemporadaPolicy autoriza cada accion (RNF-29)
+Route::middleware(['auth'])->group(function () {
+    Route::resource('temporadas', TemporadaController::class);
+
+    // Entrega de la convocatoria desde almacenamiento privado, sin URL publica (RNF-30)
+    Route::get('/temporadas/{temporada}/convocatoria', [TemporadaController::class, 'convocatoria'])
+        ->name('temporadas.convocatoria');
+});
 
 // Grupo de rutas de administracion de gobernanza protegidas estrictamente por rol Administrador General
 Route::middleware(['auth', 'role:Administrador General'])->prefix('admin')->name('admin.')->group(function () {
@@ -51,4 +57,3 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/equipos/{equipo}', [EquipoController::class, 'show'])->name('equipos.show');
     Route::put('/equipos/{equipo}', [EquipoController::class, 'update'])->name('equipos.update');
 });
-Route::resource('temporadas', TemporadaController::class);
