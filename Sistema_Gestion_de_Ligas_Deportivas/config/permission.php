@@ -136,7 +136,8 @@ return [
      *
      * To enable, set to true, and then create listeners to watch these events.
      */
-    'events_enabled' => false,
+    // Activado para auditar la asignación y el retiro de roles y permisos (HU-004)
+    'events_enabled' => true,
 
     /*
      * Teams Feature.

@@ -132,6 +132,12 @@ return [
         'update_date_on_publish' => true,
     ],
 
+    // Credenciales de administrador de MariaDB, solo para el comando sgld:usuario-bd (RNF-33)
+    'administracion' => [
+        'usuario' => env('DB_ADMIN_USERNAME'),
+        'password' => env('DB_ADMIN_PASSWORD'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Redis Databases
