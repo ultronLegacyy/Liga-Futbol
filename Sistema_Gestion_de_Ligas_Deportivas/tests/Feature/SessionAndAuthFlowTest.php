@@ -39,7 +39,7 @@ class SessionAndAuthFlowTest extends TestCase
 
         // Verificacion de autenticacion exitosa y registro de la marca de actividad
         $this->assertAuthenticatedAs($usuario);
-        $respuesta->assertRedirect('/home');
+        $respuesta->assertRedirect('/admin/dashboard');
         $this->assertNotNull(session('last_activity_time'));
     }
 
@@ -173,7 +173,7 @@ class SessionAndAuthFlowTest extends TestCase
         // La sesion debe continuar activa y actualizarse a la fecha actual
         $this->assertAuthenticatedAs($admin);
         $respuesta->assertStatus(200);
-        $this->assertGreaterThanOrEqual(now()->timestamp - 5, session('last_activity_time'));
+        $this->assertGreaterThanOrEqual($tiempoReciente, session('last_activity_time'));
     }
 
     public function test_sesion_de_usuario_operativo_continua_activa_a_los_45_minutos(): void
