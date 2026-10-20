@@ -14,27 +14,24 @@ use Tests\TestCase;
 
 class RbacGovernanceAnd403Test extends TestCase
 {
-    // Manejo transaccional para evitar alteraciones permanentes en la base de datos
     use DatabaseTransactions;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        // Ejecutar seeder de roles y permisos para asegurar disponibilidad en el entorno de pruebas
         $this->seed(RoleAndPermissionSeeder::class);
     }
 
     public function test_rol_administrador_general_posee_todos_los_permisos_de_gobernanza(): void
     {
         $rolAdmin = Role::findByName('Administrador General', 'web');
+
         $totalPermisos = Permission::where('guard_name', 'web')->count();
 
-        // Comprobacion de cobertura total de permisos del sistema
         $this->assertGreaterThan(0, $totalPermisos);
         $this->assertGreaterThanOrEqual(25, $rolAdmin->permissions()->count());
 
-        // Verificacion de permisos especificos de gobernanza
         $permisosClave = [
             'gobernanza.panel',
             'ligas.ver',
@@ -71,22 +68,26 @@ class RbacGovernanceAnd403Test extends TestCase
             'estatus' => 'activo',
             'rol' => 'Administrador General',
         ]);
+
         $admin->assignRole('Administrador General');
 
-        // Peticion a dashboard de gobernanza
-        $respuestaDashboard = $this->actingAs($admin)->get('/admin/dashboard');
-        $respuestaDashboard->assertStatus(200);
-        $respuestaDashboard->assertJson([
-            'modulo' => 'Gobernanza y Configuracion',
-            'estado' => 'autorizado',
-        ]);
+        // El dashboard devuelve una vista HTML, no una respuesta JSON.
+        $respuestaDashboard = $this->actingAs($admin)
+            ->get('/admin/dashboard');
 
-        // Peticion a seccion core de gobernanza
-        $respuestaGobernanza = $this->actingAs($admin)->get('/admin/gobernanza');
+        $respuestaDashboard->assertStatus(200);
+        $respuestaDashboard->assertViewIs('admin.dashboard');
+
+        // La ruta de gobernanza devuelve JSON.
+        $respuestaGobernanza = $this->actingAs($admin)
+            ->getJson('/admin/gobernanza');
+
         $respuestaGobernanza->assertStatus(200);
+
         $respuestaGobernanza->assertJson([
             'modulo' => 'Core de Gobernanza',
             'privilegio' => 'Administrador General',
+            'acceso' => 'total',
         ]);
     }
 
@@ -99,12 +100,12 @@ class RbacGovernanceAnd403Test extends TestCase
             'estatus' => 'activo',
             'rol' => 'Arbitro',
         ]);
+
         $arbitro->assignRole('Arbitro');
 
-        // Intento de acceso a ruta administrativa por parte de un usuario con rol ajeno
-        $respuesta = $this->actingAs($arbitro)->get('/admin/dashboard');
+        $respuesta = $this->actingAs($arbitro)
+            ->get('/admin/dashboard');
 
-        // Comprobacion de bloqueo inmediato con codigo HTTP 403 Forbidden
         $respuesta->assertStatus(403);
         $respuesta->assertViewIs('errors.403');
         $respuesta->assertSee('403');
@@ -120,13 +121,14 @@ class RbacGovernanceAnd403Test extends TestCase
             'estatus' => 'activo',
             'rol' => 'Directivo Club',
         ]);
+
         $directivo->assignRole('Directivo de Club');
 
-        // Peticion asincrona esperando respuesta en formato JSON
-        $respuesta = $this->actingAs($directivo)->getJson('/admin/dashboard');
+        $respuesta = $this->actingAs($directivo)
+            ->getJson('/admin/dashboard');
 
-        // Verificacion de respuesta limpia sin exposicion de codigo interno
         $respuesta->assertStatus(403);
+
         $respuesta->assertJson([
             'error' => 'Acceso denegado',
             'status' => 403,
@@ -135,10 +137,8 @@ class RbacGovernanceAnd403Test extends TestCase
 
     public function test_usuario_no_autenticado_es_redirigido_a_login(): void
     {
-        // Peticion de usuario invitado sin sesion
         $respuesta = $this->get('/admin/dashboard');
 
-        // Debe ser interceptado y enviado al formulario de login
         $respuesta->assertRedirect(route('login'));
     }
 
@@ -151,17 +151,19 @@ class RbacGovernanceAnd403Test extends TestCase
             'estatus' => 'activo',
             'rol' => 'Presidente',
         ]);
+
         $presidente->assignRole('Presidente');
 
-        // El rol Presidente tiene asignado el permiso usuarios.ver
-        $respuestaPresidente = $this->actingAs($presidente)->get('/admin/gestion/usuarios');
+        $respuestaPresidente = $this->actingAs($presidente)
+            ->getJson('/admin/gestion/usuarios');
+
         $respuestaPresidente->assertStatus(200);
+
         $respuestaPresidente->assertJson([
             'modulo' => 'Gestion de Usuarios',
             'estado' => 'autorizado',
         ]);
 
-        // Un usuario arbitro no posee dicho permiso y debe ser bloqueado con 403
         $arbitro = User::create([
             'name' => 'Arbitro Sin Permiso',
             'email' => 'arbitro_noperm@liga.com',
@@ -169,9 +171,12 @@ class RbacGovernanceAnd403Test extends TestCase
             'estatus' => 'activo',
             'rol' => 'Arbitro',
         ]);
+
         $arbitro->assignRole('Arbitro');
 
-        $respuestaArbitro = $this->actingAs($arbitro)->get('/admin/gestion/usuarios');
+        $respuestaArbitro = $this->actingAs($arbitro)
+            ->getJson('/admin/gestion/usuarios');
+
         $respuestaArbitro->assertStatus(403);
     }
 
@@ -184,6 +189,7 @@ class RbacGovernanceAnd403Test extends TestCase
             'estatus' => 'activo',
             'rol' => 'Administrador General',
         ]);
+
         $admin->assignRole('Administrador General');
 
         $arbitro = User::create([
@@ -193,13 +199,16 @@ class RbacGovernanceAnd403Test extends TestCase
             'estatus' => 'activo',
             'rol' => 'Arbitro',
         ]);
+
         $arbitro->assignRole('Arbitro');
 
-        // Administrador General tiene autorizacion para crear temporadas
-        $this->assertTrue(Gate::forUser($admin)->allows('create', Temporada::class));
+        $this->assertTrue(
+            Gate::forUser($admin)->allows('create', Temporada::class)
+        );
 
-        // Arbitro no tiene autorizacion para dar de alta temporadas
-        $this->assertFalse(Gate::forUser($arbitro)->allows('create', Temporada::class));
+        $this->assertFalse(
+            Gate::forUser($arbitro)->allows('create', Temporada::class)
+        );
     }
 
     public function test_politica_temporada_policy_bloquea_modificacion_de_temporada_cerrada(): void
@@ -211,6 +220,7 @@ class RbacGovernanceAnd403Test extends TestCase
             'estatus' => 'activo',
             'rol' => 'Administrador General',
         ]);
+
         $admin->assignRole('Administrador General');
 
         $temporadaCerrada = new Temporada([
@@ -220,14 +230,25 @@ class RbacGovernanceAnd403Test extends TestCase
             'estado' => 'cerrada',
         ]);
 
-        // Verificacion de que la regla de negocio bloquea modificaciones en temporadas cerradas
-        $inspeccionUpdate = Gate::forUser($admin)->inspect('update', $temporadaCerrada);
-        $this->assertFalse($inspeccionUpdate->allowed());
-        $this->assertStringContainsString('cerrada no puede modificarse', $inspeccionUpdate->message());
+        $inspeccionUpdate = Gate::forUser($admin)
+            ->inspect('update', $temporadaCerrada);
 
-        $inspeccionDelete = Gate::forUser($admin)->inspect('delete', $temporadaCerrada);
+        $this->assertFalse($inspeccionUpdate->allowed());
+
+        $this->assertStringContainsString(
+            'cerrada no puede modificarse',
+            $inspeccionUpdate->message()
+        );
+
+        $inspeccionDelete = Gate::forUser($admin)
+            ->inspect('delete', $temporadaCerrada);
+
         $this->assertFalse($inspeccionDelete->allowed());
-        $this->assertStringContainsString('cerrada no puede eliminarse', $inspeccionDelete->message());
+
+        $this->assertStringContainsString(
+            'cerrada no puede eliminarse',
+            $inspeccionDelete->message()
+        );
     }
 
     public function test_politica_user_policy_impide_que_un_usuario_se_elimine_a_si_mismo(): void
@@ -239,11 +260,17 @@ class RbacGovernanceAnd403Test extends TestCase
             'estatus' => 'activo',
             'rol' => 'Administrador General',
         ]);
+
         $admin->assignRole('Administrador General');
 
-        // Intento de autoeliminacion bloqueado por politica de usuario
-        $inspeccion = Gate::forUser($admin)->inspect('delete', $admin);
+        $inspeccion = Gate::forUser($admin)
+            ->inspect('delete', $admin);
+
         $this->assertFalse($inspeccion->allowed());
-        $this->assertStringContainsString('eliminar la propia cuenta', $inspeccion->message());
+
+        $this->assertStringContainsString(
+            'eliminar la propia cuenta',
+            $inspeccion->message()
+        );
     }
 }
