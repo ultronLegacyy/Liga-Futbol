@@ -2,10 +2,12 @@
 
 namespace App\Providers;
 
+use App\Models\Cancha;
 use App\Models\Club;
 use App\Models\Equipo;
 use App\Models\Temporada;
 use App\Models\User;
+use App\Policies\CanchaPolicy;
 use App\Policies\ClubPolicy;
 use App\Policies\EquipoPolicy;
 use App\Policies\TemporadaPolicy;
@@ -35,5 +37,6 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(User::class, UserPolicy::class);
         Gate::policy(Club::class, ClubPolicy::class);
         Gate::policy(Equipo::class, EquipoPolicy::class);
+        Gate::policy(Cancha::class, CanchaPolicy::class);
     }
 }
