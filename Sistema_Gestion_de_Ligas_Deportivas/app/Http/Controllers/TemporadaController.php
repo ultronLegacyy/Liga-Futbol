@@ -20,9 +20,9 @@ use Throwable;
 class TemporadaController extends Controller
 {
     /**
-     * Listado visual de temporadas.
+     * Listar temporadas en JSON o mediante la vista Blade.
      */
-    public function index(): View
+    public function index(): View|JsonResponse
     {
         Gate::authorize('viewAny', Temporada::class);
 
@@ -30,11 +30,26 @@ class TemporadaController extends Controller
             ->orderByDesc('fecha_inicio')
             ->get();
 
+        if (request()->expectsJson()) {
+            return response()->json([
+                'modulo' => 'Temporadas',
+                'temporadas' => $temporadas->map(
+                    fn (Temporada $temporada): array => [
+                        'id' => $temporada->id,
+                        'nombre' => $temporada->nombre,
+                        'fecha_inicio' => $temporada->fecha_inicio,
+                        'fecha_fin' => $temporada->fecha_fin,
+                        'estado' => $temporada->estado,
+                    ]
+                )->values(),
+            ]);
+        }
+
         return view('temporadas.index', compact('temporadas'));
     }
 
     /**
-     * Formulario para crear una temporada.
+     * Mostrar el formulario de creación.
      */
     public function create(): View
     {
@@ -60,7 +75,7 @@ class TemporadaController extends Controller
         try {
             app(AuditService::class)->conMotivo(
                 $datos['motivo'],
-                function () use ($request, &$rutaPdf) {
+                function () use ($request, &$rutaPdf): void {
                     $temporada = Temporada::create([
                         'liga_id' => 1,
                         'nombre' => $request->nombre,
@@ -124,39 +139,37 @@ class TemporadaController extends Controller
             ->keyBy('registro_id');
 
         if ($request->expectsJson()) {
-            $convocatoriasJson = $convocatorias->map(
-                function (Convocatoria $convocatoria) use (
-                    $altas,
-                    $temporada
-                ): array {
-                    $auditoria = $altas->get($convocatoria->id);
-
-                    return [
-                        'id' => $convocatoria->id,
-                        'version' => $convocatoria->version,
-                        'motivo' => $auditoria?->motivo,
-                        'usuario' => $auditoria?->usuario?->name,
-                        'url' => route(
-                            'temporadas.convocatoria',
-                            [
-                                'temporada' => $temporada,
-                                'version' => $convocatoria->version,
-                            ]
-                        ),
-                        'fecha' => $auditoria?->created_at?->toISOString(),
-                    ];
-                }
-            );
-
             return response()->json([
+                'modulo' => 'Temporada',
                 'temporada_id' => $temporada->id,
                 'nombre' => $temporada->nombre,
+                'fecha_inicio' => $temporada->fecha_inicio,
+                'fecha_fin' => $temporada->fecha_fin,
                 'estado' => $temporada->estado,
-                'convocatoria_url' => route(
-                    'temporadas.convocatoria',
-                    $temporada
-                ),
-                'convocatorias' => $convocatoriasJson,
+                'convocatoria_url' => $convocatorias->isNotEmpty()
+                    ? route('temporadas.convocatoria', $temporada)
+                    : null,
+                'convocatorias' => $convocatorias->map(
+                    function (Convocatoria $convocatoria) use (
+                        $altas,
+                        $temporada
+                    ): array {
+                        $auditoria = $altas->get($convocatoria->id);
+
+                        return [
+                            'id' => $convocatoria->id,
+                            'version' => $convocatoria->version,
+                            'fecha' => $auditoria?->created_at?->toISOString(),
+                            'url' => route('temporadas.convocatoria', [
+                                'temporada' => $temporada,
+                                'version' => $convocatoria->version,
+                            ]),
+                            'motivo' => $auditoria?->motivo,
+                            'usuario' => $auditoria?->usuario?->name,
+                        ];
+                    }
+                )->values(),
+                'acceso' => 'autorizado',
             ]);
         }
 
@@ -167,7 +180,7 @@ class TemporadaController extends Controller
     }
 
     /**
-     * Formulario para editar una temporada.
+     * Mostrar el formulario de edición.
      */
     public function edit(Temporada $temporada): View
     {
@@ -229,7 +242,7 @@ class TemporadaController extends Controller
                     $request,
                     $temporada,
                     &$rutaPdf
-                ) {
+                ): Convocatoria {
                     $bloqueada = Temporada::query()
                         ->whereKey($temporada->getKey())
                         ->lockForUpdate()
@@ -273,7 +286,7 @@ class TemporadaController extends Controller
     }
 
     /**
-     * Descargar la versión solicitada o la más reciente.
+     * Descargar una versión específica o la más reciente.
      */
     public function convocatoria(
         Request $request,
