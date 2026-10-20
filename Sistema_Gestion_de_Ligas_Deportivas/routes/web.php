@@ -25,11 +25,7 @@ Route::middleware(['auth'])->group(function () {
 // Grupo de rutas de administracion de gobernanza protegidas estrictamente por rol Administrador General
 Route::middleware(['auth', 'role:Administrador General'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', function () {
-        return response()->json([
-            'modulo' => 'Gobernanza y Configuracion',
-            'mensaje' => 'Bienvenido al panel maestro de administracion general.',
-            'estado' => 'autorizado',
-        ]);
+        return view('admin.dashboard');
     })->name('dashboard');
 
     Route::get('/gobernanza', function () {
