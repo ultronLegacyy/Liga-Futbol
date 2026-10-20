@@ -1,4 +1,4 @@
-php artisan config:clear<?php
+<?php
 
 use Laravel\Fortify\Features;
 
