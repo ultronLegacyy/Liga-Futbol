@@ -109,9 +109,9 @@ jobs:
           cp .env.example .env
           php artisan key:generate --no-interaction
 
-      # Las pruebas actuales esperan la base migrada y con los seeders.
-      - name: Migrar y sembrar la base de pruebas
-        run: php artisan migrate --seed --force --no-interaction
+      # Preparar el esquema sin sembrar datos globales antes de las pruebas.
+      - name: Migrar la base de pruebas
+        run: php artisan migrate --force --no-interaction
 
       - name: Ejecutar las pruebas
         run: php artisan test
