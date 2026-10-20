@@ -40,17 +40,3 @@ npm run build
 php artisan serve
 ```
 
-## Forma de trabajo
-
-- Scrum con 9 sprints de una semana (12/10/2026 a 11/12/2026).
-- Backlog y sprints en Jira.
-- Ramas `feat/SCRUM-NN-descripcion` que salen de `develop` y entran por Pull Request con revisión de otro integrante.
-
-## Equipo
-
-| Integrante | Rol |
-|---|---|
-| José Luis Medina Ramírez | Product Owner · Frontend |
-| Rafael Piedra Sánchez | Backend |
-| José Gael Cruz Avilés | Lógica y algoritmos |
-| Carlos Daniel Gaona Gómez | Scrum Master · QA, documentación y despliegue |
