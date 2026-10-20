@@ -36,7 +36,7 @@
                     <td class="px-4 py-3">{{ $temporada->fecha_fin }}</td>
                     <td class="px-4 py-3">
                         <span class="px-2 py-1 text-xs rounded bg-green-500/20 text-green-400 border border-green-500/30">
-                            {{ $temporada->estatus ?? 'Activa' }}
+                            {{ $temporada->estado ?? 'Activa' }}
                         </span>
                     </td>
                     <td class="px-4 py-3 text-right space-x-2">
