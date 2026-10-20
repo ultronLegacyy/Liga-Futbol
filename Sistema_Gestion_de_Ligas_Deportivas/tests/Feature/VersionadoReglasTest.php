@@ -20,7 +20,7 @@ use Tests\TestCase;
 
 class VersionadoReglasTest extends TestCase
 {
-    // Manejo transaccional para revertir cambios tras cada prueba (la auditoria no se puede borrar)
+    // Manejo transaccional para revertir cambios tras cada prueba.
     use DatabaseTransactions;
 
     private const IP_PRUEBA = '203.0.113.40';
@@ -39,38 +39,62 @@ class VersionadoReglasTest extends TestCase
     {
         parent::setUp();
 
-        // Sembrado de roles y permisos del sistema
+        // Sembrado de roles y permisos del sistema.
         $this->seed(RoleAndPermissionSeeder::class);
 
-        // Disco falso para no escribir en storage/ real
+        // Disco falso para no escribir en storage/ real.
         Storage::fake('local');
     }
 
     public function test_administrador_registra_una_nueva_version_con_motivo_y_se_conserva_la_anterior(): void
     {
-        $admin = $this->crearUsuario('admin_versionado@liga.com', 'Administrador General', 'Administrador General');
+        $admin = $this->crearUsuario(
+            'admin_versionado@liga.com',
+            'Administrador General',
+            'Administrador General'
+        );
+
         [$temporada, $rutaV1] = $this->crearTemporadaConConvocatoria();
 
         $respuesta = $this->actingAs($admin)
             ->withServerVariables(['REMOTE_ADDR' => self::IP_PRUEBA])
-            ->post(route('temporadas.convocatoria.versionar', $temporada), $this->datosVersion());
+            ->post(
+                route('temporadas.convocatoria.versionar', $temporada),
+                $this->datosVersion()
+            );
 
         $respuesta->assertRedirect();
-        $respuesta->assertSessionHas('success', 'Se registró la versión 2 de la convocatoria.');
+        $respuesta->assertSessionHas(
+            'success',
+            'Se registró la versión 2 de la convocatoria.'
+        );
 
-        // La version 1 se conserva intacta: fila y archivo
-        $versionUno = Convocatoria::where('temporada_id', $temporada->id)->where('version', 1)->sole();
+        // La versión 1 se conserva intacta: fila y archivo.
+        $versionUno = Convocatoria::where('temporada_id', $temporada->id)
+            ->where('version', 1)
+            ->sole();
+
         $this->assertSame($rutaV1, $versionUno->archivo_pdf);
         Storage::disk('local')->assertExists($rutaV1);
 
-        // La version 2 vive en el disco privado con su propio archivo
-        $versionDos = Convocatoria::where('temporada_id', $temporada->id)->where('version', 2)->sole();
+        // La versión 2 vive en el disco privado con su propio archivo.
+        $versionDos = Convocatoria::where('temporada_id', $temporada->id)
+            ->where('version', 2)
+            ->sole();
+
         $this->assertStringStartsWith('convocatorias/', $versionDos->archivo_pdf);
         $this->assertNotSame($rutaV1, $versionDos->archivo_pdf);
-        $this->assertSame(self::CONTENIDO_V2, Storage::disk('local')->get($versionDos->archivo_pdf));
-        $this->assertSame(2, Convocatoria::where('temporada_id', $temporada->id)->count());
+        $this->assertSame(
+            self::CONTENIDO_V2,
+            Storage::disk('local')->get($versionDos->archivo_pdf)
+        );
 
-        // La auditoria registra usuario, fecha, IP y motivo de la nueva version
+        $this->assertSame(
+            2,
+            Convocatoria::where('temporada_id', $temporada->id)->count()
+        );
+
+        // La auditoría registra usuario, fecha, IP y motivo de la nueva versión.
         $log = AuditoriaLog::where('tabla_afectada', 'convocatorias')
             ->where('registro_id', $versionDos->id)
             ->where('accion', 'crear')
@@ -81,52 +105,100 @@ class VersionadoReglasTest extends TestCase
         $this->assertSame(self::IP_PRUEBA, $log->ip);
         $this->assertSame(2, $log->valores_nuevos['version']);
         $this->assertNotNull($log->created_at);
-        $this->assertTrue($log->created_at->between(now()->subMinute(), now()->addMinute()));
 
-        // La version anterior no se modifico ni se elimino
-        $this->assertSame(0, AuditoriaLog::where('tabla_afectada', 'convocatorias')
-            ->where('registro_id', $versionUno->id)
-            ->whereIn('accion', ['actualizar', 'eliminar'])
-            ->count());
+        $this->assertTrue(
+            $log->created_at->between(now()->subMinute(), now()->addMinute())
+        );
+
+        // La versión anterior no se modificó ni se eliminó.
+        $this->assertSame(
+            0,
+            AuditoriaLog::where('tabla_afectada', 'convocatorias')
+                ->where('registro_id', $versionUno->id)
+                ->whereIn('accion', ['actualizar', 'eliminar'])
+                ->count()
+        );
     }
 
     public function test_las_versiones_se_numeran_de_forma_consecutiva(): void
     {
-        $admin = $this->crearUsuario('admin_consecutivo@liga.com', 'Administrador General', 'Administrador General');
+        $admin = $this->crearUsuario(
+            'admin_consecutivo@liga.com',
+            'Administrador General',
+            'Administrador General'
+        );
+
         [$temporada] = $this->crearTemporadaConConvocatoria();
 
-        $this->actingAs($admin)->post(route('temporadas.convocatoria.versionar', $temporada), $this->datosVersion())
-            ->assertSessionHas('success', 'Se registró la versión 2 de la convocatoria.');
-        $this->actingAs($admin)->post(route('temporadas.convocatoria.versionar', $temporada), $this->datosVersion())
-            ->assertSessionHas('success', 'Se registró la versión 3 de la convocatoria.');
+        $this->actingAs($admin)
+            ->post(
+                route('temporadas.convocatoria.versionar', $temporada),
+                $this->datosVersion()
+            )
+            ->assertSessionHas(
+                'success',
+                'Se registró la versión 2 de la convocatoria.'
+            );
+
+        $this->actingAs($admin)
+            ->post(
+                route('temporadas.convocatoria.versionar', $temporada),
+                $this->datosVersion()
+            )
+            ->assertSessionHas(
+                'success',
+                'Se registró la versión 3 de la convocatoria.'
+            );
 
         $this->assertSame(
             [1, 2, 3],
-            Convocatoria::where('temporada_id', $temporada->id)->orderBy('version')->pluck('version')->all()
+            Convocatoria::where('temporada_id', $temporada->id)
+                ->orderBy('version')
+                ->pluck('version')
+                ->all()
         );
     }
 
     public function test_sin_motivo_se_rechaza_y_no_se_crea_version_ni_archivo(): void
     {
-        $admin = $this->crearUsuario('admin_sin_motivo@liga.com', 'Administrador General', 'Administrador General');
+        $admin = $this->crearUsuario(
+            'admin_sin_motivo@liga.com',
+            'Administrador General',
+            'Administrador General'
+        );
+
         [$temporada, $rutaV1] = $this->crearTemporadaConConvocatoria();
+
         $ruta = route('temporadas.convocatoria.versionar', $temporada);
 
-        // Sin el campo motivo
+        // Sin el campo motivo.
         $datos = $this->datosVersion();
         unset($datos['motivo']);
-        $this->actingAs($admin)->post($ruta, $datos)->assertSessionHasErrors('motivo');
 
-        // Con el motivo vacio o solo con espacios
-        $this->actingAs($admin)->post($ruta, $this->datosVersion(''))->assertSessionHasErrors('motivo');
-        $this->actingAs($admin)->post($ruta, $this->datosVersion('   '))->assertSessionHasErrors('motivo');
+        $this->actingAs($admin)
+            ->post($ruta, $datos)
+            ->assertSessionHasErrors('motivo');
+
+        // Con el motivo vacío o solo con espacios.
+        $this->actingAs($admin)
+            ->post($ruta, $this->datosVersion(''))
+            ->assertSessionHasErrors('motivo');
+
+        $this->actingAs($admin)
+            ->post($ruta, $this->datosVersion('   '))
+            ->assertSessionHasErrors('motivo');
 
         $this->assertSoloExisteLaVersionUno($temporada, $rutaV1);
     }
 
     public function test_alta_de_temporada_registra_la_version_1_con_su_motivo(): void
     {
-        $admin = $this->crearUsuario('admin_alta_motivo@liga.com', 'Administrador General', 'Administrador General');
+        $admin = $this->crearUsuario(
+            'admin_alta_motivo@liga.com',
+            'Administrador General',
+            'Administrador General'
+        );
+
         $this->asegurarLigaUno();
 
         $respuesta = $this->actingAs($admin)
@@ -134,14 +206,22 @@ class VersionadoReglasTest extends TestCase
             ->post(route('temporadas.store'), $this->datosAlta());
 
         $respuesta->assertRedirect();
-        $respuesta->assertSessionHas('success', 'Temporada creada correctamente.');
+        $respuesta->assertSessionHas(
+            'success',
+            'Temporada creada correctamente.'
+        );
 
         $temporada = Temporada::where('nombre', self::NOMBRE_ALTA)->sole();
+
         $versionUno = Convocatoria::where('temporada_id', $temporada->id)->sole();
+
         $this->assertSame(1, $versionUno->version);
 
-        // La temporada y la version 1 quedan auditadas con el motivo del alta (RF-01.3)
-        foreach (['temporadas' => $temporada->id, 'convocatorias' => $versionUno->id] as $tabla => $registroId) {
+        // La temporada y la versión 1 quedan auditadas con el motivo del alta.
+        foreach ([
+            'temporadas' => $temporada->id,
+            'convocatorias' => $versionUno->id,
+        ] as $tabla => $registroId) {
             $log = AuditoriaLog::where('tabla_afectada', $tabla)
                 ->where('registro_id', $registroId)
                 ->where('accion', 'crear')
@@ -152,8 +232,9 @@ class VersionadoReglasTest extends TestCase
             $this->assertSame(self::IP_PRUEBA, $log->ip);
         }
 
-        // El detalle muestra el motivo y el usuario de la version 1
-        $this->actingAs($admin)->get(route('temporadas.show', $temporada))
+        // El detalle JSON muestra el motivo y el usuario de la versión 1.
+        $this->actingAs($admin)
+            ->getJson(route('temporadas.show', $temporada))
             ->assertOk()
             ->assertJsonPath('convocatorias.0.version', 1)
             ->assertJsonPath('convocatorias.0.motivo', self::MOTIVO_ALTA)
@@ -162,34 +243,56 @@ class VersionadoReglasTest extends TestCase
 
     public function test_alta_sin_motivo_se_rechaza_y_no_se_crea_temporada_ni_archivo(): void
     {
-        $admin = $this->crearUsuario('admin_alta_sin_motivo@liga.com', 'Administrador General', 'Administrador General');
+        $admin = $this->crearUsuario(
+            'admin_alta_sin_motivo@liga.com',
+            'Administrador General',
+            'Administrador General'
+        );
+
         $this->asegurarLigaUno();
 
-        // Sin el campo motivo
+        // Sin el campo motivo.
         $datos = $this->datosAlta();
         unset($datos['motivo']);
-        $this->actingAs($admin)->post(route('temporadas.store'), $datos)->assertSessionHasErrors('motivo');
 
-        // Con el motivo vacio o solo con espacios
-        $this->actingAs($admin)->post(route('temporadas.store'), $this->datosAlta(''))->assertSessionHasErrors('motivo');
-        $this->actingAs($admin)->post(route('temporadas.store'), $this->datosAlta('   '))->assertSessionHasErrors('motivo');
+        $this->actingAs($admin)
+            ->post(route('temporadas.store'), $datos)
+            ->assertSessionHasErrors('motivo');
 
-        $this->assertDatabaseMissing('temporadas', ['nombre' => self::NOMBRE_ALTA]);
+        // Con el motivo vacío o solo con espacios.
+        $this->actingAs($admin)
+            ->post(route('temporadas.store'), $this->datosAlta(''))
+            ->assertSessionHasErrors('motivo');
+
+        $this->actingAs($admin)
+            ->post(route('temporadas.store'), $this->datosAlta('   '))
+            ->assertSessionHasErrors('motivo');
+
+        $this->assertDatabaseMissing('temporadas', [
+            'nombre' => self::NOMBRE_ALTA,
+        ]);
+
         Storage::disk('local')->assertDirectoryEmpty('convocatorias');
     }
 
     public function test_formulario_de_alta_muestra_el_campo_motivo_y_su_error(): void
     {
-        $admin = $this->crearUsuario('admin_formulario_alta@liga.com', 'Administrador General', 'Administrador General');
+        $admin = $this->crearUsuario(
+            'admin_formulario_alta@liga.com',
+            'Administrador General',
+            'Administrador General'
+        );
+
         $this->asegurarLigaUno();
 
-        // El campo es obligatorio y su etiqueta esta asociada para lectores de pantalla y teclado
-        $this->actingAs($admin)->get(route('temporadas.create'))
+        // El campo es obligatorio y su etiqueta es accesible.
+        $this->actingAs($admin)
+            ->get(route('temporadas.create'))
             ->assertOk()
             ->assertSee('<label for="motivo">Motivo:</label>', false)
             ->assertSee('id="motivo" name="motivo"', false);
 
-        // Al faltar el motivo, el formulario vuelve con el mensaje de error del campo
+        // Al faltar el motivo, se muestra el mensaje de error.
         $datos = $this->datosAlta();
         unset($datos['motivo']);
 
@@ -204,11 +307,18 @@ class VersionadoReglasTest extends TestCase
 
     public function test_archivo_que_no_es_pdf_se_rechaza_y_no_se_crea_version(): void
     {
-        $admin = $this->crearUsuario('admin_no_pdf_version@liga.com', 'Administrador General', 'Administrador General');
+        $admin = $this->crearUsuario(
+            'admin_no_pdf_version@liga.com',
+            'Administrador General',
+            'Administrador General'
+        );
+
         [$temporada, $rutaV1] = $this->crearTemporadaConConvocatoria();
 
         $datos = $this->datosVersion();
-        $datos['convocatoria_pdf'] = UploadedFile::fake()->create('reglas.txt', 10, 'text/plain');
+
+        $datos['convocatoria_pdf'] = UploadedFile::fake()
+            ->create('reglas.txt', 10, 'text/plain');
 
         $this->actingAs($admin)
             ->post(route('temporadas.convocatoria.versionar', $temporada), $datos)
@@ -219,16 +329,24 @@ class VersionadoReglasTest extends TestCase
 
     public function test_temporada_cerrada_responde_403_y_no_se_crea_version_ni_archivo(): void
     {
-        $admin = $this->crearUsuario('admin_cerrada_version@liga.com', 'Administrador General', 'Administrador General');
+        $admin = $this->crearUsuario(
+            'admin_cerrada_version@liga.com',
+            'Administrador General',
+            'Administrador General'
+        );
+
         [$temporada, $rutaV1] = $this->crearTemporadaConConvocatoria(cerrada: true);
 
         $respuesta = $this->actingAs($admin)
-            ->post(route('temporadas.convocatoria.versionar', $temporada), $this->datosVersion());
+            ->post(
+                route('temporadas.convocatoria.versionar', $temporada),
+                $this->datosVersion()
+            );
 
         $respuesta->assertForbidden();
         $respuesta->assertSee('Error: Una temporada cerrada no puede modificarse.');
 
-        // La autorizacion ocurre antes de validar: sin datos tambien responde 403
+        // La autorización ocurre antes de validar.
         $this->actingAs($admin)
             ->post(route('temporadas.convocatoria.versionar', $temporada), [])
             ->assertForbidden();
@@ -238,12 +356,20 @@ class VersionadoReglasTest extends TestCase
 
     public function test_usuario_sin_permiso_de_editar_temporadas_recibe_403(): void
     {
-        // El rol Directivo de Club puede ver temporadas pero no editarlas
-        $directivo = $this->crearUsuario('directivo_version@liga.com', 'Directivo Club', 'Directivo de Club');
+        // El rol Directivo de Club puede ver temporadas, pero no editarlas.
+        $directivo = $this->crearUsuario(
+            'directivo_version@liga.com',
+            'Directivo Club',
+            'Directivo de Club'
+        );
+
         [$temporada, $rutaV1] = $this->crearTemporadaConConvocatoria();
 
         $this->actingAs($directivo)
-            ->post(route('temporadas.convocatoria.versionar', $temporada), $this->datosVersion())
+            ->post(
+                route('temporadas.convocatoria.versionar', $temporada),
+                $this->datosVersion()
+            )
             ->assertForbidden();
 
         $this->assertSoloExisteLaVersionUno($temporada, $rutaV1);
@@ -253,72 +379,128 @@ class VersionadoReglasTest extends TestCase
     {
         [$temporada, $rutaV1] = $this->crearTemporadaConConvocatoria();
 
-        $this->post(route('temporadas.convocatoria.versionar', $temporada), $this->datosVersion())
-            ->assertRedirect(route('login'));
+        $this->post(
+            route('temporadas.convocatoria.versionar', $temporada),
+            $this->datosVersion()
+        )->assertRedirect(route('login'));
 
         $this->assertSoloExisteLaVersionUno($temporada, $rutaV1);
     }
 
     public function test_descarga_entrega_la_version_mas_alta_y_permite_consultar_las_anteriores(): void
     {
-        $admin = $this->crearUsuario('admin_descarga_version@liga.com', 'Administrador General', 'Administrador General');
+        $admin = $this->crearUsuario(
+            'admin_descarga_version@liga.com',
+            'Administrador General',
+            'Administrador General'
+        );
+
         [$temporada] = $this->crearTemporadaConConvocatoria();
 
         $this->actingAs($admin)
-            ->post(route('temporadas.convocatoria.versionar', $temporada), $this->datosVersion())
+            ->post(
+                route('temporadas.convocatoria.versionar', $temporada),
+                $this->datosVersion()
+            )
             ->assertSessionHasNoErrors();
 
-        // Sin parametro se entrega la version mas alta
-        $vigente = $this->actingAs($admin)->get(route('temporadas.convocatoria', $temporada));
+        // Sin parámetro se entrega la versión más alta.
+        $vigente = $this->actingAs($admin)
+            ->get(route('temporadas.convocatoria', $temporada));
+
         $vigente->assertOk();
         $vigente->assertHeader('Content-Type', 'application/pdf');
+
         $this->assertSame(self::CONTENIDO_V2, $vigente->streamedContent());
 
-        // Con ?version=1 se entrega el contenido de la primera version
-        $anterior = $this->actingAs($admin)->get(route('temporadas.convocatoria', ['temporada' => $temporada, 'version' => 1]));
+        // Con ?version=1 se entrega el contenido de la primera versión.
+        $anterior = $this->actingAs($admin)->get(
+            route('temporadas.convocatoria', [
+                'temporada' => $temporada,
+                'version' => 1,
+            ])
+        );
+
         $anterior->assertOk();
+
         $this->assertSame(self::CONTENIDO_V1, $anterior->streamedContent());
 
-        // Versiones inexistentes o invalidas responden 404
+        // Versiones inexistentes o inválidas responden 404.
         foreach (['99', '0', '-1', 'abc', ''] as $version) {
             $this->actingAs($admin)
-                ->get(route('temporadas.convocatoria', ['temporada' => $temporada, 'version' => $version]))
+                ->get(route('temporadas.convocatoria', [
+                    'temporada' => $temporada,
+                    'version' => $version,
+                ]))
                 ->assertNotFound();
         }
     }
 
     public function test_detalle_de_la_temporada_lista_las_versiones_con_motivo_y_usuario(): void
     {
-        $admin = $this->crearUsuario('admin_detalle_version@liga.com', 'Administrador General', 'Administrador General');
-        $presidente = $this->crearUsuario('presidente_detalle_version@liga.com', 'Presidente', 'Presidente');
+        $admin = $this->crearUsuario(
+            'admin_detalle_version@liga.com',
+            'Administrador General',
+            'Administrador General'
+        );
 
-        // La version 1 la publica el administrador con su propio motivo
+        $presidente = $this->crearUsuario(
+            'presidente_detalle_version@liga.com',
+            'Presidente',
+            'Presidente'
+        );
+
+        // La versión 1 la publica el administrador con su propio motivo.
         $this->actingAs($admin);
+
         [$temporada] = app(AuditService::class)->conMotivo(
             'Publicacion inicial de la convocatoria.',
             fn () => $this->crearTemporadaConConvocatoria()
         );
 
-        // La version 2 la registra el presidente por la ruta protegida
+        // La versión 2 la registra el presidente por la ruta protegida.
         $this->actingAs($presidente)
-            ->post(route('temporadas.convocatoria.versionar', $temporada), $this->datosVersion())
+            ->post(
+                route('temporadas.convocatoria.versionar', $temporada),
+                $this->datosVersion()
+            )
             ->assertSessionHasNoErrors();
 
-        $respuesta = $this->actingAs($admin)->getJson(route('temporadas.show', $temporada));
+        $respuesta = $this->actingAs($admin)
+            ->getJson(route('temporadas.show', $temporada));
 
         $respuesta->assertOk();
         $respuesta->assertJsonCount(2, 'convocatorias');
-        $respuesta->assertJsonPath('convocatoria_url', route('temporadas.convocatoria', $temporada));
+
+        $respuesta->assertJsonPath(
+            'convocatoria_url',
+            route('temporadas.convocatoria', $temporada)
+        );
 
         $respuesta->assertJsonPath('convocatorias.0.version', 1);
-        $respuesta->assertJsonPath('convocatorias.0.motivo', 'Publicacion inicial de la convocatoria.');
+        $respuesta->assertJsonPath(
+            'convocatorias.0.motivo',
+            'Publicacion inicial de la convocatoria.'
+        );
         $respuesta->assertJsonPath('convocatorias.0.usuario', $admin->name);
-        $respuesta->assertJsonPath('convocatorias.0.url', route('temporadas.convocatoria', ['temporada' => $temporada, 'version' => 1]));
+        $respuesta->assertJsonPath(
+            'convocatorias.0.url',
+            route('temporadas.convocatoria', [
+                'temporada' => $temporada,
+                'version' => 1,
+            ])
+        );
 
         $respuesta->assertJsonPath('convocatorias.1.version', 2);
         $respuesta->assertJsonPath('convocatorias.1.motivo', self::MOTIVO);
         $respuesta->assertJsonPath('convocatorias.1.usuario', $presidente->name);
-        $respuesta->assertJsonPath('convocatorias.1.url', route('temporadas.convocatoria', ['temporada' => $temporada, 'version' => 2]));
+        $respuesta->assertJsonPath(
+            'convocatorias.1.url',
+            route('temporadas.convocatoria', [
+                'temporada' => $temporada,
+                'version' => 2,
+            ])
+        );
 
         $this->assertNotNull($respuesta->json('convocatorias.0.fecha'));
         $this->assertNotNull($respuesta->json('convocatorias.1.fecha'));
@@ -326,23 +508,34 @@ class VersionadoReglasTest extends TestCase
 
     public function test_detalle_de_la_temporada_consulta_las_versiones_sin_n_mas_uno(): void
     {
-        $admin = $this->crearUsuario('admin_consultas_version@liga.com', 'Administrador General', 'Administrador General');
+        $admin = $this->crearUsuario(
+            'admin_consultas_version@liga.com',
+            'Administrador General',
+            'Administrador General'
+        );
+
         [$temporada] = $this->crearTemporadaConConvocatoria();
 
         foreach (range(1, 3) as $intento) {
             $this->actingAs($admin)
-                ->post(route('temporadas.convocatoria.versionar', $temporada), $this->datosVersion())
+                ->post(
+                    route('temporadas.convocatoria.versionar', $temporada),
+                    $this->datosVersion()
+                )
                 ->assertSessionHasNoErrors();
         }
 
         $consultas = [];
+
         DB::listen(function ($consulta) use (&$consultas) {
             $consultas[] = $consulta->sql;
         });
 
-        $this->actingAs($admin)->getJson(route('temporadas.show', $temporada))->assertJsonCount(4, 'convocatorias');
+        $this->actingAs($admin)
+            ->getJson(route('temporadas.show', $temporada))
+            ->assertJsonCount(4, 'convocatorias');
 
-        // Una sola consulta por tabla sin importar cuantas versiones existan
+        // Una sola consulta por tabla sin importar cuántas versiones existan.
         $this->assertCount(1, preg_grep('/from `convocatorias`/', $consultas));
         $this->assertCount(1, preg_grep('/from `auditoria_logs`/', $consultas));
         $this->assertCount(1, preg_grep('/from `usuarios`/', $consultas));
@@ -378,10 +571,17 @@ class VersionadoReglasTest extends TestCase
         );
     }
 
-    // Simula una falla durante el versionado y verifica que no quedan datos parciales (RNF-22)
-    private function assertFallaNoDejaVersionNiPdf(string $evento, string $mensaje): void
-    {
-        $admin = $this->crearUsuario('admin_atomicidad_version@liga.com', 'Administrador General', 'Administrador General');
+    // Simula una falla durante el versionado y verifica que no quedan datos parciales.
+    private function assertFallaNoDejaVersionNiPdf(
+        string $evento,
+        string $mensaje
+    ): void {
+        $admin = $this->crearUsuario(
+            'admin_atomicidad_version@liga.com',
+            'Administrador General',
+            'Administrador General'
+        );
+
         [$temporada, $rutaV1] = $this->crearTemporadaConConvocatoria();
 
         Event::listen($evento, function () use ($mensaje) {
@@ -392,34 +592,55 @@ class VersionadoReglasTest extends TestCase
         $excepcion = null;
 
         try {
-            $this->actingAs($admin)->post(route('temporadas.convocatoria.versionar', $temporada), $this->datosVersion());
+            $this->actingAs($admin)->post(
+                route('temporadas.convocatoria.versionar', $temporada),
+                $this->datosVersion()
+            );
         } catch (RuntimeException $capturada) {
             $excepcion = $capturada;
         } finally {
             Event::forget($evento);
         }
 
-        // El controlador vuelve a lanzar la excepcion original
+        // El controlador vuelve a lanzar la excepción original.
         $this->assertNotNull($excepcion);
         $this->assertSame($mensaje, $excepcion->getMessage());
 
-        // No queda la version nueva, ni su PDF, ni su auditoria
+        // No queda la versión nueva, ni su PDF, ni su auditoría.
         $this->assertSoloExisteLaVersionUno($temporada, $rutaV1);
-        $this->assertSame(0, AuditoriaLog::where('tabla_afectada', 'convocatorias')
-            ->where('motivo', self::MOTIVO)
-            ->count());
+
+        $this->assertSame(
+            0,
+            AuditoriaLog::where('tabla_afectada', 'convocatorias')
+                ->where('motivo', self::MOTIVO)
+                ->count()
+        );
     }
 
-    // Verifica que la temporada conserva unicamente su version 1 y su archivo
-    private function assertSoloExisteLaVersionUno(Temporada $temporada, string $rutaV1): void
-    {
-        $this->assertSame([1], Convocatoria::where('temporada_id', $temporada->id)->pluck('version')->all());
-        $this->assertSame([$rutaV1], Storage::disk('local')->allFiles('convocatorias'));
+    // Verifica que la temporada conserva únicamente su versión 1 y su archivo.
+    private function assertSoloExisteLaVersionUno(
+        Temporada $temporada,
+        string $rutaV1
+    ): void {
+        $this->assertSame(
+            [1],
+            Convocatoria::where('temporada_id', $temporada->id)
+                ->pluck('version')
+                ->all()
+        );
+
+        $this->assertSame(
+            [$rutaV1],
+            Storage::disk('local')->allFiles('convocatorias')
+        );
     }
 
-    // Crea un usuario activo con el rol de Spatie indicado
-    private function crearUsuario(string $email, string $rolColumna, string $rolSpatie): User
-    {
+    // Crea un usuario activo con el rol de Spatie indicado.
+    private function crearUsuario(
+        string $email,
+        string $rolColumna,
+        string $rolSpatie
+    ): User {
         $usuario = User::create([
             'name' => 'Usuario '.$rolSpatie,
             'email' => $email,
@@ -427,33 +648,40 @@ class VersionadoReglasTest extends TestCase
             'estatus' => 'activo',
             'rol' => $rolColumna,
         ]);
+
         $usuario->assignRole($rolSpatie);
 
         return $usuario;
     }
 
-    // Datos validos para registrar una nueva version de la convocatoria
+    // Datos válidos para registrar una nueva versión de la convocatoria.
     private function datosVersion(string $motivo = self::MOTIVO): array
     {
         return [
-            'convocatoria_pdf' => UploadedFile::fake()->createWithContent('convocatoria-v2.pdf', self::CONTENIDO_V2),
+            'convocatoria_pdf' => UploadedFile::fake()->createWithContent(
+                'convocatoria-v2.pdf',
+                self::CONTENIDO_V2
+            ),
             'motivo' => $motivo,
         ];
     }
 
-    // Datos validos para el alta de una temporada con la version 1 de su convocatoria
+    // Datos válidos para el alta de una temporada con la versión 1.
     private function datosAlta(string $motivo = self::MOTIVO_ALTA): array
     {
         return [
             'nombre' => self::NOMBRE_ALTA,
             'fecha_inicio' => '2027-01-10',
             'fecha_fin' => '2027-06-30',
-            'convocatoria_pdf' => UploadedFile::fake()->createWithContent('convocatoria-v1.pdf', self::CONTENIDO_V1),
+            'convocatoria_pdf' => UploadedFile::fake()->createWithContent(
+                'convocatoria-v1.pdf',
+                self::CONTENIDO_V1
+            ),
             'motivo' => $motivo,
         ];
     }
 
-    // El alta de temporadas asigna liga_id = 1; se garantiza que exista esa liga
+    // El alta de temporadas asigna liga_id = 1; se garantiza que exista esa liga.
     private function asegurarLigaUno(): void
     {
         DB::table('ligas')->insertOrIgnore([
@@ -465,7 +693,7 @@ class VersionadoReglasTest extends TestCase
         ]);
     }
 
-    // Prepara una temporada con la version 1 de su convocatoria guardada en el disco privado
+    // Prepara una temporada con la versión 1 guardada en el disco privado.
     private function crearTemporadaConConvocatoria(bool $cerrada = false): array
     {
         $temporada = $cerrada
