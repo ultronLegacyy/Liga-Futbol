@@ -7,7 +7,6 @@ use App\Models\Convocatoria;
 use App\Models\Temporada;
 use App\Services\AuditService;
 use Illuminate\Contracts\View\View;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -19,17 +18,16 @@ use Throwable;
 
 class TemporadaController extends Controller
 {
-    // Listado de temporadas en JSON mientras no exista la vista correspondiente
-    public function index(): JsonResponse
+    // Listado visual de temporadas utilizando la vista Blade del Layout Maestro
+    public function index(): View
     {
         Gate::authorize('viewAny', Temporada::class);
 
-        return response()->json([
-            'modulo' => 'Temporadas',
-            'temporadas' => Temporada::query()
-                ->orderByDesc('fecha_inicio')
-                ->get(['id', 'nombre', 'fecha_inicio', 'fecha_fin', 'estado']),
-        ]);
+        $temporadas = Temporada::query()
+            ->orderByDesc('fecha_inicio')
+            ->get();
+
+        return view('temporadas.index', compact('temporadas'));
     }
 
     public function create(): View
@@ -89,41 +87,23 @@ class TemporadaController extends Controller
         return redirect()->back()->with('success', 'Temporada creada correctamente.');
     }
 
-    // Detalle de la temporada en JSON; se permite consultar aunque este cerrada (RF-01.4)
-    public function show(Temporada $temporada): JsonResponse
+    // Detalle visual de la temporada y sus convocatorias
+    public function show(Temporada $temporada): View
     {
         Gate::authorize('view', $temporada);
 
-        $convocatorias = $temporada->convocatorias()->orderBy('version')->get(['id', 'version', 'created_at']);
+        $convocatorias = $temporada->convocatorias()->orderBy('version')->get();
 
-        // Motivo y usuario de cada version salen de su registro de alta en la auditoria (RF-01.3);
-        // se consultan de una vez junto con los usuarios para evitar N+1
         $altas = AuditoriaLog::query()
             ->with('usuario:id,name')
             ->where('tabla_afectada', (new Convocatoria())->getTable())
             ->where('accion', 'crear')
             ->whereIn('registro_id', $convocatorias->modelKeys())
             ->orderBy('id')
-            ->get(['id', 'usuario_id', 'registro_id', 'motivo'])
+            ->get()
             ->keyBy('registro_id');
 
-        return response()->json([
-            'modulo' => 'Temporada',
-            'temporada_id' => $temporada->id,
-            'nombre' => $temporada->nombre,
-            'fecha_inicio' => $temporada->fecha_inicio,
-            'fecha_fin' => $temporada->fecha_fin,
-            'estado' => $temporada->estado,
-            'convocatoria_url' => $convocatorias->isNotEmpty() ? route('temporadas.convocatoria', $temporada) : null,
-            'convocatorias' => $convocatorias->map(fn (Convocatoria $convocatoria) => [
-                'version' => $convocatoria->version,
-                'fecha' => $convocatoria->created_at,
-                'url' => route('temporadas.convocatoria', ['temporada' => $temporada, 'version' => $convocatoria->version]),
-                'motivo' => $altas->get($convocatoria->id)?->motivo,
-                'usuario' => $altas->get($convocatoria->id)?->usuario?->name,
-            ])->values(),
-            'acceso' => 'autorizado',
-        ]);
+        return view('temporadas.show', compact('temporada', 'convocatorias', 'altas'));
     }
 
     public function edit(Temporada $temporada): View
