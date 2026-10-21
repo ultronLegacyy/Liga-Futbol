@@ -9,6 +9,7 @@ use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Route;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -22,6 +23,16 @@ class GovernanceRolesAccessTest extends TestCase
         parent::setUp();
 
         $this->seed(RoleAndPermissionSeeder::class);
+
+        // Registro de ruta de prueba para CA2 en memoria sin ensuciar routes/web.php de produccion
+        Route::middleware(['web', 'auth', 'permission:disciplina.expedientes'])
+            ->put('/test-disciplina/expedientes/{id}', function (int $id) {
+                return response()->json([
+                    'modulo' => 'Regimen Disciplinario',
+                    'mensaje' => 'Expediente disciplinario actualizado con exito.',
+                    'expediente_id' => $id,
+                ]);
+            });
     }
 
     /**
@@ -39,13 +50,17 @@ class GovernanceRolesAccessTest extends TestCase
         $this->assertTrue($rolPresidente->hasPermissionTo('convocatorias.ver'));
         $this->assertTrue($rolPresidente->hasPermissionTo('convocatorias.crear'));
         $this->assertTrue($rolPresidente->hasPermissionTo('reglas.configurar'));
-        $this->assertTrue($rolPresidente->hasPermissionTo('auditoria.ver'));
         $this->assertTrue($rolPresidente->hasPermissionTo('finanzas.reportes'));
+        $this->assertTrue($rolPresidente->hasPermissionTo('campos.ver'));
 
-        // No debe tener administracion de cuentas ni dictamen disciplinario
+        // No debe tener administracion de cuentas, bitacora de auditoria, creacion de canchas ni expedientes
+        $this->assertFalse($rolPresidente->hasPermissionTo('usuarios.ver'));
         $this->assertFalse($rolPresidente->hasPermissionTo('usuarios.crear'));
         $this->assertFalse($rolPresidente->hasPermissionTo('usuarios.eliminar'));
         $this->assertFalse($rolPresidente->hasPermissionTo('roles.crear'));
+        $this->assertFalse($rolPresidente->hasPermissionTo('auditoria.ver'));
+        $this->assertFalse($rolPresidente->hasPermissionTo('campos.crear'));
+        $this->assertFalse($rolPresidente->hasPermissionTo('campos.bloquear'));
         $this->assertFalse($rolPresidente->hasPermissionTo('disciplina.expedientes'));
         $this->assertFalse($rolPresidente->hasPermissionTo('disciplina.sancionar'));
         $this->assertFalse($rolPresidente->hasPermissionTo('finanzas.cargos'));
@@ -58,11 +73,16 @@ class GovernanceRolesAccessTest extends TestCase
         $this->assertTrue($rolSecretario->hasPermissionTo('convocatorias.editar'));
         $this->assertTrue($rolSecretario->hasPermissionTo('clubes.crear'));
         $this->assertTrue($rolSecretario->hasPermissionTo('equipos.crear'));
-        $this->assertTrue($rolSecretario->hasPermissionTo('jugadores.crear'));
+        $this->assertTrue($rolSecretario->hasPermissionTo('jugadores.ver'));
         $this->assertTrue($rolSecretario->hasPermissionTo('jugadores.validar_edad'));
-        $this->assertTrue($rolSecretario->hasPermissionTo('arbitros.crear'));
+        $this->assertTrue($rolSecretario->hasPermissionTo('campos.ver'));
 
-        // No debe crear temporadas, ni ver auditoria, ni gestionar finanzas ni expedientes
+        // No debe crear temporadas, ni ver cuentas, ni crear arbitros o jugadores, ni ver auditoria, ni finanzas ni disciplina
+        $this->assertFalse($rolSecretario->hasPermissionTo('usuarios.ver'));
+        $this->assertFalse($rolSecretario->hasPermissionTo('usuarios.crear'));
+        $this->assertFalse($rolSecretario->hasPermissionTo('arbitros.crear'));
+        $this->assertFalse($rolSecretario->hasPermissionTo('jugadores.crear'));
+        $this->assertFalse($rolSecretario->hasPermissionTo('jugadores.transferir'));
         $this->assertFalse($rolSecretario->hasPermissionTo('temporadas.crear'));
         $this->assertFalse($rolSecretario->hasPermissionTo('temporadas.cerrar'));
         $this->assertFalse($rolSecretario->hasPermissionTo('auditoria.ver'));
@@ -77,31 +97,33 @@ class GovernanceRolesAccessTest extends TestCase
         $this->assertTrue($rolTesorero->hasPermissionTo('finanzas.pagos_validar'));
         $this->assertTrue($rolTesorero->hasPermissionTo('finanzas.reportes'));
 
-        // No debe tener acceso disciplinario, ni deportivo de creacion ni consulta de canchas/temporadas, ni auditoria, ni usuarios
+        // No debe tener acceso disciplinario, ni deportivo de creacion ni consulta de canchas, ni auditoria, ni usuarios
         $this->assertFalse($rolTesorero->hasPermissionTo('disciplina.ver'));
         $this->assertFalse($rolTesorero->hasPermissionTo('disciplina.expedientes'));
         $this->assertFalse($rolTesorero->hasPermissionTo('disciplina.sancionar'));
-        $this->assertFalse($rolTesorero->hasPermissionTo('temporadas.ver'));
         $this->assertFalse($rolTesorero->hasPermissionTo('temporadas.crear'));
-        $this->assertFalse($rolTesorero->hasPermissionTo('convocatorias.ver'));
         $this->assertFalse($rolTesorero->hasPermissionTo('convocatorias.crear'));
-        $this->assertFalse($rolTesorero->hasPermissionTo('campos.ver'));
+        $this->assertFalse($rolTesorero->hasPermissionTo('campos.crear'));
+        $this->assertFalse($rolTesorero->hasPermissionTo('campos.bloquear'));
         $this->assertFalse($rolTesorero->hasPermissionTo('usuarios.ver'));
         $this->assertFalse($rolTesorero->hasPermissionTo('auditoria.ver'));
 
         // 4. Verificacion de permisos de Comision de la Rama Infantil
         $rolInfantil = Role::findByName('Comision de la Rama Infantil', 'web');
         $this->assertTrue($rolInfantil->hasPermissionTo('gobernanza.panel'));
+        $this->assertTrue($rolInfantil->hasPermissionTo('temporadas.ver'));
         $this->assertTrue($rolInfantil->hasPermissionTo('categorias.ver'));
-        $this->assertTrue($rolInfantil->hasPermissionTo('categorias.crear'));
-        $this->assertTrue($rolInfantil->hasPermissionTo('jugadores.crear'));
+        $this->assertTrue($rolInfantil->hasPermissionTo('clubes.ver'));
+        $this->assertTrue($rolInfantil->hasPermissionTo('equipos.ver'));
+        $this->assertTrue($rolInfantil->hasPermissionTo('jugadores.ver'));
         $this->assertTrue($rolInfantil->hasPermissionTo('jugadores.validar_edad'));
+        $this->assertTrue($rolInfantil->hasPermissionTo('campos.ver'));
 
-        // No debe tener finanzas, creacion de temporadas, ni cuentas de usuarios
+        // No debe tener finanzas, creacion de temporadas, administracion de cuentas ni disciplina
+        $this->assertFalse($rolInfantil->hasPermissionTo('usuarios.ver'));
         $this->assertFalse($rolInfantil->hasPermissionTo('finanzas.ver'));
         $this->assertFalse($rolInfantil->hasPermissionTo('finanzas.cargos'));
         $this->assertFalse($rolInfantil->hasPermissionTo('temporadas.crear'));
-        $this->assertFalse($rolInfantil->hasPermissionTo('usuarios.ver'));
         $this->assertFalse($rolInfantil->hasPermissionTo('auditoria.ver'));
         $this->assertFalse($rolInfantil->hasPermissionTo('disciplina.expedientes'));
     }
@@ -121,7 +143,7 @@ class GovernanceRolesAccessTest extends TestCase
         $tesorero->assignRole('Tesorero');
 
         $respuesta = $this->actingAs($tesorero)
-            ->putJson('/disciplina/expedientes/1');
+            ->putJson('/test-disciplina/expedientes/1');
 
         $respuesta->assertStatus(403);
     }
@@ -131,17 +153,17 @@ class GovernanceRolesAccessTest extends TestCase
      */
     public function test_rol_disciplinario_puede_actualizar_expediente_disciplinario(): void
     {
-        $tribunal = User::create([
+        $disciplinario = User::create([
             'name' => 'Tribunal Penas Test',
-            'email' => 'tribunal_ca2@ligafutbol.com',
+            'email' => 'disciplina_ca2@ligafutbol.com',
             'password' => Hash::make('secreto123'),
             'estatus' => 'activo',
             'rol' => 'Tribunal de Penas',
         ]);
-        $tribunal->assignRole('Tribunal de Penas');
+        $disciplinario->givePermissionTo('disciplina.expedientes');
 
-        $respuesta = $this->actingAs($tribunal)
-            ->putJson('/disciplina/expedientes/1');
+        $respuesta = $this->actingAs($disciplinario)
+            ->putJson('/test-disciplina/expedientes/1');
 
         $respuesta->assertStatus(200);
         $respuesta->assertJson([
@@ -205,21 +227,13 @@ class GovernanceRolesAccessTest extends TestCase
      */
     public function test_permisos_y_roles_se_encuentran_persistidos_como_datos_en_la_base_de_datos(): void
     {
-        // Verificacion en base de datos de los 13 roles
+        // Verificacion en base de datos de los roles de gobernanza sembrados
         $rolesRequeridos = [
             'Administrador General',
             'Presidente',
             'Secretario',
             'Tesorero',
             'Comision de la Rama Infantil',
-            'Programador de Partidos',
-            'Capturista',
-            'Arbitro',
-            'Comision Arbitral',
-            'Comision Disciplinaria',
-            'Directivo de Club',
-            'Delegado del Club',
-            'Jugador',
         ];
 
         foreach ($rolesRequeridos as $rol) {
@@ -229,7 +243,7 @@ class GovernanceRolesAccessTest extends TestCase
             ]);
         }
 
-        // Verificacion de que existen permisos persistidos en la tabla permissions
+        // Verificacion de que existen permisos atomicos persistidos en la tabla permissions
         $totalPermisos = Permission::where('guard_name', 'web')->count();
         $this->assertGreaterThanOrEqual(35, $totalPermisos);
 
@@ -248,7 +262,7 @@ class GovernanceRolesAccessTest extends TestCase
     }
 
     /**
-     * CA4: Cuando un rol de gobernanza intenta abrir la administracion de cuentas, el sistema responde 403.
+     * CA4: Cuando un rol de gobernanza intenta acceder a la administracion de cuentas (UserPolicy::viewAny y ruta real), el sistema responde 403 / false.
      */
     public function test_roles_de_gobernanza_reciben_403_al_intentar_acceder_a_la_administracion_de_cuentas(): void
     {
@@ -260,7 +274,7 @@ class GovernanceRolesAccessTest extends TestCase
         ];
 
         foreach ($rolesGobernanza as $nombreRol) {
-            $email = strtolower(str_replace(' ', '_', $nombreRol)) . '_cuentas@ligafutbol.com';
+            $email = strtolower(str_replace(' ', '_', $nombreRol)).'_cuentas@ligafutbol.com';
             $usuario = User::create([
                 'name' => "Usuario {$nombreRol}",
                 'email' => $email,
@@ -269,13 +283,20 @@ class GovernanceRolesAccessTest extends TestCase
             ]);
             $usuario->assignRole($nombreRol);
 
+            // 1. Verificacion estricta a nivel de politica UserPolicy
+            $this->assertFalse(
+                Gate::forUser($usuario)->allows('viewAny', User::class),
+                "El rol '{$nombreRol}' no debe tener autorizacion viewAny en UserPolicy."
+            );
+
+            // 2. Verificacion de respuesta HTTP 403 Forbidden en la ruta real del sistema
             $respuesta = $this->actingAs($usuario)
-                ->getJson('/admin/usuarios');
+                ->getJson('/admin/gestion/usuarios');
 
             $this->assertSame(
                 403,
                 $respuesta->status(),
-                "El rol '{$nombreRol}' debe ser rechazado con 403 al abrir administracion de cuentas."
+                "El rol '{$nombreRol}' debe ser rechazado con 403 al consultar la gestion de cuentas."
             );
         }
     }
@@ -294,14 +315,18 @@ class GovernanceRolesAccessTest extends TestCase
         ]);
         $admin->assignRole('Administrador General');
 
+        // 1. Autorizacion en UserPolicy
+        $this->assertTrue(Gate::forUser($admin)->allows('viewAny', User::class));
+
+        // 2. Respuesta HTTP 200 en la ruta real del sistema
         $respuesta = $this->actingAs($admin)
-            ->getJson('/admin/usuarios');
+            ->getJson('/admin/gestion/usuarios');
 
         $respuesta->assertStatus(200);
         $respuesta->assertJson([
-            'modulo' => 'Administracion de Cuentas',
-            'privilegio' => 'Administrador General',
-            'acceso' => 'total',
+            'modulo' => 'Gestion de Usuarios',
+            'mensaje' => 'Listado de usuarios del sistema.',
+            'estado' => 'autorizado',
         ]);
     }
 

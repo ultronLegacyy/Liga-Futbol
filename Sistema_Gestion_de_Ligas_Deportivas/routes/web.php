@@ -41,15 +41,6 @@ Route::middleware(['auth', 'role:Administrador General'])->prefix('admin')->name
             'acceso' => 'total',
         ]);
     })->name('gobernanza');
-
-    // Administracion de cuentas de usuario exclusiva del Administrador General (HU-080 / HU-071 CA4)
-    Route::get('/usuarios', function () {
-        return response()->json([
-            'modulo' => 'Administracion de Cuentas',
-            'privilegio' => 'Administrador General',
-            'acceso' => 'total',
-        ]);
-    })->name('usuarios');
 });
 
 // Grupo de rutas operativas protegidas por permiso granular de Spatie
@@ -71,15 +62,4 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/equipos/{equipo}', [EquipoController::class, 'show'])->name('equipos.show');
     Route::put('/equipos/{equipo}', [EquipoController::class, 'update'])->name('equipos.update');
-});
-
-// Rutas de regimen disciplinario protegidas por permisos granulares (HU-071 CA2 / Sprint 7)
-Route::middleware(['auth'])->group(function () {
-    Route::put('/disciplina/expedientes/{id}', function (int $id) {
-        return response()->json([
-            'modulo' => 'Regimen Disciplinario',
-            'mensaje' => 'Expediente disciplinario actualizado con exito.',
-            'expediente_id' => $id,
-        ]);
-    })->middleware('permission:disciplina.expedientes')->name('disciplina.expedientes.update');
 });

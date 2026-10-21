@@ -54,14 +54,14 @@ Donde:
 | Módulo del Sistema | Permiso Atómico | Admin General | Presidente | Secretario | Tesorero | Com. Infantil | Programador | Capturista | Árbitro Campo | Com. Arbitral | Tribunal Penas | Pte. Club | Delegado Club | Jugador |
 |---|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | **Gobernanza General** | `gobernanza.panel` | Sí | Sí | Sí | Sí | Sí | No | No | No | No | No | No | No | No |
-| **Usuarios y Cuentas** | `usuarios.ver` | Sí | Sí | Sí | No | No | No | No | No | No | No | No | No | No |
+| **Usuarios y Cuentas** | `usuarios.ver` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
 | | `usuarios.crear` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
 | | `usuarios.editar` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
 | | `usuarios.eliminar` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
 | | `usuarios.asignar_rol` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
 | **Roles y Permisos** | `roles.ver` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
 | | `roles.asignar_permiso`| Sí | No | No | No | No | No | No | No | No | No | No | No | No |
-| **Auditoría Inmutable** | `auditoria.ver` | Sí | Sí | No | No | No | No | No | No | No | No | No | No | No |
+| **Auditoría Inmutable** | `auditoria.ver` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
 | **Temporadas** | `temporadas.ver` | Sí | Sí | Sí | No | Sí | Sí | Sí | Sí | Sí | Sí | Sí | Sí | Sí |
 | | `temporadas.crear` | Sí | Sí | No | No | No | No | No | No | No | No | No | No | No |
 | | `temporadas.editar` | Sí | Sí | No | No | No | No | No | No | No | No | No | No | No |
@@ -81,17 +81,17 @@ Donde:
 | | `equipos.crear` | Sí | No | Sí | No | No | No | No | No | No | No | Sí* | Sí* | No |
 | | `equipos.editar` | Sí | No | Sí | No | No | No | No | No | No | No | Sí* | Sí* | No |
 | **Jugadores y Padrón** | `jugadores.ver` | Sí | Sí | Sí | No | Sí | Sí | Sí | Sí | Sí | Sí | Sí* | Sí* | Sí* |
-| | `jugadores.crear` | Sí | No | Sí | No | Sí* | No | No | No | No | No | Sí* | Sí* | No |
-| | `jugadores.editar` | Sí | No | Sí | No | Sí* | No | No | No | No | No | Sí* | Sí* | No |
-| | `jugadores.transferir`| Sí | No | Sí | No | No | No | No | No | No | No | Sí* | Sí* | No |
+| | `jugadores.crear` | Sí | No | No | No | Sí* | No | No | No | No | No | Sí* | Sí* | No |
+| | `jugadores.editar` | Sí | No | No | No | Sí* | No | No | No | No | No | Sí* | Sí* | No |
+| | `jugadores.transferir`| Sí | No | No | No | No | No | No | No | No | No | Sí* | Sí* | No |
 | | `jugadores.validar_edad`| Sí | No | Sí | No | Sí* | No | No | No | No | No | No | No | No |
 | **Canchas e Instalac.**| `campos.ver` | Sí | Sí | Sí | No | Sí | Sí | Sí | Sí | Sí | No | Sí | Sí | Sí |
-| | `campos.crear` | Sí | Sí | No | No | No | Sí | No | No | No | No | No | No | No |
-| | `campos.editar` | Sí | Sí | No | No | No | Sí | No | No | No | No | No | No | No |
-| | `campos.bloquear` | Sí | Sí | No | No | No | Sí | No | No | No | No | No | No | No |
+| | `campos.crear` | Sí | No | No | No | No | Sí | No | No | No | No | No | No | No |
+| | `campos.editar` | Sí | No | No | No | No | Sí | No | No | No | No | No | No | No |
+| | `campos.bloquear` | Sí | No | No | No | No | Sí | No | No | No | No | No | No | No |
 | **Arbitraje y Padrón** | `arbitros.ver` | Sí | Sí | Sí | No | No | Sí | No | Sí | Sí | Sí | No | No | No |
-| | `arbitros.crear` | Sí | No | Sí | No | No | No | No | No | Sí | No | No | No | No |
-| | `arbitros.editar` | Sí | No | Sí | No | No | No | No | No | Sí | No | No | No | No |
+| | `arbitros.crear` | Sí | No | No | No | No | No | No | No | Sí | No | No | No | No |
+| | `arbitros.editar` | Sí | No | No | No | No | No | No | No | Sí | No | No | No | No |
 | | `arbitros.asignar` | Sí | No | No | No | No | Sí | No | No | Sí | No | No | No | No |
 | **Jornadas y Partidos** | `partidos.ver` | Sí | Sí | Sí | No | Sí | Sí | Sí | Sí | Sí | Sí | Sí | Sí | Sí |
 | | `partidos.programar` | Sí | No | No | No | No | Sí | No | No | No | No | No | No | No |
