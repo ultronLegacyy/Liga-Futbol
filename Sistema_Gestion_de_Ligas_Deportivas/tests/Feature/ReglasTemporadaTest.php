@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\AuditoriaLog;
 use App\Models\ReglaTemporada;
 use App\Models\Temporada;
 use App\Models\User;
