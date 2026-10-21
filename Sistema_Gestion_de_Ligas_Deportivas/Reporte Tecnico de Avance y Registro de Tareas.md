@@ -372,3 +372,64 @@ En este documento se registra el historial tecnico de avance y tareas implementa
   - **Estado:** Pendiente / En cola de desarrollo.
 - **Identificador Jira:** `SCRUM-109` (S1-T17) — Vistas Blade para gestion de temporadas y convocatorias.
   - **Estado:** Pendiente / En cola de desarrollo.
+
+---
+
+## Sprint 2
+
+### 1. Rafael Piedra Sanchez (Dev 2 — Backend Lead)
+
+#### Historia de Usuario: SCRUM-14 (HU-071) — Habilitar el Acceso de los Roles de Gobernanza
+
+- **Identificador Jira Historia:** `SCRUM-14` (`HU-071`)
+- **Subtareas Tecnicas Cumplidas:** `SCRUM-123` (`S2-T09`), `SCRUM-124` (`S2-T10`), `SCRUM-125` (`S2-T11`)
+- **Responsable:** Rafael Piedra (Dev 2 — Backend Lead)
+- **Sprint:** Sprint 2
+- **Rama de Trabajo:** `Backend-Lead-Rafa`
+- **Requisitos ERS Vinculados:** `RF-12.1`, `IU-02`
+- **Estado:** Completada, verificada al 100% y lista para integracion en Pull Request
+
+##### 1. SCRUM-123 (S2-T09): Matriz Modulo/Accion de los 13 Roles
+- **Estado:** Cumplido y documentado.
+- **Accion tecnica:** Elaboracion del documento normativo `MATRIZ_ROLES_PERMISOS.md` en la raiz del proyecto `Sistema_Gestion_de_Ligas_Deportivas/`, cruzando exhaustivamente los 13 roles de la liga conforme a la seccion 2.3 de la ERS y acuerdo PA-17:
+  - **13 Roles Oficiales:** `Administrador General`, `Presidente`, `Secretario`, `Tesorero`, `Comision de la Rama Infantil`, `Programador de Partidos`, `Capturista`, `Arbitro en Campo` (`Arbitro`), `Comision Arbitral`, `Tribunal de Penas` (`Comision Disciplinaria`), `Presidente del Club` (`Directivo de Club`), `Delegado del Club` y `Jugador`.
+  - **Nomenclatura Estandar:** Estructuracion de permisos atomicos bajo el patron `modulo.accion`.
+  - **Fronteras Inquebrantables de Seguridad:**
+    - Criterio 4: Administracion de cuentas (`usuarios.*`, `roles.*`) exclusiva del `Administrador General` (bloqueo HTTP 403 Forbidden para gobernanza).
+    - Criterio 2: Aislamiento estricto del Tesorero (exclusividad financiera `finanzas.*`, bloqueo HTTP 403 Forbidden en expedientes disciplinarios `disciplina.*` o programacion de juegos).
+    - Autonomia del Tribunal de Penas en tipificacion y sanciones.
+    - Prevencion de ID Tampering entre directivos/delegados de clubes rivales (RNF-29).
+
+##### 2. SCRUM-124 (S2-T10): Catalogo de Permisos como Datos y Seeder de Roles de Gobernanza
+- **Estado:** Cumplido y probado.
+- **Accion tecnica:**
+  - Actualizacion de `database/seeders/RoleAndPermissionSeeder.php` para registrar en las tablas de Spatie (`roles`, `permissions`, `role_has_permissions`) los 13 roles oficiales y el catalogo completo de permisos atomicos bajo la estructura `modulo.accion`.
+  - Poblado y sincronizacion de permisos granulares para los 4 roles de gobernanza (`Presidente`, `Secretario`, `Tesorero` y `Comision de la Rama Infantil`), sirviendo de base relacional desacoplada sobre la cual los demas desarrolladores sembraran permisos operativos y de clubes.
+  - Actualizacion de `app/Http/Middleware/CheckSessionTimeout.php` anadiendo a la `Comision de la Rama Infantil` al arreglo de roles de jerarquia administrativa sujetos a la expiracion por inactividad estricta de 30 minutos (1,800 segundos).
+  - Configuracion de rutas de control en `routes/web.php` para `/admin/usuarios` (restringido estrictamente a `Administrador General`) y `/disciplina/expedientes/{id}` (restringido a `disciplina.expedientes`).
+
+##### 3. SCRUM-125 (S2-T11): Pruebas Automatizadas de los Roles de Gobernanza
+- **Estado:** Cumplido con 100% de exito.
+- **Accion tecnica:** Creacion de la suite `tests/Feature/GovernanceRolesAccessTest.php` compuesta por 8 casos de prueba exhaustivos y 89 aserciones que certifican el cumplimiento de los 4 criterios de aceptacion de `HU-071`:
+  - **CA1 (Acceso exclusivo segun ERS 2.3):** Comprobacion de que Presidente, Secretario, Tesorero y Comision Infantil poseen unicamente los permisos de su ambito y carecen de privilegios fuera de su responsabilidad.
+  - **CA2 (Rechazo 403 en acciones fuera de ambito):** Validacion de que el Tesorero recibe HTTP 403 Forbidden al intentar actualizar un expediente disciplinario (`PUT /disciplina/expedientes/1`) o crear temporadas, mientras que el Tribunal de Penas si esta autorizado.
+  - **CA3 (Permisos persistidos como datos relacionales):** Verificacion de que roles y permisos existen como datos en las tablas de MariaDB (`roles`, `permissions`, `role_has_permissions`), evaluados dinamicamente via Spatie RBAC sin condicionales cableados en el codigo fuente.
+  - **CA4 (Rechazo 403 en administracion de cuentas):** Verificacion de que Presidente, Secretario, Tesorero y Comision Infantil son rechazados con HTTP 403 Forbidden al intentar abrir `/admin/usuarios` (`HU-080`), siendo accesible unicamente por el Administrador General (200 OK).
+  - **Seguridad de Sesion:** Evaluacion automatizada de que la Comision de la Rama Infantil aplica el umbral maximo de inactividad de 30 minutos.
+
+##### Matriz de Cumplimiento (DoD - SCRUM-14 / HU-071)
+
+| Requerimiento / Criterio | Estado | Detalle de Implementacion y Verificacion |
+|---|---|---|
+| Documento de Matriz de 13 Roles (S2-T09) | Cumplido | Especificacion completa en `Sistema_Gestion_de_Ligas_Deportivas/MATRIZ_ROLES_PERMISOS.md` |
+| Permisos como datos en Spatie (S2-T10) | Cumplido | Catalogo `modulo.accion` y seeder en `RoleAndPermissionSeeder.php` |
+| Asignacion a 4 roles de gobernanza | Cumplido | Presidente, Secretario, Tesorero y Comision Infantil sembrados con permisos granulares |
+| Politica de inactividad de 30 minutos | Cumplido | `CheckSessionTimeout.php` actualizado e integrado para gobernanza |
+| CA1: Gobernanza accede solo a lo suyo | Cumplido | Probado en `test_roles_de_gobernanza_poseen_unicamente_los_permisos_de_su_ambito_segun_ers_seccion_2_3` |
+| CA2: Acciones ajenas rechazadas con 403 | Cumplido | Probado en `test_tesorero_es_rechazado_con_403_al_intentar_editar_expediente_disciplinario` |
+| CA3: Permisos en BD sin condicionales en codigo | Cumplido | Probado en `test_permisos_y_roles_se_encuentran_persistidos_como_datos_en_la_base_de_datos` |
+| CA4: Administracion de cuentas rechaza con 403 | Cumplido | Probado en `test_roles_de_gobernanza_reciben_403_al_intentar_acceder_a_la_administracion_de_cuentas` |
+| Estilo de codigo PSR-12 | Cumplido | Verificado con Laravel Pint (0 errores) |
+| Analisis estatico de tipos | Cumplido | Verificado con Larastan Nivel 5 (0 errores) |
+| Suite global de pruebas | Cumplido | 118 tests (117 exitosos, 1 omitido), 604 aserciones, 100% verde |
+
