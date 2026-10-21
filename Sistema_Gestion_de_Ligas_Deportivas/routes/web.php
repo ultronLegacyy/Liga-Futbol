@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\CategoriaController;
+use App\Http\Controllers\CanchaController;
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\EquipoController;
 use App\Http\Controllers\GrupoController;
@@ -24,10 +24,9 @@ Route::middleware(['auth'])->group(function () {
         ->name('temporadas.convocatoria.versionar');
 });
 
-// Categorías y grupos de cada temporada (RF-02.1, RF-02.2): en una temporada cerrada solo se consultan (RF-01.4)
+// Catálogo de canchas y sedes (RF-05.1): CanchaPolicy autoriza cada acción; no hay baja (HU-023)
 Route::middleware(['auth'])->group(function () {
-    Route::resource('temporadas.categorias', CategoriaController::class)->shallow()->only(['index', 'store', 'show', 'update']);
-    Route::resource('categorias.grupos', GrupoController::class)->shallow()->only(['store', 'update']);
+    Route::resource('canchas', CanchaController::class)->only(['index', 'show', 'store', 'update']);
 });
 
 // Grupo de rutas de administracion de gobernanza protegidas estrictamente por rol Administrador General
