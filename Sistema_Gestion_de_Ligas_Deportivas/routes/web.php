@@ -3,6 +3,7 @@
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\EquipoController;
 use App\Http\Controllers\TemporadaController;
+use App\Http\Controllers\ReglaTemporadaController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -12,6 +13,13 @@ Route::get('/', function () {
 // Rutas de temporadas deportivas: requieren sesion y TemporadaPolicy autoriza cada accion (RNF-29)
 Route::middleware(['auth'])->group(function () {
     Route::resource('temporadas', TemporadaController::class);
+    Route::get('/temporadas/{temporada}/reglas', [ReglaTemporadaController::class, 'index'])
+        ->name('temporadas.reglas.index')
+        ->middleware('can:reglas_temporada.ver');
+
+    Route::post('/temporadas/{temporada}/reglas', [ReglaTemporadaController::class, 'store'])
+        ->name('temporadas.reglas.store')
+        ->middleware('can:reglas_temporada.editar');
 
     // Entrega de la convocatoria desde almacenamiento privado, sin URL publica (RNF-30)
     Route::get('/temporadas/{temporada}/convocatoria', [TemporadaController::class, 'convocatoria'])

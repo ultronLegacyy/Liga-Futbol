@@ -53,6 +53,10 @@ class RoleAndPermissionSeeder extends Seeder
             'temporadas.editar',
             'temporadas.eliminar',
 
+            // Versionado de reglas deportivas por temporada
+            'reglas_temporada.ver',
+            'reglas_temporada.editar',
+
             // Gestion de convocatorias oficiales
             'convocatorias.ver',
             'convocatorias.crear',
