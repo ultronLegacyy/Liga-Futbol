@@ -211,7 +211,9 @@ class DatabaseSeeder extends Seeder
 
         // 10. categorias
         $catEspecialId = DB::table('categorias')->insertGetId([
+            'temporada_id' => $temporadaId,
             'nombre' => 'Primera Especial',
+            'rama' => 'Libre',
             'edad_min' => 18,
             'edad_max' => 35,
             'jerarquia_salto' => 1,
@@ -220,7 +222,9 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $catFuerzaId = DB::table('categorias')->insertGetId([
+            'temporada_id' => $temporadaId,
             'nombre' => 'Primera Fuerza',
+            'rama' => 'Libre',
             'edad_min' => 18,
             'edad_max' => 35,
             'jerarquia_salto' => 2,
@@ -229,7 +233,9 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $catJuvenilId = DB::table('categorias')->insertGetId([
+            'temporada_id' => $temporadaId,
             'nombre' => 'Juvenil A',
+            'rama' => 'Libre',
             'edad_min' => 14,
             'edad_max' => 16,
             'jerarquia_salto' => 3,

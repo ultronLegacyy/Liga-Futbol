@@ -22,4 +22,18 @@ class Temporada extends Model
     {
         return $this->hasMany(Convocatoria::class);
     }
+
+    // Categorías de la temporada (RF-02.1)
+    /** @return HasMany<Categoria, $this> */
+    public function categorias(): HasMany
+    {
+        return $this->hasMany(Categoria::class);
+    }
+
+    // Grupos de todas las categorías de la temporada (RF-02.2)
+    /** @return HasMany<Grupo, $this> */
+    public function grupos(): HasMany
+    {
+        return $this->hasMany(Grupo::class);
+    }
 }
