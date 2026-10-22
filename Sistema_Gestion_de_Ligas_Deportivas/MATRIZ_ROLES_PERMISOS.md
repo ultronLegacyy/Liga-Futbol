@@ -18,7 +18,7 @@ De acuerdo con la sección 2.3 de la ERS, los usuarios autenticados del sistema 
 
 ### Categoría B: Consejo Directivo y Gobernanza (HU-071)
 2. **Presidente (Consejo Directivo):** Máxima autoridad institucional de la Liga. Supervisa la estructura general de torneos, valida convocatorias oficiales, revisa estados de clubes y consulta auditoría de operaciones críticas.
-3. **Secretario (Consejo Directivo):** Responsable de la fe pública y documentación de la Liga. Gestiona convocatorias oficiales, minutas de asambleas, altas institucionales de clubes y supervisa el padrón de afiliados.
+3. **Secretario (Consejo Directivo):** Responsable de la fe pública y documentación de la Liga. Gestiona convocatorias oficiales, minutas de asambleas, supervisa el padrón de afiliados y valida la documentación etaria. No registra clubes ni equipos directamente (facultad asignada al Delegado del Club en Sprint 3).
 4. **Tesorero (Consejo Directivo):** Responsable financiero de la Liga. Administra conceptos de cobro (inscripciones, fianzas, credenciales), valida comprobantes de pago, emite recibos oficiales y genera reportes financieros. No interviene en decisiones disciplinarias ni operativas de juego.
 5. **Comisión de la Rama Infantil:** Órgano colegiado encargado de velar por las categorías menores. Supervisa categorías y grupos infantiles, valida la autenticidad de actas/CURP para control de edad máxima y autoriza credenciales infantiles.
 
@@ -91,12 +91,12 @@ Donde:
 | | `categorias.editar` | Sí | Pendiente (HU-007) | Pendiente (HU-007) | No | Pendiente (HU-007) | No | No | No | No | No | No | No | No |
 | | `categorias.eliminar` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
 | **Clubes y Sedes** | `clubes.ver` | Sí | Sí | Sí | No | Sí | Sí | Sí | No | No | No | Sí* | Sí* | No |
-| | `clubes.crear` | Sí | No | Sí | No | No | No | No | No | No | No | No | No | No |
-| | `clubes.editar` | Sí | No | Sí | No | No | No | No | No | No | No | Sí* | No | No |
+| | `clubes.crear` | Sí | No | No | No | No | No | No | No | No | No | No | Pendiente (HU-012) | No |
+| | `clubes.editar` | Sí | No | No | No | No | No | No | No | No | No | Pendiente (HU-012) | Pendiente (HU-012) | No |
 | | `clubes.eliminar` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
 | **Equipos** | `equipos.ver` | Sí | Sí | Sí | No | Sí | Sí | Sí | Sí | Sí | Sí | Sí* | Sí* | Sí* |
-| | `equipos.crear` | Sí | No | Sí | No | No | No | No | No | No | No | Sí* | Sí* | No |
-| | `equipos.editar` | Sí | No | Sí | No | No | No | No | No | No | No | Sí* | Sí* | No |
+| | `equipos.crear` | Sí | No | No | No | No | No | No | No | No | No | Pendiente (HU-013) | Pendiente (HU-013) | No |
+| | `equipos.editar` | Sí | No | No | No | No | No | No | No | No | No | Pendiente (HU-013) | Pendiente (HU-013) | No |
 | | `equipos.eliminar` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
 | **Jugadores y Padrón** | `jugadores.ver` | Sí | No | Sí | No | Sí | Sí | Sí | Sí | Sí | Sí | Sí* | Sí* | Sí* |
 | | `jugadores.crear` | Sí | No | No | No | Pendiente (HU-009) | No | No | No | No | No | Pendiente (HU-009) | Pendiente (HU-009) | No |
@@ -149,3 +149,7 @@ En cumplimiento de los criterios de aceptación de `HU-071`, `HU-072`, `HU-073` 
 4. **Prevención de Acceso Cruzado entre Clubes (ID Tampering - RNF-29):**
    - Los roles `Presidente del Club` y `Delegado del Club` tienen su alcance acotado al valor `club_id` asignado a su cuenta.
    - Si intentan leer o modificar datos de otro club manipulando parámetros en la URL o cuerpo de petición, el sistema emite **HTTP 403 Forbidden en el 100% de los casos**.
+
+5. **Alcance Institucional del Secretario vs. Delegado de Club (Acuerdo Product Owner):**
+   - El Secretario gestiona fe pública, minutas, convocatorias oficiales y supervisión documental/etaria.
+   - La inscripción de clubes (`clubes.crear`, `clubes.editar`) y registro de equipos (`equipos.crear`, `equipos.editar`) queda expresamente denegada al Secretario y asignada al Delegado del Club (`HU-012` y `HU-013` en Sprint 3).

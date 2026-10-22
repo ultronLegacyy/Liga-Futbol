@@ -183,7 +183,7 @@ class RoleAndPermissionSeeder extends Seeder
         ];
         $rolesCreados['Presidente']->syncPermissions($permisosPresidente);
 
-        // Rol Secretario: fe publica, convocatorias, inscripcion de clubes y equipos, padron y validacion etaria
+        // Rol Secretario: fe publica, convocatorias, padron y supervision documental etaria (sin registro de clubes ni equipos, facultad de Delegado de Club)
         $permisosSecretario = [
             'gobernanza.panel',
             'ligas.ver',
@@ -194,11 +194,7 @@ class RoleAndPermissionSeeder extends Seeder
             'reglas_temporada.ver',
             'categorias.ver',
             'clubes.ver',
-            'clubes.crear',
-            'clubes.editar',
             'equipos.ver',
-            'equipos.crear',
-            'equipos.editar',
             'jugadores.ver',
             'jugadores.validar_edad',
             'campos.ver',

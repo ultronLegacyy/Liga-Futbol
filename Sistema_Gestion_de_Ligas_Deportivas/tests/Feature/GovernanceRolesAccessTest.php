@@ -68,14 +68,24 @@ class GovernanceRolesAccessTest extends TestCase
         // 2. Verificacion de permisos de Secretario
         $rolSecretario = Role::findByName('Secretario', 'web');
         $this->assertTrue($rolSecretario->hasPermissionTo('gobernanza.panel'));
+        $this->assertTrue($rolSecretario->hasPermissionTo('ligas.ver'));
+        $this->assertTrue($rolSecretario->hasPermissionTo('temporadas.ver'));
         $this->assertTrue($rolSecretario->hasPermissionTo('convocatorias.ver'));
         $this->assertTrue($rolSecretario->hasPermissionTo('convocatorias.crear'));
         $this->assertTrue($rolSecretario->hasPermissionTo('convocatorias.editar'));
-        $this->assertTrue($rolSecretario->hasPermissionTo('clubes.crear'));
-        $this->assertTrue($rolSecretario->hasPermissionTo('equipos.crear'));
+        $this->assertTrue($rolSecretario->hasPermissionTo('reglas_temporada.ver'));
+        $this->assertTrue($rolSecretario->hasPermissionTo('categorias.ver'));
+        $this->assertTrue($rolSecretario->hasPermissionTo('clubes.ver'));
+        $this->assertTrue($rolSecretario->hasPermissionTo('equipos.ver'));
         $this->assertTrue($rolSecretario->hasPermissionTo('jugadores.ver'));
         $this->assertTrue($rolSecretario->hasPermissionTo('jugadores.validar_edad'));
         $this->assertTrue($rolSecretario->hasPermissionTo('campos.ver'));
+
+        // No debe crear ni editar clubes o equipos (facultad asignada al Delegado del Club - Sprint 3)
+        $this->assertFalse($rolSecretario->hasPermissionTo('clubes.crear'));
+        $this->assertFalse($rolSecretario->hasPermissionTo('clubes.editar'));
+        $this->assertFalse($rolSecretario->hasPermissionTo('equipos.crear'));
+        $this->assertFalse($rolSecretario->hasPermissionTo('equipos.editar'));
 
         // No debe crear temporadas, ni ver cuentas, ni crear arbitros o jugadores, ni ver auditoria, ni finanzas ni disciplina
         $this->assertFalse($rolSecretario->hasPermissionTo('usuarios.ver'));
