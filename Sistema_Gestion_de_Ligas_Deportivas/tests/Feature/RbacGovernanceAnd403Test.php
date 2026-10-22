@@ -144,22 +144,21 @@ class RbacGovernanceAnd403Test extends TestCase
 
     public function test_usuario_con_permiso_especifico_puede_acceder_a_su_modulo_correspondiente(): void
     {
-        $presidente = User::create([
-            'name' => 'Presidente Test',
-            'email' => 'presidente_gob@liga.com',
+        $admin = User::create([
+            'name' => 'Admin Test',
+            'email' => 'admin_gob@liga.com',
             'password' => Hash::make('secreto123'),
             'estatus' => 'activo',
-            'rol' => 'Presidente',
+            'rol' => 'Administrador General',
         ]);
+        $admin->assignRole('Administrador General');
 
-        $presidente->assignRole('Presidente');
-
-        $respuestaPresidente = $this->actingAs($presidente)
+        $respuestaAdmin = $this->actingAs($admin)
             ->getJson('/admin/gestion/usuarios');
 
-        $respuestaPresidente->assertStatus(200);
+        $respuestaAdmin->assertStatus(200);
 
-        $respuestaPresidente->assertJson([
+        $respuestaAdmin->assertJson([
             'modulo' => 'Gestion de Usuarios',
             'estado' => 'autorizado',
         ]);

@@ -2,6 +2,8 @@
 
 namespace Database\Factories;
 
+use App\Models\Categoria;
+use App\Models\Grupo;
 use App\Models\Temporada;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\DB;
@@ -41,6 +43,32 @@ class TemporadaFactory extends Factory
     public function borrador(): static
     {
         return $this->state(fn () => ['estado' => 'borrador']);
+    }
+
+    // Categorías y grupos de ejemplo, para probar la temporada cerrada en HU-006, HU-007 y HU-008
+    public function conCategoriasYGrupos(): static
+    {
+        return $this->afterCreating(function (Temporada $temporada): void {
+            $estructura = [
+                ['nombre' => 'Primera Fuerza', 'rama' => 'Libre', 'edad_min' => 18, 'grupos' => ['Grupo A', 'Grupo B']],
+                ['nombre' => 'Juvenil', 'rama' => 'Infantil', 'anio_nacimiento_desde' => 2009, 'anio_nacimiento_hasta' => 2010, 'grupos' => ['Grupo Único']],
+            ];
+
+            foreach ($estructura as $datos) {
+                $grupos = $datos['grupos'];
+                unset($datos['grupos']);
+
+                $categoria = Categoria::factory()->create($datos + ['temporada_id' => $temporada->id]);
+
+                foreach ($grupos as $nombreGrupo) {
+                    Grupo::factory()->create([
+                        'categoria_id' => $categoria->id,
+                        'temporada_id' => $temporada->id,
+                        'nombre' => $nombreGrupo,
+                    ]);
+                }
+            }
+        });
     }
 
     // Reutiliza una liga existente o crea una minima para respetar la llave foranea
