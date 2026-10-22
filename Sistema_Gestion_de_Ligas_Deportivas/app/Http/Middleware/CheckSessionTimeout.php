@@ -15,6 +15,7 @@ class CheckSessionTimeout
         'Presidente',
         'Secretario',
         'Tesorero',
+        'Comision de la Rama Infantil',
         'Comision Disciplinaria',
     ];
 
