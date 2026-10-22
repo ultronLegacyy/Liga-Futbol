@@ -49,7 +49,7 @@ class GovernanceRolesAccessTest extends TestCase
         $this->assertTrue($rolPresidente->hasPermissionTo('temporadas.cerrar'));
         $this->assertTrue($rolPresidente->hasPermissionTo('convocatorias.ver'));
         $this->assertTrue($rolPresidente->hasPermissionTo('convocatorias.crear'));
-        $this->assertTrue($rolPresidente->hasPermissionTo('reglas.configurar'));
+        $this->assertTrue($rolPresidente->hasPermissionTo('reglas_temporada.editar'));
         $this->assertTrue($rolPresidente->hasPermissionTo('finanzas.reportes'));
         $this->assertTrue($rolPresidente->hasPermissionTo('campos.ver'));
 
@@ -105,6 +105,8 @@ class GovernanceRolesAccessTest extends TestCase
         $this->assertFalse($rolTesorero->hasPermissionTo('convocatorias.crear'));
         $this->assertFalse($rolTesorero->hasPermissionTo('campos.crear'));
         $this->assertFalse($rolTesorero->hasPermissionTo('campos.bloquear'));
+        $this->assertFalse($rolTesorero->hasPermissionTo('clubes.ver'));
+        $this->assertFalse($rolTesorero->hasPermissionTo('equipos.ver'));
         $this->assertFalse($rolTesorero->hasPermissionTo('usuarios.ver'));
         $this->assertFalse($rolTesorero->hasPermissionTo('auditoria.ver'));
 

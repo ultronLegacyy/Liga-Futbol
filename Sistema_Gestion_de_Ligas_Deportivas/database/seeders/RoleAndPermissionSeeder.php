@@ -66,9 +66,9 @@ class RoleAndPermissionSeeder extends Seeder
             'convocatorias.editar',
             'convocatorias.eliminar',
 
-            // Modulo Reglas de Temporada
-            'reglas.ver',
-            'reglas.configurar',
+            // Modulo Reglas de Temporada (Homologado con HU-006 / PR #28)
+            'reglas_temporada.ver',
+            'reglas_temporada.editar',
 
             // Modulo Categorias y Grupos
             'categorias.ver',
@@ -173,8 +173,8 @@ class RoleAndPermissionSeeder extends Seeder
             'convocatorias.ver',
             'convocatorias.crear',
             'convocatorias.editar',
-            'reglas.ver',
-            'reglas.configurar',
+            'reglas_temporada.ver',
+            'reglas_temporada.editar',
             'categorias.ver',
             'clubes.ver',
             'equipos.ver',
@@ -191,7 +191,7 @@ class RoleAndPermissionSeeder extends Seeder
             'convocatorias.ver',
             'convocatorias.crear',
             'convocatorias.editar',
-            'reglas.ver',
+            'reglas_temporada.ver',
             'categorias.ver',
             'clubes.ver',
             'clubes.crear',
@@ -212,8 +212,6 @@ class RoleAndPermissionSeeder extends Seeder
             'finanzas.cargos',
             'finanzas.pagos_validar',
             'finanzas.reportes',
-            'clubes.ver',
-            'equipos.ver',
         ];
         $rolesCreados['Tesorero']->syncPermissions($permisosTesorero);
 
@@ -222,7 +220,7 @@ class RoleAndPermissionSeeder extends Seeder
             'gobernanza.panel',
             'temporadas.ver',
             'convocatorias.ver',
-            'reglas.ver',
+            'reglas_temporada.ver',
             'categorias.ver',
             'clubes.ver',
             'equipos.ver',

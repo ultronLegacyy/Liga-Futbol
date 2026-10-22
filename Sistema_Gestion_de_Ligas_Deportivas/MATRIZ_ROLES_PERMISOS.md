@@ -4,7 +4,7 @@ Documento técnico de especificación de Control de Acceso Basado en Roles (RBAC
 
 - **Incidencias Jira asociadas:** `SCRUM-14` (`HU-071`), `SCRUM-15` (`HU-072`), `SCRUM-16` (`HU-073`), `SCRUM-120` (`S2-T06`), `SCRUM-123` (`S2-T09`).
 - **Base normativa:** Especificación de Requisitos de Software (ERS), Sección 2.3 (Características y Responsabilidades de los Usuarios) y Requisito Funcional `RF-12.1`.
-- **Acuerdo técnico:** PA-17 (Aprobación por Product Owner José Luis Medina Ramírez).
+- **Estado de aprobación:** Propuesta técnica de arquitectura RBAC, sujeta a la revisión y aprobación formal del Product Owner (@Medina281) para el Criterio de Aceptación 3 (CA3 / SCRUM-123).
 - **Responsable de arquitectura:** Rafael Piedra Sánchez (Dev 2 — Backend Lead).
 
 ---
@@ -51,64 +51,82 @@ Donde:
 
 ## 3. Matriz General Módulo / Acción para los 13 Roles
 
+> **Guía de Estado:**
+> - **Sí:** Permiso activo y sembrado en el ejecutable para este rol en el Sprint 2 (S2-T10).
+> - **No:** Permiso denegado expresamente para este rol.
+> - **Pendiente (Sprint 3 / HU-xxx):** Permiso normativo de la ERS cuyo módulo o política será implementado en historias futuras; no se siembra en Sprint 2 para preservar el principio de mínimo privilegio.
+> - **Asterisco (`*`):** Permiso acotado por pertinencia (ej. propiedad de club en ClubPolicy o rama infantil).
+
 | Módulo del Sistema | Permiso Atómico | Admin General | Presidente | Secretario | Tesorero | Com. Infantil | Programador | Capturista | Árbitro Campo | Com. Arbitral | Tribunal Penas | Pte. Club | Delegado Club | Jugador |
 |---|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | **Gobernanza General** | `gobernanza.panel` | Sí | Sí | Sí | Sí | Sí | No | No | No | No | No | No | No | No |
+| **Gestión de Ligas** | `ligas.ver` | Sí | Sí | Sí | No | No | No | No | No | No | No | No | No | No |
+| | `ligas.crear` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
+| | `ligas.editar` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
+| | `ligas.eliminar` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
 | **Usuarios y Cuentas** | `usuarios.ver` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
 | | `usuarios.crear` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
 | | `usuarios.editar` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
 | | `usuarios.eliminar` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
 | | `usuarios.asignar_rol` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
 | **Roles y Permisos** | `roles.ver` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
+| | `roles.crear` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
+| | `roles.editar` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
+| | `roles.eliminar` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
 | | `roles.asignar_permiso`| Sí | No | No | No | No | No | No | No | No | No | No | No | No |
 | **Auditoría Inmutable** | `auditoria.ver` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
 | **Temporadas** | `temporadas.ver` | Sí | Sí | Sí | No | Sí | Sí | Sí | Sí | Sí | Sí | Sí | Sí | Sí |
 | | `temporadas.crear` | Sí | Sí | No | No | No | No | No | No | No | No | No | No | No |
 | | `temporadas.editar` | Sí | Sí | No | No | No | No | No | No | No | No | No | No | No |
 | | `temporadas.cerrar` | Sí | Sí | No | No | No | No | No | No | No | No | No | No | No |
+| | `temporadas.eliminar`| Sí | No | No | No | No | No | No | No | No | No | No | No | No |
 | **Convocatorias** | `convocatorias.ver` | Sí | Sí | Sí | No | Sí | Sí | Sí | Sí | Sí | Sí | Sí | Sí | Sí |
 | | `convocatorias.crear`| Sí | Sí | Sí | No | No | No | No | No | No | No | No | No | No |
 | | `convocatorias.editar`| Sí | Sí | Sí | No | No | No | No | No | No | No | No | No | No |
-| **Reglas de Temporada**| `reglas.ver` | Sí | Sí | Sí | No | Sí | Sí | Sí | No | No | No | Sí | Sí | No |
-| | `reglas.configurar` | Sí | Sí | No | No | No | No | No | No | No | No | No | No | No |
+| | `convocatorias.eliminar`| Sí | No | No | No | No | No | No | No | No | No | No | No | No |
+| **Reglas de Temporada**| `reglas_temporada.ver` | Sí | Sí | Sí | No | Sí | Sí | Sí | No | No | No | Sí | Sí | No |
+| | `reglas_temporada.editar`| Sí | Sí | No | No | No | No | No | No | No | No | No | No | No |
 | **Categorías y Grupos** | `categorias.ver` | Sí | Sí | Sí | No | Sí | Sí | Sí | Sí | Sí | Sí | Sí | Sí | Sí |
-| | `categorias.crear` | Sí | Sí | Sí | No | Sí* | No | No | No | No | No | No | No | No |
-| | `categorias.editar` | Sí | Sí | Sí | No | Sí* | No | No | No | No | No | No | No | No |
+| | `categorias.crear` | Sí | Pendiente (HU-007) | Pendiente (HU-007) | No | Pendiente (HU-007) | No | No | No | No | No | No | No | No |
+| | `categorias.editar` | Sí | Pendiente (HU-007) | Pendiente (HU-007) | No | Pendiente (HU-007) | No | No | No | No | No | No | No | No |
+| | `categorias.eliminar` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
 | **Clubes y Sedes** | `clubes.ver` | Sí | Sí | Sí | No | Sí | Sí | Sí | No | No | No | Sí* | Sí* | No |
-| | `clubes.crear` | Sí | Sí | Sí | No | No | No | No | No | No | No | No | No | No |
-| | `clubes.editar` | Sí | Sí | Sí | No | No | No | No | No | No | No | Sí* | No | No |
+| | `clubes.crear` | Sí | No | Sí | No | No | No | No | No | No | No | No | No | No |
+| | `clubes.editar` | Sí | No | Sí | No | No | No | No | No | No | No | Sí* | No | No |
+| | `clubes.eliminar` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
 | **Equipos** | `equipos.ver` | Sí | Sí | Sí | No | Sí | Sí | Sí | Sí | Sí | Sí | Sí* | Sí* | Sí* |
 | | `equipos.crear` | Sí | No | Sí | No | No | No | No | No | No | No | Sí* | Sí* | No |
 | | `equipos.editar` | Sí | No | Sí | No | No | No | No | No | No | No | Sí* | Sí* | No |
-| **Jugadores y Padrón** | `jugadores.ver` | Sí | Sí | Sí | No | Sí | Sí | Sí | Sí | Sí | Sí | Sí* | Sí* | Sí* |
-| | `jugadores.crear` | Sí | No | No | No | Sí* | No | No | No | No | No | Sí* | Sí* | No |
-| | `jugadores.editar` | Sí | No | No | No | Sí* | No | No | No | No | No | Sí* | Sí* | No |
-| | `jugadores.transferir`| Sí | No | No | No | No | No | No | No | No | No | Sí* | Sí* | No |
+| | `equipos.eliminar` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
+| **Jugadores y Padrón** | `jugadores.ver` | Sí | No | Sí | No | Sí | Sí | Sí | Sí | Sí | Sí | Sí* | Sí* | Sí* |
+| | `jugadores.crear` | Sí | No | No | No | Pendiente (HU-009) | No | No | No | No | No | Pendiente (HU-009) | Pendiente (HU-009) | No |
+| | `jugadores.editar` | Sí | No | No | No | Pendiente (HU-009) | No | No | No | No | No | Pendiente (HU-009) | Pendiente (HU-009) | No |
+| | `jugadores.eliminar` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
+| | `jugadores.transferir`| Sí | No | No | No | No | No | No | No | No | No | Pendiente (HU-009) | Pendiente (HU-009) | No |
 | | `jugadores.validar_edad`| Sí | No | Sí | No | Sí* | No | No | No | No | No | No | No | No |
 | **Canchas e Instalac.**| `campos.ver` | Sí | Sí | Sí | No | Sí | Sí | Sí | Sí | Sí | No | Sí | Sí | Sí |
-| | `campos.crear` | Sí | No | No | No | No | Sí | No | No | No | No | No | No | No |
-| | `campos.editar` | Sí | No | No | No | No | Sí | No | No | No | No | No | No | No |
-| | `campos.bloquear` | Sí | No | No | No | No | Sí | No | No | No | No | No | No | No |
-| **Arbitraje y Padrón** | `arbitros.ver` | Sí | Sí | Sí | No | No | Sí | No | Sí | Sí | Sí | No | No | No |
-| | `arbitros.crear` | Sí | No | No | No | No | No | No | No | Sí | No | No | No | No |
-| | `arbitros.editar` | Sí | No | No | No | No | No | No | No | Sí | No | No | No | No |
-| | `arbitros.asignar` | Sí | No | No | No | No | Sí | No | No | Sí | No | No | No | No |
-| **Jornadas y Partidos** | `partidos.ver` | Sí | Sí | Sí | No | Sí | Sí | Sí | Sí | Sí | Sí | Sí | Sí | Sí |
-| | `partidos.programar` | Sí | No | No | No | No | Sí | No | No | No | No | No | No | No |
-| | `partidos.reprogramar`| Sí | No | No | No | No | Sí | No | No | No | No | No | No | No |
-| **Cédulas y Resultados**| `cedulas.ver` | Sí | Sí | Sí | No | No | Sí | Sí | Sí* | No | Sí | Sí* | Sí* | Sí* |
-| | `cedulas.capturar` | Sí | No | No | No | No | No | Sí | Sí* | No | No | No | No | No |
-| | `cedulas.firmar` | No | No | No | No | No | No | No | Sí | No | No | No | Sí* | No |
-| | `resultados.validar`| Sí | Sí | Sí | No | No | Sí | No | No | No | No | No | No | No |
-| **Régimen Disciplin.** | `disciplina.ver` | Sí | Sí | Sí | No | Sí* | No | No | Sí | No | Sí | Sí* | Sí* | Sí* |
-| | `disciplina.expedientes`| Sí | No | No | No | No | No | No | No | No | Sí | No | No | No |
-| | `disciplina.sancionar`| Sí | No | No | No | No | No | No | No | No | Sí | No | No | No |
-| **Finanzas y Pagos** | `finanzas.ver` | Sí | Sí | No | Sí | No | No | No | No | No | No | Sí* | Sí* | No |
+| | `campos.crear` | Sí | No | No | No | No | Pendiente (HU-023) | No | No | No | No | No | No | No |
+| | `campos.editar` | Sí | No | No | No | No | Pendiente (HU-023) | No | No | No | No | No | No | No |
+| | `campos.eliminar` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
+| | `campos.bloquear` | Sí | No | No | No | No | Pendiente (HU-024) | No | No | No | No | No | No | No |
+| **Arbitraje y Padrón** | `arbitros.ver` | Sí | Pendiente (HU-010) | Pendiente (HU-010) | No | No | Pendiente (HU-010) | No | Pendiente (HU-010) | Pendiente (HU-010) | Pendiente (HU-010) | No | No | No |
+| | `arbitros.crear` | Sí | No | No | No | No | No | No | No | Pendiente (HU-010) | No | No | No | No |
+| | `arbitros.editar` | Sí | No | No | No | No | No | No | No | Pendiente (HU-010) | No | No | No | No |
+| | `arbitros.asignar` | Sí | No | No | No | No | Pendiente (HU-010) | No | No | Pendiente (HU-010) | No | No | No | No |
+| **Jornadas y Partidos** | `partidos.ver` | Sí | Pendiente (HU-014) | Pendiente (HU-014) | No | Pendiente (HU-014) | Pendiente (HU-014) | Pendiente (HU-014) | Pendiente (HU-014) | Pendiente (HU-014) | Pendiente (HU-014) | Pendiente (HU-014) | Pendiente (HU-014) | Pendiente (HU-014) |
+| | `partidos.programar` | Sí | No | No | No | No | Pendiente (HU-014) | No | No | No | No | No | No | No |
+| | `partidos.reprogramar`| Sí | No | No | No | No | Pendiente (HU-014) | No | No | No | No | No | No | No |
+| **Cédulas y Resultados**| `cedulas.ver` | Sí | Pendiente (HU-015) | Pendiente (HU-015) | No | No | Pendiente (HU-015) | Pendiente (HU-015) | Pendiente (HU-015) | No | Pendiente (HU-015) | Pendiente (HU-015) | Pendiente (HU-015) | Pendiente (HU-015) |
+| | `cedulas.capturar` | Sí | No | No | No | No | No | Pendiente (HU-015) | Pendiente (HU-015) | No | No | No | No | No |
+| | `cedulas.firmar` | No | No | No | No | No | No | No | Pendiente (HU-015) | No | No | No | Pendiente (HU-015) | No |
+| | `resultados.validar`| Sí | Pendiente (HU-016) | Pendiente (HU-016) | No | No | Pendiente (HU-016) | No | No | No | No | No | No | No |
+| **Régimen Disciplin.** | `disciplina.ver` | Sí | Pendiente (HU-017) | Pendiente (HU-017) | No | Pendiente (HU-017) | No | No | Pendiente (HU-017) | No | Pendiente (HU-017) | Pendiente (HU-017) | Pendiente (HU-017) | Pendiente (HU-017) |
+| | `disciplina.expedientes`| Sí | No | No | No | No | No | No | No | No | Pendiente (HU-017) | No | No | No |
+| | `disciplina.sancionar`| Sí | No | No | No | No | No | No | No | No | Pendiente (HU-017) | No | No | No |
+| **Finanzas y Pagos** | `finanzas.ver` | Sí | No | No | Sí | No | No | No | No | No | No | Pendiente (HU-018) | Pendiente (HU-018) | No |
 | | `finanzas.cargos` | Sí | No | No | Sí | No | No | No | No | No | No | No | No | No |
 | | `finanzas.pagos_validar`| Sí | No | No | Sí | No | No | No | No | No | No | No | No | No |
 | | `finanzas.reportes` | Sí | Sí | No | Sí | No | No | No | No | No | No | No | No | No |
-
-*Nota sobre permisos con asterisco (`*`): El acceso está acotado por políticas de pertinencia (ej. ClubPolicy restringe las operaciones estrictamente al propio club del usuario; la Comisión Infantil opera únicamente sobre la rama infantil).*
 
 ---
 
@@ -120,9 +138,9 @@ En cumplimiento de los criterios de aceptación de `HU-071`, `HU-072`, `HU-073` 
    - La creación, modificación, desactivación y asignación de roles a usuarios (`usuarios.*` y `roles.*`) es potestad exclusiva del **Administrador General**.
    - Si Presidente, Secretario, Tesorero, Comisión Infantil o cualquier rol operativo intentan abrir `/admin/usuarios` o ejecutar acciones sobre cuentas, el sistema responde **HTTP 403 Forbidden**.
 
-2. **Aislamiento Disciplinario del Tesorero (Criterio 2 de HU-071):**
+2. **Aislamiento Disciplinario y Operativo del Tesorero (Criterio 2 de HU-071):**
    - El Tesorero tiene facultades limitadas estrictamente al aspecto económico (`finanzas.*`).
-   - Si el Tesorero intenta consultar o alterar expedientes disciplinarios (`disciplina.*`), programar partidos o modificar temporadas, el sistema rechaza la solicitud de inmediato con **HTTP 403 Forbidden**.
+   - Se le deniega expresamente la consulta de clubes, equipos, campos, expedientes disciplinarios (`disciplina.*`), partidos y temporadas. Si intenta ejecutar cualquier acción fuera de tesorería, el sistema responde **HTTP 403 Forbidden**.
 
 3. **Autonomía del Tribunal de Penas:**
    - La tipificación de sanciones y resolución de recursos de inconformidad corresponde exclusivamente al **Tribunal de Penas**.
