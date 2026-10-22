@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\ReglaTemporada;
 use App\Models\Temporada;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
@@ -29,42 +28,31 @@ class ReglasTemporadaService
             ]);
         }
 
-        return DB::transaction(function () use (
-            $temporada,
-            $reglas,
-            $motivo
-        ): ReglaTemporada {
-            $bloqueada = Temporada::query()
-                ->whereKey($temporada->getKey())
-                ->lockForUpdate()
-                ->firstOrFail();
+        return app(AuditService::class)->conMotivo(
+            $motivo,
+            function () use ($temporada, $reglas, $motivo): ReglaTemporada {
+                $bloqueada = Temporada::query()
+                    ->whereKey($temporada->getKey())
+                    ->lockForUpdate()
+                    ->firstOrFail();
 
-            Gate::authorize('update', $bloqueada);
+                Gate::authorize('update', $bloqueada);
 
-            $versionAnterior = ReglaTemporada::query()
-                ->where('temporada_id', $bloqueada->id)
-                ->max('version');
+                $versionAnterior = ReglaTemporada::query()
+                    ->where('temporada_id', $bloqueada->id)
+                    ->max('version');
 
-            $version = ((int) $versionAnterior) + 1;
+                $version = ((int) $versionAnterior) + 1;
 
-            $regla = ReglaTemporada::create([
-                'temporada_id' => $bloqueada->id,
-                'version' => $version,
-                'reglas' => $reglas,
-                'usuario_id' => auth()->id(),
-                'motivo' => $motivo,
-            ]);
-
-            app(AuditService::class)->registrar(
-                'crear',
-                $regla,
-                null,
-                $regla->getAttributes(),
-                $motivo
-            );
-
-            return $regla;
-        });
+                return ReglaTemporada::create([
+                    'temporada_id' => $bloqueada->id,
+                    'version' => $version,
+                    'reglas' => $reglas,
+                    'usuario_id' => auth()->id(),
+                    'motivo' => $motivo,
+                ]);
+            }
+        );
     }
 
     /**

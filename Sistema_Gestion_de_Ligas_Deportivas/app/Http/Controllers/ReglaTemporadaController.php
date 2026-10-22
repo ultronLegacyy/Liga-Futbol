@@ -2,14 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreReglasTemporadaRequest;
 use App\Models\Temporada;
 use App\Services\ReglasTemporadaService;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
-use JsonException;
 
 class ReglaTemporadaController extends Controller
 {
@@ -31,46 +28,21 @@ class ReglaTemporadaController extends Controller
     }
 
     public function store(
-        Request $request,
+        StoreReglasTemporadaRequest $request,
         Temporada $temporada
     ): RedirectResponse {
-        abort_unless(
-            auth()->user()?->can('reglas_temporada.editar'),
-            403
-        );
-
         if ($temporada->estado === 'cerrada') {
             abort(403, 'No se pueden modificar las reglas de una temporada cerrada.');
         }
 
-        $datos = $request->validate([
-            'reglas_json' => ['required', 'string', 'max:20000'],
-            'motivo' => ['required', 'string', 'max:1000'],
-        ]);
+        $datos = $request->validated();
 
-        try {
-            $reglas = json_decode(
-                $datos['reglas_json'],
-                true,
-                512,
-                JSON_THROW_ON_ERROR
-            );
-        } catch (JsonException) {
-            throw ValidationException::withMessages([
-                'reglas_json' => 'El contenido debe ser un JSON válido.',
-            ]);
-        }
-
-        $validador = Validator::make(
-            ['reglas' => $reglas],
-            ['reglas' => ['required', 'array', 'min:1']]
+        $reglas = json_decode(
+            $datos['reglas_json'],
+            true,
+            512,
+            JSON_THROW_ON_ERROR
         );
-
-        if ($validador->fails()) {
-            throw ValidationException::withMessages([
-                'reglas_json' => 'Las reglas deben ser un objeto JSON válido y no estar vacío.',
-            ]);
-        }
 
         $this->reglasService->guardar(
             $temporada,
