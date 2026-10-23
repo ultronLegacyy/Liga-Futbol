@@ -151,6 +151,7 @@ class RbacGovernanceAnd403Test extends TestCase
             'estatus' => 'activo',
             'rol' => 'Administrador General',
         ]);
+
         $admin->assignRole('Administrador General');
 
         $respuestaAdmin = $this->actingAs($admin)
