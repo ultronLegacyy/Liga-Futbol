@@ -136,8 +136,8 @@ class ConvocatoriaPrivadaTest extends TestCase
 
     public function test_usuario_sin_permiso_de_crear_temporadas_recibe_403(): void
     {
-        // El rol Directivo de Club puede ver temporadas pero no crearlas
-        $directivo = $this->crearUsuario('directivo_convocatoria@liga.com', 'Directivo Club', 'Directivo de Club');
+        // El rol Presidente del Club puede ver temporadas pero no crearlas
+        $directivo = $this->crearUsuario('directivo_convocatoria@liga.com', 'Directivo Club', 'Presidente del Club');
 
         $respuesta = $this->actingAs($directivo)->post('/temporadas', $this->datosTemporada());
 

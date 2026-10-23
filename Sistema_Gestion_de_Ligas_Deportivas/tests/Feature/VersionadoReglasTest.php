@@ -356,11 +356,11 @@ class VersionadoReglasTest extends TestCase
 
     public function test_usuario_sin_permiso_de_editar_temporadas_recibe_403(): void
     {
-        // El rol Directivo de Club puede ver temporadas, pero no editarlas.
+        // El rol Presidente del Club puede ver temporadas, pero no editarlas.
         $directivo = $this->crearUsuario(
             'directivo_version@liga.com',
             'Directivo Club',
-            'Directivo de Club'
+            'Presidente del Club'
         );
 
         [$temporada, $rutaV1] = $this->crearTemporadaConConvocatoria();

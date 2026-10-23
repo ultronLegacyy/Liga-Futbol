@@ -196,7 +196,7 @@ class CanchaTest extends TestCase
     // CA4: un rol que no es Administrador General recibe 403 al registrar o editar
     public function test_otro_rol_recibe_403_al_registrar_o_editar_una_cancha(): void
     {
-        $arbitro = $this->crearUsuario('arbitro_canchas@liga.com', 'Arbitro');
+        $arbitro = $this->crearUsuario('arbitro_canchas@liga.com', 'Árbitro en Campo');
         $cancha = Cancha::factory()->create([
             'nombre' => 'Cancha protegida',
             'capacidad_partidos_consecutivos' => 2,
@@ -223,7 +223,7 @@ class CanchaTest extends TestCase
     // Consultar requiere permiso: el Árbitro tiene campos.ver y el Tesorero no
     public function test_consultar_el_catalogo_requiere_permiso(): void
     {
-        $arbitro = $this->crearUsuario('arbitro_consulta@liga.com', 'Arbitro');
+        $arbitro = $this->crearUsuario('arbitro_consulta@liga.com', 'Árbitro en Campo');
         $tesorero = $this->crearUsuario('tesorero_canchas@liga.com', 'Tesorero');
         $cancha = Cancha::factory()->create();
 
@@ -295,7 +295,8 @@ class CanchaTest extends TestCase
             'email' => $email,
             'password' => Hash::make('secreto123'),
             'estatus' => 'activo',
-            'rol' => $rol,
+            // La columna rol usa «Arbitro»; el rol de Spatie se llama «Árbitro en Campo»
+            'rol' => $rol === 'Árbitro en Campo' ? 'Arbitro' : $rol,
         ]);
 
         $usuario->assignRole($rol);

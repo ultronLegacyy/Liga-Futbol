@@ -234,7 +234,7 @@ class ReglasTemporadaTest extends TestCase
 
     public function test_usuario_sin_permiso_no_puede_consultar_el_historial(): void
     {
-        $usuario = $this->crearUsuarioConsultaPublica();
+        $usuario = $this->crearUsuarioSinPermisoDeReglas();
         $temporada = Temporada::factory()->activa()->create();
 
         $this->actingAs($usuario)
@@ -244,7 +244,7 @@ class ReglasTemporadaTest extends TestCase
 
     public function test_usuario_sin_permiso_no_puede_guardar_reglas(): void
     {
-        $usuario = $this->crearUsuarioConsultaPublica();
+        $usuario = $this->crearUsuarioSinPermisoDeReglas();
         $temporada = Temporada::factory()->activa()->create();
 
         $this->actingAs($usuario)->post(
@@ -363,7 +363,7 @@ class ReglasTemporadaTest extends TestCase
             ->assertOk()
             ->assertSee($enlace, false);
 
-        $this->actingAs($this->crearUsuarioConsultaPublica())
+        $this->actingAs($this->crearUsuarioSinPermisoDeReglas())
             ->get(route('temporadas.show', $temporada))
             ->assertOk()
             ->assertDontSee($enlace, false);
@@ -460,17 +460,17 @@ class ReglasTemporadaTest extends TestCase
         return $usuario;
     }
 
-    private function crearUsuarioConsultaPublica(): User
+    private function crearUsuarioSinPermisoDeReglas(): User
     {
         $usuario = User::create([
-            'name' => 'Usuario de consulta pública',
+            'name' => 'Usuario sin permiso de reglas',
             'email' => 'consulta_reglas_'.uniqid().'@liga.com',
             'password' => Hash::make('secreto123'),
             'estatus' => 'activo',
             'rol' => 'Arbitro',
         ]);
 
-        $usuario->assignRole('Consulta Publica');
+        $usuario->assignRole('Árbitro en Campo');
 
         return $usuario;
     }

@@ -324,10 +324,10 @@ class CategoriasYGruposTest extends TestCase
         $this->assertSame(0, $this->activa->categorias()->count());
     }
 
-    // Otro rol recibe 403 al agregar o cambiar; el Directivo de Club solo consulta
+    // Otro rol recibe 403 al agregar o cambiar; el Presidente del Club solo consulta
     public function test_otro_rol_recibe_403_al_agregar_o_cambiar_categorias_y_grupos(): void
     {
-        $directivo = $this->crearUsuario('directivo_categorias@liga.com', 'Directivo de Club');
+        $directivo = $this->crearUsuario('directivo_categorias@liga.com', 'Presidente del Club');
         $categoria = Categoria::factory()->create(['temporada_id' => $this->activa->id, 'nombre' => 'Original']);
         $grupo = Grupo::factory()->create(['categoria_id' => $categoria->id, 'nombre' => 'Grupo Original']);
 
@@ -452,8 +452,8 @@ class CategoriasYGruposTest extends TestCase
             'email' => $email,
             'password' => Hash::make('secreto123'),
             'estatus' => 'activo',
-            // La columna rol usa «Directivo Club»; el rol de Spatie se llama «Directivo de Club»
-            'rol' => $rol === 'Directivo de Club' ? 'Directivo Club' : $rol,
+            // La columna rol usa «Directivo Club»; el rol de Spatie se llama «Presidente del Club»
+            'rol' => $rol === 'Presidente del Club' ? 'Directivo Club' : $rol,
         ]);
 
         $usuario->assignRole($rol);

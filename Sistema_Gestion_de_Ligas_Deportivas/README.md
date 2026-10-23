@@ -141,8 +141,8 @@ php artisan migrate:fresh
 El seeder integral se encuentra en `database/seeders/DatabaseSeeder.php`. Pobla un conjunto cohesionado de datos de prueba cubriendo las entidades del sistema y la infraestructura de seguridad/RBAC:
 
 - Liga activa de muestra: Liga Municipal de Futbol Amateur de Morelia, A.C.
-- Generacion de los 8 roles base del sistema via Spatie: `Administrador General`, `Presidente`, `Secretario`, `Tesorero`, `Comision Disciplinaria`, `Directivo de Club`, `Arbitro` y `Consulta Publica`.
-- Asignacion automatica de roles Spatie a los usuarios seed (`Administrador General`, `Directivo de Club` y `Arbitro`).
+- Generacion de los 13 roles con cuenta de la seccion 2.3 de la ERS via Spatie (HU-080): `Administrador General`, `Presidente`, `Secretario`, `Tesorero`, `Comision de la Rama Infantil`, `Programador de Partidos`, `Capturista`, `Tribunal de Penas`, `Comisión Arbitral`, `Árbitro en Campo`, `Presidente del Club`, `Delegado del Club` y `Jugador`.
+- Asignacion automatica de roles Spatie a los usuarios seed (`Administrador General`, `Presidente`, `Tesorero`, `Presidente del Club` y `Árbitro en Campo`).
 - 2 Clubes con directivos, historial y 2 equipos por club.
 - Temporada 2026-2027 con convocatorias, categoria Primera Especial, grupos y fases.
 - 4 Jugadores federados con expediente documental y asignacion de equipo.

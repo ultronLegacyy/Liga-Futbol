@@ -144,17 +144,17 @@ class AuditServiceTest extends TestCase
         $usuario = $this->crearUsuario('arbitro_auditado@liga.com');
         $this->actingAs($admin);
 
-        $usuario->assignRole('Arbitro');
-        $usuario->removeRole('Arbitro');
+        $usuario->assignRole('Árbitro en Campo');
+        $usuario->removeRole('Árbitro en Campo');
 
         $asignado = $this->logsDe($usuario, 'rol_asignado')->sole();
-        $this->assertSame(['roles' => ['Arbitro']], $asignado->valores_nuevos);
+        $this->assertSame(['roles' => ['Árbitro en Campo']], $asignado->valores_nuevos);
         $this->assertNull($asignado->valores_anteriores);
         $this->assertSame($admin->id, $asignado->usuario_id);
         $this->assertSame(self::IP_PRUEBA, $asignado->ip);
 
         $retirado = $this->logsDe($usuario, 'rol_retirado')->sole();
-        $this->assertSame(['roles' => ['Arbitro']], $retirado->valores_anteriores);
+        $this->assertSame(['roles' => ['Árbitro en Campo']], $retirado->valores_anteriores);
         $this->assertNull($retirado->valores_nuevos);
         $this->assertSame($admin->id, $retirado->usuario_id);
     }
