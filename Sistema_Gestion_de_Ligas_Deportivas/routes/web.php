@@ -40,8 +40,8 @@ Route::middleware(['auth'])->group(function () {
 
 // Categorías y grupos de cada temporada (RF-02.1, RF-02.2): en una temporada cerrada solo se consultan (RF-01.4)
 Route::middleware(['auth'])->group(function () {
-    Route::resource('temporadas.categorias', CategoriaController::class)->shallow()->only(['index', 'store', 'show', 'update']);
-    Route::resource('categorias.grupos', GrupoController::class)->shallow()->only(['store', 'update']);
+    Route::resource('temporadas.categorias', CategoriaController::class)->shallow()->only(['index', 'create', 'store', 'show', 'edit', 'update']);
+    Route::resource('categorias.grupos', GrupoController::class)->shallow()->only(['store', 'edit', 'update']);
 });
 
 // Grupo de rutas de administracion de gobernanza protegidas estrictamente por rol Administrador General

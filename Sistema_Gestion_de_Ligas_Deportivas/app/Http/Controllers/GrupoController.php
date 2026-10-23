@@ -9,8 +9,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\View\View;
 
-// Grupos en los que se divide una categoría (HU-007, RF-02.2). Las vistas Blade llegan con S2-T20
+// Grupos en los que se divide una categoría (HU-007, RF-02.2): se agregan desde la ficha de la categoría y se renombran en su propio formulario
 class GrupoController extends Controller
 {
     /**
@@ -27,8 +28,20 @@ class GrupoController extends Controller
             'temporada_id' => $categoria->temporada_id,
         ]));
 
-        return redirect()->back()
+        return redirect()->route('categorias.show', $categoria)
             ->with('success', 'Grupo registrado correctamente.');
+    }
+
+    /**
+     * Formulario para renombrar un grupo.
+     */
+    public function edit(Grupo $grupo): View
+    {
+        Gate::authorize('update', $grupo);
+
+        $grupo->load('categoria.temporada');
+
+        return view('grupos.edit', compact('grupo'));
     }
 
     /**
@@ -42,7 +55,7 @@ class GrupoController extends Controller
 
         DB::transaction(fn () => $grupo->update($datos));
 
-        return redirect()->back()
+        return redirect()->route('categorias.show', $grupo->categoria_id)
             ->with('success', 'Grupo actualizado correctamente.');
     }
 
