@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditoriaLog;
 use App\Models\User;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -188,5 +189,153 @@ class UserControllerTest extends TestCase
             ->assertRedirect(route('admin.usuarios.index'));
 
         $this->assertSame(['Tesorero'], $usuario->fresh()->getRoleNames()->all());
+    }
+
+    // CA4: el correo de otra cuenta y un rol que no existe se rechazan sin guardar nada
+    public function test_correo_duplicado_y_rol_inexistente_se_rechazan_sin_guardar(): void
+    {
+        $admin = $this->crearAdministrador();
+        $existente = User::factory()->create(['email' => 'ocupado@liga.com']);
+        $otra = User::factory()->create(['email' => 'otra@liga.com']);
+        $otra->assignRole('Jugador');
+
+        $this->actingAs($admin)->post(route('admin.usuarios.store'), [
+            'name' => 'Duplicada',
+            'email' => 'ocupado@liga.com',
+            'roles' => ['Rol Inventado'],
+            'motivo' => 'Alta de prueba',
+        ])->assertSessionHasErrors([
+            'email' => 'Este correo ya está registrado en el sistema.',
+            'roles.0' => 'El rol seleccionado no es válido.',
+        ]);
+
+        $this->actingAs($admin)->put(route('admin.usuarios.update', $otra), [
+            'name' => $otra->name,
+            'email' => $existente->email,
+            'roles' => ['Jugador'],
+            'motivo' => 'Cambio de correo',
+        ])->assertSessionHasErrors(['email' => 'Este correo ya está registrado en otra cuenta.']);
+
+        $this->assertDatabaseMissing('usuarios', ['name' => 'Duplicada']);
+        $this->assertSame('otra@liga.com', $otra->fresh()->email);
+    }
+
+    // CA6: la cuenta reactivada vuelve a iniciar sesión
+    public function test_la_cuenta_reactivada_vuelve_a_iniciar_sesion(): void
+    {
+        $admin = $this->crearAdministrador();
+        $usuario = User::factory()->create(['password' => Hash::make('password123'), 'estatus' => 'inactivo']);
+
+        $this->actingAs($admin)
+            ->patch(route('admin.usuarios.toggleStatus', $usuario), ['motivo' => 'Fin de la licencia'])
+            ->assertRedirect(route('admin.usuarios.index'));
+
+        $this->assertSame('activo', $usuario->fresh()->estatus);
+
+        auth()->logout();
+
+        $this->post('/login', ['email' => $usuario->email, 'password' => 'password123']);
+        $this->assertAuthenticatedAs($usuario->fresh());
+    }
+
+    // CA5: tras cambiar los roles, la cuenta ve solo lo de sus roles vigentes y recibe 403 en lo demás
+    public function test_tras_cambiar_roles_la_cuenta_ve_solo_lo_de_sus_roles_vigentes(): void
+    {
+        $admin = $this->crearAdministrador();
+        $usuario = User::factory()->create();
+        $usuario->assignRole('Tesorero');
+
+        // El Tesorero no consulta temporadas; el Secretario sí
+        $this->actingAs($usuario)->get(route('temporadas.index'))->assertForbidden();
+
+        $this->actingAs($admin)->put(route('admin.usuarios.update', $usuario), [
+            'name' => $usuario->name,
+            'email' => $usuario->email,
+            'roles' => ['Secretario'],
+            'motivo' => 'Cambio a la secretaría',
+        ])->assertRedirect(route('admin.usuarios.index'));
+
+        $this->actingAs($usuario->fresh())->get(route('temporadas.index'))->assertOk();
+        $this->assertFalse($usuario->fresh()->hasRole('Tesorero'));
+    }
+
+    // CA7: editar, cambiar roles y desactivar quedan en la auditoría con el usuario, los valores y el motivo
+    public function test_edicion_roles_y_estado_quedan_en_la_auditoria_con_motivo(): void
+    {
+        $admin = $this->crearAdministrador();
+        $usuario = User::factory()->create(['name' => 'Nombre Anterior', 'estatus' => 'activo']);
+        $usuario->assignRole('Tesorero');
+
+        $this->actingAs($admin)->put(route('admin.usuarios.update', $usuario), [
+            'name' => 'Nombre Nuevo',
+            'email' => $usuario->email,
+            'roles' => ['Secretario'],
+            'motivo' => 'Cambio de funciones',
+        ]);
+
+        $edicion = $this->logsDe($usuario, 'actualizar')->sole();
+        $this->assertSame(['name' => 'Nombre Anterior'], $edicion->valores_anteriores);
+        $this->assertSame(['name' => 'Nombre Nuevo'], $edicion->valores_nuevos);
+        $this->assertSame('Cambio de funciones', $edicion->motivo);
+        $this->assertSame($admin->id, $edicion->usuario_id);
+
+        $retirado = $this->logsDe($usuario, 'rol_retirado')->sole();
+        $this->assertContains('Tesorero', $retirado->valores_anteriores['roles']);
+        $this->assertSame('Cambio de funciones', $retirado->motivo);
+
+        $asignado = $this->logsDe($usuario, 'rol_asignado')->latest('id')->first();
+        $this->assertContains('Secretario', $asignado->valores_nuevos['roles']);
+        $this->assertSame('Cambio de funciones', $asignado->motivo);
+
+        $this->actingAs($admin)->patch(route('admin.usuarios.toggleStatus', $usuario), ['motivo' => 'Baja por renuncia']);
+
+        $estado = $this->logsDe($usuario, 'actualizar')->latest('id')->first();
+        $this->assertSame(['estatus' => 'activo'], $estado->valores_anteriores);
+        $this->assertSame(['estatus' => 'inactivo'], $estado->valores_nuevos);
+        $this->assertSame('Baja por renuncia', $estado->motivo);
+        $this->assertSame($admin->id, $estado->usuario_id);
+    }
+
+    // CA8: quien no es Administrador General recibe 403 al editar o desactivar, y no cambia nada
+    public function test_quien_no_es_administrador_recibe_403_al_editar_o_desactivar(): void
+    {
+        $tesorero = User::factory()->create();
+        $tesorero->assignRole('Tesorero');
+        $usuario = User::factory()->create(['name' => 'Sin Cambios', 'estatus' => 'activo']);
+
+        $this->actingAs($tesorero)->put(route('admin.usuarios.update', $usuario), [
+            'name' => 'Cambiado',
+            'email' => $usuario->email,
+            'roles' => ['Administrador General'],
+            'motivo' => 'Intento sin permiso',
+        ])->assertForbidden();
+
+        $this->actingAs($tesorero)
+            ->patch(route('admin.usuarios.toggleStatus', $usuario), ['motivo' => 'Intento sin permiso'])
+            ->assertForbidden();
+
+        $usuario->refresh();
+        $this->assertSame('Sin Cambios', $usuario->name);
+        $this->assertSame('activo', $usuario->estatus);
+        $this->assertFalse($usuario->hasRole('Administrador General'));
+    }
+
+    private function crearAdministrador(): User
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('Administrador General');
+
+        return $admin;
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Builder<AuditoriaLog>
+     */
+    private function logsDe(User $usuario, string $accion): \Illuminate\Database\Eloquent\Builder
+    {
+        return AuditoriaLog::query()
+            ->where('tabla_afectada', $usuario->getTable())
+            ->where('registro_id', $usuario->getKey())
+            ->where('accion', $accion);
     }
 }
