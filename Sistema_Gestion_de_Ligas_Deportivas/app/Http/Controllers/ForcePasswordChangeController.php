@@ -27,6 +27,7 @@ class ForcePasswordChangeController extends Controller
         $request->validate([
             'password' => ['required', 'confirmed', new RNF26Password($user)],
         ], [
+            'password.required' => 'La nueva contraseña es obligatoria.',
             'password.confirmed' => 'Las contraseñas no coinciden.',
         ]);
 

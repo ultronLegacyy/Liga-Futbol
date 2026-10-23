@@ -69,7 +69,10 @@ Route::middleware(['auth'])->group(function () {
 
             // Rutas para la administración de cuentas de usuario (HU-080)
             Route::get('/usuarios', [UserController::class, 'index'])->name('usuarios.index');
+            Route::get('/usuarios/create', [UserController::class, 'create'])->name('usuarios.create');
             Route::post('/usuarios', [UserController::class, 'store'])->name('usuarios.store');
+            Route::get('/usuarios/{usuario}/edit', [UserController::class, 'edit'])->name('usuarios.edit');
+            Route::get('/usuarios/{usuario}/estado', [UserController::class, 'estado'])->name('usuarios.estado');
             Route::put('/usuarios/{usuario}', [UserController::class, 'update'])->name('usuarios.update');
             Route::patch('/usuarios/{usuario}/toggle-status', [UserController::class, 'toggleStatus'])->name('usuarios.toggleStatus');
         });
