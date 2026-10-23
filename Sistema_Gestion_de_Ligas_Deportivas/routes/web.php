@@ -47,11 +47,11 @@ Route::middleware(['auth'])->group(function () {
             ->name('temporadas.convocatoria.versionar');
 
         // Catálogo de canchas y sedes
-        Route::resource('canchas', CanchaController::class)->only(['index', 'show', 'store', 'update']);
+        Route::resource('canchas', CanchaController::class)->only(['index', 'show', 'create', 'store', 'edit', 'update']);
 
         // Categorías y grupos
-        Route::resource('temporadas.categorias', CategoriaController::class)->shallow()->only(['index', 'store', 'show', 'update']);
-        Route::resource('categorias.grupos', GrupoController::class)->shallow()->only(['store', 'update']);
+        Route::resource('temporadas.categorias', CategoriaController::class)->shallow()->only(['index', 'create', 'store', 'show', 'edit', 'update']);
+        Route::resource('categorias.grupos', GrupoController::class)->shallow()->only(['store', 'edit', 'update']);
 
         // Grupo de rutas de administracion de gobernanza y gestión de cuentas (S2-T13)
         Route::middleware(['role:Administrador General'])->prefix('admin')->name('admin.')->group(function () {
