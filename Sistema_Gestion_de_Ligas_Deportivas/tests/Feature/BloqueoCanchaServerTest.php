@@ -19,7 +19,7 @@ class BloqueoCanchaServerTest extends TestCase
 
     private User $admin;
 
-    private User $arbitroSinPermiso;
+    private User $usuarioSinPermiso;
 
     private Cancha $cancha;
 
@@ -30,7 +30,7 @@ class BloqueoCanchaServerTest extends TestCase
         $this->seed(RoleAndPermissionSeeder::class);
 
         $this->admin = $this->crearUsuario('admin_bloqueos@liga.com', 'Administrador General');
-        $this->arbitroSinPermiso = $this->crearUsuario('arbitro_bloqueos@liga.com', 'Arbitro');
+        $this->usuarioSinPermiso = $this->crearUsuario('tesorero_bloqueos@liga.com', 'Tesorero');
 
         $this->cancha = Cancha::create([
             'nombre' => 'Cancha 12 U.D.C.',
@@ -311,7 +311,7 @@ class BloqueoCanchaServerTest extends TestCase
     // 14. Rechazo con 403 Forbidden a usuarios sin permiso campos.bloquear (CA4)
     public function test_usuario_sin_permiso_es_rechazado_con_403_al_intentar_bloquear(): void
     {
-        $respuesta = $this->actingAs($this->arbitroSinPermiso)
+        $respuesta = $this->actingAs($this->usuarioSinPermiso)
             ->postJson(route('canchas.bloqueos.store', $this->cancha), [
                 'fecha_inicio' => '2026-11-20 08:00:00',
                 'fecha_fin' => '2026-11-20 12:00:00',
