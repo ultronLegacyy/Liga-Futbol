@@ -9,6 +9,7 @@ use App\Http\Controllers\TemporadaController;
 use App\Http\Controllers\ForcePasswordChangeController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\ForcePasswordChange;
+use App\Http\Controllers\ReglaTemporadaController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -27,8 +28,17 @@ Route::middleware(['auth'])->group(function () {
     // 2. Rutas del sistema PROTEGIDAS por el bloqueo temporal
     Route::middleware([ForcePasswordChange::class])->group(function () {
         
-        // Rutas de temporadas deportivas
+        // Rutas de temporadas deportivas y reglas (Merge de develop)
         Route::resource('temporadas', TemporadaController::class);
+        
+        Route::get('/temporadas/{temporada}/reglas', [ReglaTemporadaController::class, 'index'])
+            ->name('temporadas.reglas.index')
+            ->middleware('can:reglas_temporada.ver');
+
+        Route::post('/temporadas/{temporada}/reglas', [ReglaTemporadaController::class, 'store'])
+            ->name('temporadas.reglas.store')
+            ->middleware('can:reglas_temporada.editar');
+
         Route::get('/temporadas/{temporada}/convocatoria', [TemporadaController::class, 'convocatoria'])
             ->name('temporadas.convocatoria');
         Route::post('/temporadas/{temporada}/convocatoria', [TemporadaController::class, 'versionarConvocatoria'])
