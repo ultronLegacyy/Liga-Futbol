@@ -126,7 +126,7 @@ class DatabaseSeeder extends Seeder
 
         // Ejecucion del seeder de roles y permisos de gobernanza RBAC (Sprint 1)
         $this->call(RoleAndPermissionSeeder::class);
-        
+
         // Ejecucion del seeder del catalogo de los 13 roles (Sprint 2 - HU-080)
         $this->call(RoleSeeder::class);
 

@@ -144,6 +144,7 @@ class TemporadaCerradaTest extends TestCase
                 'nombre' => 'Temporada Activa Renombrada',
                 'fecha_inicio' => '2027-01-10',
                 'fecha_fin' => '2027-06-30',
+                'motivo' => 'Actualización de prueba para temporada activa', // <-- Agregado aquí
             ]);
 
         $respuesta->assertRedirect();

@@ -24,21 +24,19 @@ class ForcePasswordChangeController extends Controller
     {
         $user = Auth::user();
 
-        // Aplicamos la regla RNF-26 pasándole el usuario para evaluar el 2FA
         $request->validate([
             'password' => ['required', 'confirmed', new RNF26Password($user)],
         ], [
             'password.confirmed' => 'Las contraseñas no coinciden.',
         ]);
 
-        // Actualizamos las contraseñas y quitamos la bandera de obligatoriedad
+        // 1. Quitamos la línea de password_hash para dejar una sola columna de contraseña
         $user->update([
             'password' => Hash::make($request->password),
-            'password_hash' => Hash::make($request->password), // Actualizamos ambos campos según tu esquema
             'requires_password_change' => false,
         ]);
 
-        // Redirigir al panel principal o dashboard
-        return redirect('/dashboard')->with('status', 'Contraseña actualizada correctamente. ¡Bienvenido!');
+        // 2. Corregimos la redirección usando la configuración de Fortify en lugar de la ruta manual quemada
+        return redirect(config('fortify.home'))->with('status', 'Contraseña actualizada correctamente. ¡Bienvenido!');
     }
 }

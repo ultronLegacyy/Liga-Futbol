@@ -4,21 +4,19 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Role;
-use Spatie\Permission\PermissionRegistrar;
 
 class RoleSeeder extends Seeder
 {
     public function run(): void
     {
-        // Limpiar caché de Spatie
-        app()[PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
         $roles = [
             'Administrador General',
-            'Presidente del Consejo Directivo',
-            'Secretario del Consejo Directivo',
-            'Tesorero del Consejo Directivo',
-            'Comisión de la Rama Infantil',
+            'Presidente',
+            'Secretario',
+            'Tesorero',
+            'Comision de la Rama Infantil',
             'Programador de Partidos',
             'Capturista',
             'Tribunal de Penas',

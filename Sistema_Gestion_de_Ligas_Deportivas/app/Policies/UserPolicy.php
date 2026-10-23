@@ -57,4 +57,13 @@ class UserPolicy
             ? Response::allow()
             : Response::deny('No cuenta con privilegios para eliminar cuentas de usuario.');
     }
+    public function toggleStatus(User $user, User $model): bool
+    {
+        // Evitar que el administrador se desactive a sí mismo (como pidió el jefe)
+        if ($user->id === $model->id) {
+            return false;
+        }
+
+        return $user->hasRole('Administrador General');
+    }
 }

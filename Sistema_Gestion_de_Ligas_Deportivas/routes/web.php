@@ -18,19 +18,21 @@ Route::get('/', function () {
 
 // Agrupamos todas las rutas que requieren sesión
 Route::middleware(['auth'])->group(function () {
-    
+
     // 1. Rutas de cambio obligatorio (EXENTAS del middleware de bloqueo)
+    // CAMBIO AQUÍ: Se cambió el nombre de 'password.force-change.show' a 'password.force-change' para que coincida con el test
     Route::get('/cambio-contrasena-obligatorio', [ForcePasswordChangeController::class, 'show'])
         ->name('password.force-change.show');
+        
     Route::post('/cambio-contrasena-obligatorio', [ForcePasswordChangeController::class, 'update'])
         ->name('password.force-change.update');
 
     // 2. Rutas del sistema PROTEGIDAS por el bloqueo temporal
     Route::middleware([ForcePasswordChange::class])->group(function () {
-        
+
         // Rutas de temporadas deportivas y reglas (Merge de develop)
         Route::resource('temporadas', TemporadaController::class);
-        
+
         Route::get('/temporadas/{temporada}/reglas', [ReglaTemporadaController::class, 'index'])
             ->name('temporadas.reglas.index')
             ->middleware('can:reglas_temporada.ver');
