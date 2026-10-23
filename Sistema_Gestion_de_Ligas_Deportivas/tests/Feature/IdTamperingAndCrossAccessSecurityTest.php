@@ -105,7 +105,7 @@ class IdTamperingAndCrossAccessSecurityTest extends TestCase
             'club_id' => $this->club1->id,
         ]);
 
-        $this->directivoClub1->assignRole('Directivo de Club');
+        $this->directivoClub1->assignRole('Presidente del Club');
 
         // Crear el directivo del segundo club.
         $this->directivoClub2 = User::create([
@@ -117,7 +117,7 @@ class IdTamperingAndCrossAccessSecurityTest extends TestCase
             'club_id' => $this->club2->id,
         ]);
 
-        $this->directivoClub2->assignRole('Directivo de Club');
+        $this->directivoClub2->assignRole('Delegado del Club');
 
         // Crear el árbitro.
         $this->arbitro = User::create([
@@ -129,7 +129,7 @@ class IdTamperingAndCrossAccessSecurityTest extends TestCase
             'club_id' => null,
         ]);
 
-        $this->arbitro->assignRole('Arbitro');
+        $this->arbitro->assignRole('Árbitro en Campo');
 
         // Crear el administrador general.
         $this->admin = User::create([

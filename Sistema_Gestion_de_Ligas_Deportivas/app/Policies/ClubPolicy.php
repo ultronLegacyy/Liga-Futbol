@@ -31,7 +31,7 @@ class ClubPolicy
             return Response::allow();
         }
 
-        if ($usuario->hasRole('Directivo de Club')) {
+        if ($usuario->hasAnyRole(['Presidente del Club', 'Delegado del Club'])) {
             return $usuario->club_id !== null && (int) $usuario->club_id === (int) $club->id
                 ? Response::allow()
                 : Response::deny('Acceso denegado: no cuenta con autorizacion para consultar la informacion de otros clubes deportivos.');
@@ -47,7 +47,7 @@ class ClubPolicy
             return Response::allow();
         }
 
-        if ($usuario->hasRole('Directivo de Club')) {
+        if ($usuario->hasAnyRole(['Presidente del Club', 'Delegado del Club'])) {
             return $usuario->club_id !== null && (int) $usuario->club_id === (int) $club->id
                 ? Response::allow()
                 : Response::deny('Acceso denegado: intento de modificacion no autorizada sobre un club ajeno.');

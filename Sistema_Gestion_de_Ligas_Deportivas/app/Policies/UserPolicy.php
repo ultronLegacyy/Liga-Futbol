@@ -7,11 +7,11 @@ use Illuminate\Auth\Access\Response;
 
 class UserPolicy
 {
-    // Evaluacion previa para conceder acceso irrestricto al Administrador General salvo en autoeliminacion
+    // Evaluacion previa para conceder acceso irrestricto al Administrador General salvo sobre su propia cuenta
     public function before(User $usuarioAutenticado, string $habilidad): ?bool
     {
-        // Se delega a delete para verificar que ningun usuario pueda autoeliminarse
-        if ($habilidad === 'delete') {
+        // Eliminar, desactivar y cambiar roles se revisan en su metodo: nadie puede hacerlo sobre su propia cuenta
+        if (in_array($habilidad, ['delete', 'toggleStatus', 'asignarRoles'], true)) {
             return null;
         }
 
@@ -56,5 +56,29 @@ class UserPolicy
         return $usuarioAutenticado->can('usuarios.eliminar')
             ? Response::allow()
             : Response::deny('No cuenta con privilegios para eliminar cuentas de usuario.');
+    }
+
+    // Desactivar o reactivar una cuenta (HU-080, CA6): nadie se desactiva a si mismo
+    public function toggleStatus(User $usuarioAutenticado, User $usuarioObjetivo): Response
+    {
+        if ($usuarioAutenticado->id === $usuarioObjetivo->id) {
+            return Response::deny('No es posible desactivar o reactivar la propia cuenta.');
+        }
+
+        return $usuarioAutenticado->can('usuarios.editar')
+            ? Response::allow()
+            : Response::deny('No cuenta con privilegios para desactivar o reactivar cuentas de usuario.');
+    }
+
+    // Asignar o retirar roles (HU-080, CA5): nadie cambia sus propios roles, asi el sistema no se queda sin Administrador General
+    public function asignarRoles(User $usuarioAutenticado, User $usuarioObjetivo): Response
+    {
+        if ($usuarioAutenticado->id === $usuarioObjetivo->id) {
+            return Response::deny('No es posible cambiar los roles de la propia cuenta.');
+        }
+
+        return $usuarioAutenticado->can('usuarios.asignar_rol')
+            ? Response::allow()
+            : Response::deny('No cuenta con privilegios para asignar roles.');
     }
 }

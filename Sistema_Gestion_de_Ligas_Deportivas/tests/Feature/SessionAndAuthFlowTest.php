@@ -19,7 +19,7 @@ class SessionAndAuthFlowTest extends TestCase
 
         // Creacion de roles necesarios para evaluar la politica de expiracion diferenciada
         Role::firstOrCreate(['name' => 'Administrador General', 'guard_name' => 'web']);
-        Role::firstOrCreate(['name' => 'Directivo de Club', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'Presidente del Club', 'guard_name' => 'web']);
     }
 
     public function test_usuario_activo_puede_iniciar_sesion_satisfactoriamente(): void
@@ -185,7 +185,7 @@ class SessionAndAuthFlowTest extends TestCase
             'estatus' => 'activo',
             'rol' => 'Directivo Club',
         ]);
-        $directivo->assignRole('Directivo de Club');
+        $directivo->assignRole('Presidente del Club');
 
         // Actividad hace 45 minutos lo cual excede los 30 minutos pero es valido para directivos
         $tiempo45Minutos = now()->subMinutes(45)->timestamp;
@@ -208,7 +208,7 @@ class SessionAndAuthFlowTest extends TestCase
             'estatus' => 'activo',
             'rol' => 'Directivo Club',
         ]);
-        $directivo->assignRole('Directivo de Club');
+        $directivo->assignRole('Presidente del Club');
 
         // Inactividad de 8 horas y 5 minutos
         $tiempoExcedido = now()->subHours(8)->subMinutes(5)->timestamp;

@@ -10,29 +10,38 @@ use Spatie\Permission\PermissionRegistrar;
 
 class RoleAndPermissionSeeder extends Seeder
 {
+    // Catalogo de roles de la seccion 2.3 de la ERS. Los del Sprint 1 que no estan en la ERS pasaron a sus equivalentes (migracion 2026_10_23_120000)
+    public const ROLES = [
+        // Administracion del sistema
+        'Administrador General',
+
+        // Consejo Directivo y gobernanza (HU-071)
+        'Presidente',
+        'Secretario',
+        'Tesorero',
+        'Comision de la Rama Infantil',
+
+        // Operacion deportiva y disciplina (HU-072)
+        'Programador de Partidos',
+        'Capturista',
+        'Tribunal de Penas',
+        'Comisión Arbitral',
+        'Árbitro en Campo',
+
+        // Clubes y jugadores (HU-073)
+        'Presidente del Club',
+        'Delegado del Club',
+        'Jugador',
+    ];
+
     // Sembrado y configuracion de roles de gobernanza y catalogo de permisos segun ERS Seccion 2.3 y Acuerdo PA-17 (HU-071)
     public function run(): void
     {
         // Limpieza de memoria cache de permisos de Spatie
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        // 1. Roles del sistema: Roles del Consejo Directivo / Gobernanza (HU-071) y roles existentes de Sprint 1
-        $roles = [
-            // Categoria A: Administracion del Sistema
-            'Administrador General',
-
-            // Categoria B: Consejo Directivo y Gobernanza (HU-071)
-            'Presidente',
-            'Secretario',
-            'Tesorero',
-            'Comision de la Rama Infantil',
-
-            // Roles compatibles de Sprint 1 para no romper suites existentes
-            'Comision Disciplinaria',
-            'Directivo de Club',
-            'Arbitro',
-            'Consulta Publica',
-        ];
+        // 1. Los 13 roles con cuenta de la seccion 2.3 de la ERS (HU-080, CA1); el Publico General no tiene cuenta
+        $roles = self::ROLES;
 
         $rolesCreados = [];
         foreach ($roles as $nombreRol) {
@@ -226,29 +235,29 @@ class RoleAndPermissionSeeder extends Seeder
         ];
         $rolesCreados['Comision de la Rama Infantil']->syncPermissions($permisosComisionInfantil);
 
-        // 5. Roles compatibles de Sprint 1: conservan permisos minimos para no romper suites existentes
-        $rolesCreados['Comision Disciplinaria']->syncPermissions([
+        // 5. Permisos que tenian los roles del Sprint 1, ahora en su equivalente de la ERS; el resto los definen HU-072 y HU-073
+        // Antes «Comision Disciplinaria»
+        $rolesCreados['Tribunal de Penas']->syncPermissions([
             'disciplina.ver',
             'disciplina.expedientes',
             'disciplina.sancionar',
         ]);
 
-        $rolesCreados['Directivo de Club']->syncPermissions([
+        // Antes «Directivo de Club»: ClubPolicy y EquipoPolicy limitan a cada uno a su propio club (RNF-29)
+        $permisosClub = [
             'temporadas.ver',
             'convocatorias.ver',
             'categorias.ver',
             'clubes.ver',
             'campos.ver',
-        ]);
+        ];
+        $rolesCreados['Presidente del Club']->syncPermissions($permisosClub);
+        $rolesCreados['Delegado del Club']->syncPermissions($permisosClub);
 
-        $rolesCreados['Arbitro']->syncPermissions([
+        // Antes «Arbitro»
+        $rolesCreados['Árbitro en Campo']->syncPermissions([
             'temporadas.ver',
             'campos.ver',
-        ]);
-
-        $rolesCreados['Consulta Publica']->syncPermissions([
-            'temporadas.ver',
-            'convocatorias.ver',
         ]);
 
         // 6. Asignacion automatica de roles a los usuarios iniciales del sistema si existen
@@ -278,13 +287,13 @@ class RoleAndPermissionSeeder extends Seeder
         }
 
         $directivoUser = User::where('email', 'directivo@moreliafc.com')->first();
-        if ($directivoUser && ! $directivoUser->hasRole('Directivo de Club')) {
-            $directivoUser->assignRole('Directivo de Club');
+        if ($directivoUser && ! $directivoUser->hasRole('Presidente del Club')) {
+            $directivoUser->assignRole('Presidente del Club');
         }
 
         $arbitroUser = User::where('email', 'arbitro@ligafutbol.com')->first();
-        if ($arbitroUser && ! $arbitroUser->hasRole('Arbitro')) {
-            $arbitroUser->assignRole('Arbitro');
+        if ($arbitroUser && ! $arbitroUser->hasRole('Árbitro en Campo')) {
+            $arbitroUser->assignRole('Árbitro en Campo');
         }
     }
 }

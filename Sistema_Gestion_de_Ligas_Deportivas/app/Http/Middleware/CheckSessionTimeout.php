@@ -16,7 +16,7 @@ class CheckSessionTimeout
         'Secretario',
         'Tesorero',
         'Comision de la Rama Infantil',
-        'Comision Disciplinaria',
+        'Tribunal de Penas',
     ];
 
     // Tiempo limite de inactividad para administradores en segundos equivalente a 30 minutos

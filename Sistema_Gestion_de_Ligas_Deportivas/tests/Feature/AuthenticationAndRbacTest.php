@@ -52,10 +52,15 @@ class AuthenticationAndRbacTest extends TestCase
             'Presidente',
             'Secretario',
             'Tesorero',
-            'Comision Disciplinaria',
-            'Directivo de Club',
-            'Arbitro',
-            'Consulta Publica',
+            'Comision de la Rama Infantil',
+            'Programador de Partidos',
+            'Capturista',
+            'Tribunal de Penas',
+            'Comisión Arbitral',
+            'Árbitro en Campo',
+            'Presidente del Club',
+            'Delegado del Club',
+            'Jugador',
         ];
 
         foreach ($rolesEsperados as $rol) {
@@ -63,6 +68,13 @@ class AuthenticationAndRbacTest extends TestCase
                 'name' => $rol,
                 'guard_name' => 'web',
             ]);
+        }
+
+        // Solo los 13 de la sección 2.3 de la ERS (HU-080, CA1): sin Público General ni los roles retirados del Sprint 1
+        $this->assertSame(13, \Spatie\Permission\Models\Role::count());
+
+        foreach (['Comision Disciplinaria', 'Directivo de Club', 'Arbitro', 'Consulta Publica'] as $retirado) {
+            $this->assertDatabaseMissing('roles', ['name' => $retirado]);
         }
 
         $admin = User::where('email', 'admin@ligafutbol.com')->first();
@@ -84,7 +96,7 @@ class AuthenticationAndRbacTest extends TestCase
 
         if ($directivo !== null) {
             $this->assertTrue(
-                $directivo->hasRole('Directivo de Club')
+                $directivo->hasRole('Presidente del Club')
             );
         }
 
@@ -95,7 +107,7 @@ class AuthenticationAndRbacTest extends TestCase
 
         if ($arbitro !== null) {
             $this->assertTrue(
-                $arbitro->hasRole('Arbitro')
+                $arbitro->hasRole('Árbitro en Campo')
             );
         }
     }
