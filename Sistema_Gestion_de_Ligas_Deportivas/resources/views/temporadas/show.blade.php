@@ -130,14 +130,23 @@
             </table>
         </div>
 
-        {{-- Descargar convocatoria vigente --}}
-        <div class="mt-6">
+        {{-- Descargar convocatoria vigente y consultar las reglas versionadas --}}
+        <div class="mt-6 flex flex-wrap gap-3">
             <a
                 href="{{ route('temporadas.convocatoria', $temporada) }}"
                 class="inline-block px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
             >
                 Descargar Convocatoria Vigente
             </a>
+
+            @can('reglas_temporada.ver')
+                <a
+                    href="{{ route('temporadas.reglas.index', $temporada) }}"
+                    class="inline-block px-4 py-2 bg-gray-700 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition"
+                >
+                    Reglas de la Temporada
+                </a>
+            @endcan
         </div>
 
     </div>

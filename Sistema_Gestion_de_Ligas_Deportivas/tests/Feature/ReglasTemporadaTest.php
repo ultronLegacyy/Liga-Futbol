@@ -298,6 +298,77 @@ class ReglasTemporadaTest extends TestCase
             ->assertSee('v1');
     }
 
+    // CA3: en una temporada cerrada se consultan exactamente las reglas que aplicaron, sin formulario de cambio
+    public function test_temporada_cerrada_muestra_las_reglas_que_aplicaron_sin_permitir_cambios(): void
+    {
+        $admin = $this->crearAdministrador();
+        $temporada = Temporada::factory()->activa()->create();
+
+        foreach ([1 => 3, 2 => 4] as $version => $puntos) {
+            ReglaTemporada::create([
+                'temporada_id' => $temporada->id,
+                'version' => $version,
+                'reglas' => $this->reglasValidas($puntos),
+                'usuario_id' => $admin->id,
+                'motivo' => "Versión {$version} de la temporada.",
+            ]);
+        }
+
+        $temporada->update(['estado' => 'cerrada']);
+
+        $this->actingAs($admin)
+            ->get(route('temporadas.reglas.index', $temporada))
+            ->assertOk()
+            ->assertSeeInOrder(['v2', 'Versión 2 de la temporada.', 'v1', 'Versión 1 de la temporada.'])
+            ->assertSee('"puntos_victoria": 4')
+            ->assertSee('La temporada está cerrada. Solo se permite consultar sus reglas.')
+            ->assertDontSee('Guardar nueva versión');
+    }
+
+    // El ejemplo que trae el formulario cumple el esquema y se puede guardar tal cual
+    public function test_el_ejemplo_del_formulario_se_guarda_sin_cambios(): void
+    {
+        $admin = $this->crearAdministrador();
+        $temporada = Temporada::factory()->activa()->create();
+
+        $pagina = $this->actingAs($admin)
+            ->get(route('temporadas.reglas.index', $temporada))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertSame(1, preg_match('/<textarea id="reglas_json"[^>]*>(.*?)<\/textarea>/s', (string) $pagina, $coincidencia));
+
+        $this->actingAs($admin)->post(
+            route('temporadas.reglas.store', $temporada),
+            [
+                'reglas_json' => html_entity_decode($coincidencia[1], ENT_QUOTES),
+                'motivo' => 'Configuración inicial con el ejemplo.',
+            ]
+        )->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('regla_temporadas', [
+            'temporada_id' => $temporada->id,
+            'version' => 1,
+        ]);
+    }
+
+    // La consulta de la temporada enlaza a sus reglas solo para quien puede verlas
+    public function test_la_temporada_enlaza_a_sus_reglas_segun_el_permiso(): void
+    {
+        $temporada = Temporada::factory()->activa()->create();
+        $enlace = route('temporadas.reglas.index', $temporada);
+
+        $this->actingAs($this->crearAdministrador())
+            ->get(route('temporadas.show', $temporada))
+            ->assertOk()
+            ->assertSee($enlace, false);
+
+        $this->actingAs($this->crearUsuarioConsultaPublica())
+            ->get(route('temporadas.show', $temporada))
+            ->assertOk()
+            ->assertDontSee($enlace, false);
+    }
+
     public function test_no_se_puede_actualizar_una_version_guardada(): void
     {
         $admin = $this->crearAdministrador();

@@ -67,7 +67,17 @@
                     @csrf
 
                     <label for="reglas_json" class="block text-sm text-gray-300 mb-2">Reglas en formato JSON</label>
-                    <textarea id="reglas_json" name="reglas_json" rows="6" required class="w-full rounded-lg bg-gray-900 border border-gray-600 text-white p-3">{{ old('reglas_json', '{"puntos_por_victoria":3,"puntos_por_empate":1}') }}</textarea>
+                    {{-- Se parte de la versión vigente; sin versiones, de un ejemplo con las cinco categorías obligatorias --}}
+                    @php
+                        $reglasIniciales = $reglas->first()?->reglas ?? [
+                            'cuotas' => ['inscripcion' => 0],
+                            'fechas_limite' => ['inscripcion' => now()->format('Y-m-d')],
+                            'clasificacion' => ['puntos_victoria' => 3, 'puntos_empate' => 1, 'puntos_derrota' => 0],
+                            'desempates' => ['diferencia_goles', 'goles_favor'],
+                            'ascenso_descenso' => ['equipos_ascienden' => 0, 'equipos_descienden' => 0],
+                        ];
+                    @endphp
+                    <textarea id="reglas_json" name="reglas_json" rows="16" required class="w-full rounded-lg bg-gray-900 border border-gray-600 text-white p-3 font-mono text-sm">{{ old('reglas_json', json_encode($reglasIniciales, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) }}</textarea>
 
                     <label for="motivo" class="block text-sm text-gray-300 mt-4 mb-2">Motivo del cambio</label>
                     <textarea id="motivo" name="motivo" maxlength="1000" required class="w-full rounded-lg bg-gray-900 border border-gray-600 text-white p-3">{{ old('motivo') }}</textarea>
