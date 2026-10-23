@@ -7,6 +7,7 @@ use App\Models\BloqueoCancha;
 use App\Models\Cancha;
 use App\Services\AuditService;
 use Carbon\Carbon;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,9 +22,9 @@ class CanchaBloqueoController extends Controller
     }
 
     /**
-     * Consultar el listado de bloqueos de una cancha especifica.
+     * Consultar el listado de bloqueos de una cancha especifica (Blade o JSON).
      */
-    public function index(Request $request, Cancha $cancha): JsonResponse
+    public function index(Request $request, Cancha $cancha): View|JsonResponse
     {
         Gate::authorize('view', $cancha);
 
@@ -31,14 +32,46 @@ class CanchaBloqueoController extends Controller
             ->orderBy('fecha_inicio', 'desc')
             ->get();
 
-        return response()->json([
-            'modulo' => 'Bloqueos de Cancha',
-            'cancha_id' => $cancha->id,
-            'nombre_cancha' => $cancha->nombre,
-            'estado_cancha' => $cancha->estado,
-            'bloqueos' => $bloqueos->map(
-                fn (BloqueoCancha $b): array => $this->datosBloqueo($b)
-            )->values(),
+        if ($request->wantsJson()) {
+            return response()->json([
+                'modulo' => 'Bloqueos de Cancha',
+                'cancha_id' => $cancha->id,
+                'nombre_cancha' => $cancha->nombre,
+                'estado_cancha' => $cancha->estado,
+                'bloqueos' => $bloqueos->map(
+                    fn (BloqueoCancha $b): array => $this->datosBloqueo($b)
+                )->values(),
+            ]);
+        }
+
+        $ahora = Carbon::now();
+
+        $bloqueosVigentes = $bloqueos->filter(
+            fn (BloqueoCancha $b): bool => $b->fecha_fin !== null && $b->fecha_fin->greaterThanOrEqualTo($ahora)
+        )->values();
+
+        $bloqueosHistoricos = $bloqueos->filter(
+            fn (BloqueoCancha $b): bool => $b->fecha_fin !== null && $b->fecha_fin->lessThan($ahora)
+        )->values();
+
+        $bloqueoActivoActual = $bloqueos->first(
+            fn (BloqueoCancha $b): bool => $b->fecha_inicio !== null
+                && $b->fecha_fin !== null
+                && $b->fecha_inicio->lessThanOrEqualTo($ahora)
+                && $b->fecha_fin->greaterThanOrEqualTo($ahora)
+        );
+
+        $todasCanchas = Cancha::query()
+            ->orderBy('nombre')
+            ->get();
+
+        return view('canchas.bloqueos.index', [
+            'cancha' => $cancha,
+            'bloqueos' => $bloqueos,
+            'bloqueosVigentes' => $bloqueosVigentes,
+            'bloqueosHistoricos' => $bloqueosHistoricos,
+            'bloqueoActivoActual' => $bloqueoActivoActual,
+            'todasCanchas' => $todasCanchas,
         ]);
     }
 
@@ -64,7 +97,7 @@ class CanchaBloqueoController extends Controller
             ], 201);
         }
 
-        return redirect()->back()
+        return redirect()->route('canchas.bloqueos.index', $cancha)
             ->with('success', 'Bloqueo de cancha registrado correctamente.');
     }
 
@@ -82,7 +115,7 @@ class CanchaBloqueoController extends Controller
         $motivo = $request->input('motivo');
         $motivoAuditoria = is_string($motivo) && trim($motivo) !== ''
             ? trim($motivo)
-            : "Cancelación o liberación de bloqueo ID {$bloqueo->id} en cancha {$cancha->nombre}";
+            : "Cancelacion o liberacion de bloqueo ID {$bloqueo->id} en cancha {$cancha->nombre}";
 
         $this->auditService->conMotivo(
             $motivoAuditoria,
@@ -98,7 +131,7 @@ class CanchaBloqueoController extends Controller
             ]);
         }
 
-        return redirect()->back()
+        return redirect()->route('canchas.bloqueos.index', $cancha)
             ->with('success', 'Bloqueo de cancha liberado correctamente.');
     }
 
