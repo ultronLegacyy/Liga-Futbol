@@ -11,22 +11,27 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\View\View;
 
-// Categorías de cada temporada (HU-007, RF-02.1). Las vistas Blade llegan con S2-T20
+// Categorías de cada temporada (HU-007, RF-02.1): vistas Blade y, si se pide JSON, la misma consulta en JSON
 class CategoriaController extends Controller
 {
     /**
      * Listar las categorías de una temporada con sus grupos.
      */
-    public function index(Temporada $temporada): JsonResponse
+    public function index(Request $request, Temporada $temporada): View|JsonResponse
     {
         Gate::authorize('viewAny', Categoria::class);
 
         $categorias = $temporada->categorias()
-            ->with('grupos')
+            ->with(['grupos' => fn ($consulta) => $consulta->orderBy('nombre')])
             ->orderBy('rama')
             ->orderBy('nombre')
             ->get();
+
+        if (! $request->expectsJson()) {
+            return view('categorias.index', compact('temporada', 'categorias'));
+        }
 
         return response()->json([
             'modulo' => 'Categorías',
@@ -41,13 +46,27 @@ class CategoriaController extends Controller
     /**
      * Consultar una categoría con sus grupos.
      */
-    public function show(Categoria $categoria): JsonResponse
+    public function show(Request $request, Categoria $categoria): View|JsonResponse
     {
         Gate::authorize('view', $categoria);
 
-        $categoria->load('grupos');
+        $categoria->load(['grupos' => fn ($consulta) => $consulta->orderBy('nombre'), 'temporada']);
+
+        if (! $request->expectsJson()) {
+            return view('categorias.show', compact('categoria'));
+        }
 
         return response()->json(['modulo' => 'Categoría'] + $this->datosCategoria($categoria));
+    }
+
+    /**
+     * Formulario para agregar una categoría a la temporada.
+     */
+    public function create(Temporada $temporada): View
+    {
+        Gate::authorize('create', [Categoria::class, $temporada]);
+
+        return view('categorias.create', ['temporada' => $temporada, 'categoria' => new Categoria()]);
     }
 
     /**
@@ -65,8 +84,20 @@ class CategoriaController extends Controller
         // El alta y su auditoría se guardan juntas o no se guarda nada (RNF-22)
         DB::transaction(fn () => $temporada->categorias()->create($datos));
 
-        return redirect()->back()
+        return redirect()->route('temporadas.categorias.index', $temporada)
             ->with('success', 'Categoría registrada correctamente.');
+    }
+
+    /**
+     * Formulario para cambiar los datos de una categoría.
+     */
+    public function edit(Categoria $categoria): View
+    {
+        Gate::authorize('update', $categoria);
+
+        $categoria->load('temporada');
+
+        return view('categorias.edit', compact('categoria'));
     }
 
     /**
@@ -83,7 +114,7 @@ class CategoriaController extends Controller
 
         DB::transaction(fn () => $categoria->update($datos));
 
-        return redirect()->back()
+        return redirect()->route('categorias.show', $categoria)
             ->with('success', 'Categoría actualizada correctamente.');
     }
 

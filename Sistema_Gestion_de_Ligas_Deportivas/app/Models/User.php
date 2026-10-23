@@ -8,6 +8,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Spatie\Permission\Traits\HasRoles;
+use App\Models\Concerns\Auditable;
 
 class User extends Authenticatable
 {
@@ -16,6 +17,7 @@ class User extends Authenticatable
     use Notifiable;
     use HasRoles;
     use TwoFactorAuthenticatable;
+    use Auditable;
 
     /**
      * Nombre de la tabla asociada al modelo.
@@ -35,6 +37,7 @@ class User extends Authenticatable
         'rol',
         'estatus',
         'club_id',
+        'requires_password_change', // Agregado para HU-080
     ];
 
     /**
@@ -46,9 +49,8 @@ class User extends Authenticatable
         'password',
         'password_hash',
         'remember_token',
-        // Secretos de 2FA: tampoco se serializan ni llegan a la auditoría
         'two_factor_secret',
-        'two_factor_recovery_codes',
+        'two_factor_recovery_codes'
     ];
 
     /**
@@ -61,6 +63,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'requires_password_change' => 'boolean', // Casteo requerido para HU-080
         ];
     }
 }

@@ -101,7 +101,7 @@ class RbacGovernanceAnd403Test extends TestCase
             'rol' => 'Arbitro',
         ]);
 
-        $arbitro->assignRole('Arbitro');
+        $arbitro->assignRole('Árbitro en Campo');
 
         $respuesta = $this->actingAs($arbitro)
             ->get('/admin/dashboard');
@@ -122,7 +122,7 @@ class RbacGovernanceAnd403Test extends TestCase
             'rol' => 'Directivo Club',
         ]);
 
-        $directivo->assignRole('Directivo de Club');
+        $directivo->assignRole('Presidente del Club');
 
         $respuesta = $this->actingAs($directivo)
             ->getJson('/admin/dashboard');
@@ -172,7 +172,7 @@ class RbacGovernanceAnd403Test extends TestCase
             'rol' => 'Arbitro',
         ]);
 
-        $arbitro->assignRole('Arbitro');
+        $arbitro->assignRole('Árbitro en Campo');
 
         $respuestaArbitro = $this->actingAs($arbitro)
             ->getJson('/admin/gestion/usuarios');
@@ -200,7 +200,7 @@ class RbacGovernanceAnd403Test extends TestCase
             'rol' => 'Arbitro',
         ]);
 
-        $arbitro->assignRole('Arbitro');
+        $arbitro->assignRole('Árbitro en Campo');
 
         $this->assertTrue(
             Gate::forUser($admin)->allows('create', Temporada::class)

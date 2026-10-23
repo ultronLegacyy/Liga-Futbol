@@ -139,6 +139,15 @@
                 Descargar Convocatoria Vigente
             </a>
 
+            @can('viewAny', App\Models\Categoria::class)
+                <a
+                    href="{{ route('temporadas.categorias.index', $temporada) }}"
+                    class="inline-block px-4 py-2 bg-gray-700 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition"
+                >
+                    Categorías y grupos
+                </a>
+            @endcan
+
             @can('reglas_temporada.ver')
                 <a
                     href="{{ route('temporadas.reglas.index', $temporada) }}"

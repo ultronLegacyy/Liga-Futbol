@@ -8,14 +8,15 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\View\View;
 
-// Catálogo de canchas y sedes (HU-023, RF-05.1). Las vistas Blade llegan con S2-T24
+// Catálogo de canchas y sedes (HU-023, RF-05.1): vistas Blade y, si se pide JSON, la misma consulta en JSON
 class CanchaController extends Controller
 {
     /**
      * Listar el catálogo de canchas.
      */
-    public function index(): JsonResponse
+    public function index(Request $request): View|JsonResponse
     {
         Gate::authorize('viewAny', Cancha::class);
 
@@ -23,22 +24,40 @@ class CanchaController extends Controller
             ->orderBy('nombre')
             ->get();
 
-        return response()->json([
-            'modulo' => 'Canchas',
-            'canchas' => $canchas->map(
-                fn (Cancha $cancha): array => $this->datosCancha($cancha)
-            )->values(),
-        ]);
+        if ($request->expectsJson()) {
+            return response()->json([
+                'modulo' => 'Canchas',
+                'canchas' => $canchas->map(
+                    fn (Cancha $cancha): array => $this->datosCancha($cancha)
+                )->values(),
+            ]);
+        }
+
+        return view('canchas.index', compact('canchas'));
     }
 
     /**
      * Consultar una cancha con sus características y su capacidad.
      */
-    public function show(Cancha $cancha): JsonResponse
+    public function show(Request $request, Cancha $cancha): View|JsonResponse
     {
         Gate::authorize('view', $cancha);
 
-        return response()->json(['modulo' => 'Cancha'] + $this->datosCancha($cancha));
+        if ($request->expectsJson()) {
+            return response()->json(['modulo' => 'Cancha'] + $this->datosCancha($cancha));
+        }
+
+        return view('canchas.show', compact('cancha'));
+    }
+
+    /**
+     * Formulario de alta de una cancha.
+     */
+    public function create(): View
+    {
+        Gate::authorize('create', Cancha::class);
+
+        return view('canchas.create', ['cancha' => new Cancha()]);
     }
 
     /**
@@ -53,8 +72,18 @@ class CanchaController extends Controller
         // El alta y su auditoría se guardan juntas o no se guarda nada (RNF-22)
         DB::transaction(fn () => Cancha::create($datos));
 
-        return redirect()->back()
+        return redirect()->route('canchas.index')
             ->with('success', 'Cancha registrada correctamente.');
+    }
+
+    /**
+     * Formulario de edición de una cancha con sus datos actuales.
+     */
+    public function edit(Cancha $cancha): View
+    {
+        Gate::authorize('update', $cancha);
+
+        return view('canchas.edit', compact('cancha'));
     }
 
     /**
@@ -68,7 +97,7 @@ class CanchaController extends Controller
 
         DB::transaction(fn () => $cancha->update($datos));
 
-        return redirect()->back()
+        return redirect()->route('canchas.show', $cancha)
             ->with('success', 'Cancha actualizada correctamente.');
     }
 
