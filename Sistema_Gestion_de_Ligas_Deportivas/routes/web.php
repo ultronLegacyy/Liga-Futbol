@@ -1,15 +1,16 @@
 <?php
 
+use App\Http\Controllers\CanchaBloqueoController;
 use App\Http\Controllers\CanchaController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\EquipoController;
-use App\Http\Controllers\GrupoController;
-use App\Http\Controllers\TemporadaController;
 use App\Http\Controllers\ForcePasswordChangeController;
+use App\Http\Controllers\GrupoController;
+use App\Http\Controllers\ReglaTemporadaController;
+use App\Http\Controllers\TemporadaController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\ForcePasswordChange;
-use App\Http\Controllers\ReglaTemporadaController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -48,6 +49,16 @@ Route::middleware(['auth'])->group(function () {
 
         // Catálogo de canchas y sedes
         Route::resource('canchas', CanchaController::class)->only(['index', 'show', 'create', 'store', 'edit', 'update']);
+
+        // Disponibilidad y bloqueos temporales de canchas (HU-024, RF-05.2)
+        Route::get('/canchas/{cancha}/bloqueos', [CanchaBloqueoController::class, 'index'])
+            ->name('canchas.bloqueos.index');
+        Route::post('/canchas/{cancha}/bloqueos', [CanchaBloqueoController::class, 'store'])
+            ->name('canchas.bloqueos.store');
+        Route::delete('/canchas/{cancha}/bloqueos/{bloqueo}', [CanchaBloqueoController::class, 'destroy'])
+            ->name('canchas.bloqueos.destroy');
+        Route::get('/canchas/{cancha}/disponibilidad', [CanchaBloqueoController::class, 'disponibilidad'])
+            ->name('canchas.disponibilidad');
 
         // Categorías y grupos
         Route::resource('temporadas.categorias', CategoriaController::class)->shallow()->only(['index', 'create', 'store', 'show', 'edit', 'update']);
