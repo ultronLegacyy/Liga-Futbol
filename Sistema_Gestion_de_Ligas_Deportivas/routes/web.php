@@ -1,7 +1,10 @@
 <?php
 
+use App\Http\Controllers\CanchaController;
+use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\EquipoController;
+use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\TemporadaController;
 use App\Http\Controllers\ReglaTemporadaController;
 use Illuminate\Support\Facades\Route;
@@ -28,6 +31,17 @@ Route::middleware(['auth'])->group(function () {
     // Nueva version de la convocatoria cuando cambian las reglas, con motivo obligatorio (RF-01.3)
     Route::post('/temporadas/{temporada}/convocatoria', [TemporadaController::class, 'versionarConvocatoria'])
         ->name('temporadas.convocatoria.versionar');
+});
+
+// Catálogo de canchas y sedes (RF-05.1): CanchaPolicy autoriza cada acción; no hay baja (HU-023)
+Route::middleware(['auth'])->group(function () {
+    Route::resource('canchas', CanchaController::class)->only(['index', 'show', 'store', 'update']);
+});
+
+// Categorías y grupos de cada temporada (RF-02.1, RF-02.2): en una temporada cerrada solo se consultan (RF-01.4)
+Route::middleware(['auth'])->group(function () {
+    Route::resource('temporadas.categorias', CategoriaController::class)->shallow()->only(['index', 'store', 'show', 'update']);
+    Route::resource('categorias.grupos', GrupoController::class)->shallow()->only(['store', 'update']);
 });
 
 // Grupo de rutas de administracion de gobernanza protegidas estrictamente por rol Administrador General
