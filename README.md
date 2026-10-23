@@ -39,4 +39,3 @@ php artisan migrate --seed
 npm run build
 php artisan serve
 ```
-
