@@ -35,7 +35,7 @@ Route::middleware(['auth'])->group(function () {
 
 // Catálogo de canchas y sedes (RF-05.1): CanchaPolicy autoriza cada acción; no hay baja (HU-023)
 Route::middleware(['auth'])->group(function () {
-    Route::resource('canchas', CanchaController::class)->only(['index', 'show', 'store', 'update']);
+    Route::resource('canchas', CanchaController::class)->only(['index', 'show', 'create', 'store', 'edit', 'update']);
 });
 
 // Categorías y grupos de cada temporada (RF-02.1, RF-02.2): en una temporada cerrada solo se consultan (RF-01.4)
