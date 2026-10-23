@@ -47,4 +47,12 @@ class CanchaPolicy
             ? Response::allow()
             : Response::deny('No cuenta con privilegios para modificar canchas.');
     }
+
+    // Registrar o gestionar bloqueos de cancha (HU-024, RF-05.2)
+    public function block(User $usuario, Cancha $cancha): Response
+    {
+        return $usuario->can('campos.bloquear')
+            ? Response::allow()
+            : Response::deny('No cuenta con privilegios para gestionar bloqueos de canchas.');
+    }
 }

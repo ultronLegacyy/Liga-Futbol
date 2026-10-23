@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\BloqueoCancha;
 use App\Models\Cancha;
 use App\Models\Categoria;
 use App\Models\Club;
@@ -9,6 +10,7 @@ use App\Models\Equipo;
 use App\Models\Grupo;
 use App\Models\Temporada;
 use App\Models\User;
+use App\Policies\BloqueoCanchaPolicy;
 use App\Policies\CanchaPolicy;
 use App\Policies\CategoriaPolicy;
 use App\Policies\ClubPolicy;
@@ -42,6 +44,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Club::class, ClubPolicy::class);
         Gate::policy(Equipo::class, EquipoPolicy::class);
         Gate::policy(Cancha::class, CanchaPolicy::class);
+        Gate::policy(BloqueoCancha::class, BloqueoCanchaPolicy::class);
         Gate::policy(Categoria::class, CategoriaPolicy::class);
         Gate::policy(Grupo::class, GrupoPolicy::class);
     }
