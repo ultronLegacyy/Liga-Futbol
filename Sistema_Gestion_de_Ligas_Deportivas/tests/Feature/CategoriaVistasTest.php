@@ -261,12 +261,18 @@ class CategoriaVistasTest extends TestCase
             ->assertOk()
             ->assertSee($enlace, false);
 
-        // El Árbitro consulta temporadas, pero no categorías
-        $arbitro = $this->crearUsuario('arbitro_vistas_categorias@liga.com', 'Arbitro');
+        // Sin categorias.ver no aparece el botón; se dibuja la vista directo porque ningún rol de consulta
+        // de temporadas carece hoy de categorias.ver (el Tesorero no consulta temporadas)
+        $tesorero = $this->crearUsuario('tesorero_vistas_categorias@liga.com', 'Tesorero');
+        $this->actingAs($tesorero);
 
-        $this->actingAs($arbitro)->get(route('temporadas.show', $this->activa))
-            ->assertOk()
-            ->assertDontSee($enlace, false);
+        $html = view('temporadas.show', [
+            'temporada' => $this->activa,
+            'convocatorias' => collect(),
+            'altas' => collect(),
+        ])->render();
+
+        $this->assertStringNotContainsString($enlace, $html);
     }
 
     private function crearUsuario(string $email, string $rol): User
