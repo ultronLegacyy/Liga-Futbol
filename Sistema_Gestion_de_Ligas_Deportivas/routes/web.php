@@ -23,7 +23,7 @@ Route::middleware(['auth'])->group(function () {
     // CAMBIO AQUÍ: Se cambió el nombre de 'password.force-change.show' a 'password.force-change' para que coincida con el test
     Route::get('/cambio-contrasena-obligatorio', [ForcePasswordChangeController::class, 'show'])
         ->name('password.force-change.show');
-        
+
     Route::post('/cambio-contrasena-obligatorio', [ForcePasswordChangeController::class, 'update'])
         ->name('password.force-change.update');
 

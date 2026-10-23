@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -15,8 +16,8 @@ class UserControllerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        // Crear roles necesarios para las pruebas
-        Role::firstOrCreate(['name' => 'Administrador General', 'guard_name' => 'web']);
+        // Roles con sus permisos, como en el resto de las pruebas; Jugador llega con el catálogo de HU-080
+        $this->seed(RoleAndPermissionSeeder::class);
         Role::firstOrCreate(['name' => 'Jugador', 'guard_name' => 'web']);
     }
 
@@ -118,5 +119,74 @@ class UserControllerTest extends TestCase
 
         // Fortify debe rechazar el acceso de cuentas inactivas
         $this->assertGuest();
+    }
+
+    // El Administrador no puede desactivar su propia cuenta (CA6)
+    public function test_el_administrador_no_puede_desactivarse_a_si_mismo(): void
+    {
+        $admin = User::factory()->create(['estatus' => 'activo']);
+        $admin->assignRole('Administrador General');
+
+        $this->actingAs($admin)
+            ->patch(route('admin.usuarios.toggleStatus', $admin), ['motivo' => 'Intento de autodesactivación'])
+            ->assertForbidden();
+
+        $this->assertSame('activo', $admin->fresh()->estatus);
+    }
+
+    // El Administrador no puede cambiar sus propios roles: el sistema no se queda sin Administrador General (CA5)
+    public function test_el_administrador_no_puede_cambiar_sus_propios_roles(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('Administrador General');
+
+        $this->actingAs($admin)
+            ->put(route('admin.usuarios.update', $admin), [
+                'name' => $admin->name,
+                'email' => $admin->email,
+                'roles' => ['Jugador'],
+                'motivo' => 'Intento de quitarse el rol',
+            ])
+            ->assertForbidden();
+
+        $this->assertSame(['Administrador General'], $admin->fresh()->getRoleNames()->all());
+    }
+
+    // Sin cambiar sus roles, el Administrador sí corrige sus propios datos
+    public function test_el_administrador_edita_sus_datos_sin_cambiar_sus_roles(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('Administrador General');
+
+        $this->actingAs($admin)
+            ->put(route('admin.usuarios.update', $admin), [
+                'name' => 'Nombre Corregido',
+                'email' => $admin->email,
+                'roles' => ['Administrador General'],
+                'motivo' => 'Corrección del nombre',
+            ])
+            ->assertRedirect(route('admin.usuarios.index'));
+
+        $this->assertSame('Nombre Corregido', $admin->fresh()->name);
+    }
+
+    // El Administrador asigna y retira roles de otra cuenta (CA5)
+    public function test_el_administrador_cambia_los_roles_de_otra_cuenta(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('Administrador General');
+        $usuario = User::factory()->create();
+        $usuario->assignRole('Jugador');
+
+        $this->actingAs($admin)
+            ->put(route('admin.usuarios.update', $usuario), [
+                'name' => $usuario->name,
+                'email' => $usuario->email,
+                'roles' => ['Tesorero'],
+                'motivo' => 'Cambio de funciones',
+            ])
+            ->assertRedirect(route('admin.usuarios.index'));
+
+        $this->assertSame(['Tesorero'], $usuario->fresh()->getRoleNames()->all());
     }
 }

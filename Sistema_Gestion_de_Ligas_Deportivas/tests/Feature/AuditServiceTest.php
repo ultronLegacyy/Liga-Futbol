@@ -75,8 +75,8 @@ class AuditServiceTest extends TestCase
 
         $log = $this->logsDe($temporada, 'actualizar')->sole();
 
-        $this->assertSame(['nombre' => 'Temporada Original'], $log->valores_anteriores);
-        $this->assertSame(['nombre' => 'Temporada Corregida'], $log->valores_nuevos);
+        $this->assertSame(['nombre' => 'Temporada Original', 'estado' => 'borrador'], $log->valores_anteriores);
+        $this->assertSame(['nombre' => 'Temporada Corregida', 'estado' => 'activa'], $log->valores_nuevos);
         $this->assertSame($usuario->id, $log->usuario_id);
         $this->assertSame(self::IP_PRUEBA, $log->ip);
         $this->assertSame('Corrección del nombre y activación', $log->motivo);

@@ -198,33 +198,9 @@ class TemporadaController extends Controller
     ): RedirectResponse {
         Gate::authorize('update', $temporada);
 
-        $datos = $request->validate(
-            $this->reglasTemporada() + [
-                'motivo' => 'required|string|max:1000',
-                'estado' => 'sometimes|in:borrador,activa,cerrada',
-            ]
-        );
+        $datos = $request->validate($this->reglasTemporada());
 
-        $motivo = $datos['motivo'];
-        unset($datos['motivo']);
-
-        app(AuditService::class)->conMotivo(
-            $motivo,
-            function () use ($temporada, $datos) {
-                // Capturamos exactamente las llaves que vienen en los datos a modificar
-                $keys = array_keys($datos);
-                $anteriores = $temporada->only($keys);
-
-                $temporada->update($datos);
-
-                app(AuditService::class)->registrar(
-                    'actualizar',
-                    $temporada,
-                    $anteriores,
-                    $temporada->only($keys)
-                );
-            }
-        );
+        $temporada->update($datos);
 
         return redirect()->back()
             ->with('success', 'Temporada actualizada correctamente.');

@@ -52,6 +52,14 @@ class UserController extends Controller
     {
         Gate::authorize('update', $usuario);
 
+        // Cambiar roles es una habilidad aparte: nadie puede cambiar los suyos (CA5)
+        $rolesActuales = $usuario->getRoleNames()->sort()->values()->all();
+        $rolesNuevos = collect($request->roles)->sort()->values()->all();
+
+        if ($rolesActuales !== $rolesNuevos) {
+            Gate::authorize('asignarRoles', $usuario);
+        }
+
         app(AuditService::class)->conMotivo($request->motivo, function () use ($request, $usuario) {
             $usuario->update([
                 'name' => $request->name,
@@ -69,7 +77,7 @@ class UserController extends Controller
         $request->validate([
             'motivo' => 'required|string|max:255'
         ]);
-        
+
         Gate::authorize('toggleStatus', $usuario);
 
         app(AuditService::class)->conMotivo($request->motivo, function () use ($usuario) {
