@@ -118,21 +118,22 @@ class CanchaVistasTest extends TestCase
     // CA4: quien solo consulta ve el catálogo sin alta ni edición, y esas pantallas le dan 403
     public function test_un_rol_de_consulta_no_ve_alta_ni_edicion(): void
     {
-        $arbitro = $this->crearUsuario('arbitro_vistas_canchas@liga.com', 'Arbitro');
+        // El Secretario consulta canchas, pero no las registra ni las edita
+        $secretario = $this->crearUsuario('secretario_vistas_canchas@liga.com', 'Secretario');
         $cancha = Cancha::factory()->create(['nombre' => 'Cancha 9 U.D.C.']);
 
-        $this->actingAs($arbitro)->get(route('canchas.index'))
+        $this->actingAs($secretario)->get(route('canchas.index'))
             ->assertOk()
             ->assertSee('Cancha 9 U.D.C.')
             ->assertDontSee(route('canchas.create'), false)
             ->assertDontSee(route('canchas.edit', $cancha), false);
 
-        $this->actingAs($arbitro)->get(route('canchas.show', $cancha))
+        $this->actingAs($secretario)->get(route('canchas.show', $cancha))
             ->assertOk()
             ->assertDontSee(route('canchas.edit', $cancha), false);
 
-        $this->actingAs($arbitro)->get(route('canchas.create'))->assertForbidden();
-        $this->actingAs($arbitro)->get(route('canchas.edit', $cancha))->assertForbidden();
+        $this->actingAs($secretario)->get(route('canchas.create'))->assertForbidden();
+        $this->actingAs($secretario)->get(route('canchas.edit', $cancha))->assertForbidden();
     }
 
     // Sin permiso para consultar canchas no hay catálogo
@@ -156,22 +157,22 @@ class CanchaVistasTest extends TestCase
             ->assertOk()
             ->assertSee($enlace, false);
 
-        $consulta = $this->crearUsuario('consulta_vistas_canchas@liga.com', 'Consulta Publica', 'Arbitro');
+        // Sin campos.ver no aparece el enlace; se dibuja el layout directo porque el Tesorero no tiene ninguna pantalla del panel
+        $tesorero = $this->crearUsuario('tesorero_menu_canchas@liga.com', 'Tesorero');
+        $this->actingAs($tesorero);
 
-        $this->actingAs($consulta)->get(route('temporadas.index'))
-            ->assertOk()
-            ->assertDontSee($enlace, false);
+        $this->assertStringNotContainsString($enlace, view('layouts.admin')->render());
     }
 
     // La columna rol solo admite los roles del Sprint 1; el rol de Spatie es el que autoriza
-    private function crearUsuario(string $email, string $rol, ?string $columnaRol = null): User
+    private function crearUsuario(string $email, string $rol): User
     {
         $usuario = User::create([
             'name' => 'Usuario '.$rol,
             'email' => $email,
             'password' => Hash::make('secreto123'),
             'estatus' => 'activo',
-            'rol' => $columnaRol ?? $rol,
+            'rol' => $rol,
         ]);
 
         $usuario->assignRole($rol);
