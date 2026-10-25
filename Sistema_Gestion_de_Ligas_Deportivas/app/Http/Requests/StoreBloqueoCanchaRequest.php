@@ -49,7 +49,7 @@ class StoreBloqueoCanchaRequest extends FormRequest
     }
 
     /**
-     * Validacion de regla de negocio: prevencion inquebrantable de traslapes de horarios en la misma cancha (HU-024, CA3).
+     * Validación de regla de negocio: prevención de traslapes de horarios en la misma cancha (HU-024).
      */
     public function withValidator(Validator $validator): void
     {

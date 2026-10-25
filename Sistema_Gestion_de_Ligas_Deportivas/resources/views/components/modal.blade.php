@@ -48,7 +48,7 @@
 
             @if(isset($footer))
                 <!-- Pie del Modal -->
-                <div class="flex items-center justify-end gap-3 border-t border-gray-700 bg-gray-850 px-6 py-4">
+                <div class="flex items-center justify-end gap-3 border-t border-gray-700 bg-gray-900/60 px-6 py-4">
                     {{ $footer }}
                 </div>
             @endif

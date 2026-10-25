@@ -111,7 +111,7 @@ class BloqueoCanchaViewTest extends TestCase
     // 4. Indicador cuando el estado general de la cancha es Inactiva
     public function test_vista_muestra_alerta_si_cancha_esta_inactiva(): void
     {
-        $this->cancha->update(['estado' => 'Inactiva']);
+        $this->cancha->forceFill(['estado' => 'Inactiva'])->save();
 
         $respuesta = $this->actingAs($this->admin)
             ->get(route('canchas.bloqueos.index', $this->cancha));
@@ -257,6 +257,52 @@ class BloqueoCanchaViewTest extends TestCase
             'registro_id' => $bloqueo->id,
             'motivo' => $motivoLiberacion,
         ]);
+    }
+
+    // 12. Enlaces hacia pantalla de bloqueos desde el catálogo y la ficha de cancha
+    public function test_catalogo_de_canchas_muestra_enlace_a_disponibilidad_y_bloqueos_para_usuario_autorizado(): void
+    {
+        $respuesta = $this->actingAs($this->admin)->get(route('canchas.index'));
+
+        $respuesta->assertOk();
+        $respuesta->assertSee(route('canchas.bloqueos.index', $this->cancha), false);
+        $respuesta->assertSee('Disponibilidad y Bloqueos');
+    }
+
+    public function test_detalle_de_cancha_muestra_enlace_a_disponibilidad_y_bloqueos_para_usuario_autorizado(): void
+    {
+        $respuesta = $this->actingAs($this->admin)->get(route('canchas.show', $this->cancha));
+
+        $respuesta->assertOk();
+        $respuesta->assertSee(route('canchas.bloqueos.index', $this->cancha), false);
+        $respuesta->assertSee('Disponibilidad y Bloqueos');
+    }
+
+    public function test_usuario_solo_lectura_tambien_ve_enlace_a_disponibilidad_y_bloqueos(): void
+    {
+        $respuesta = $this->actingAs($this->usuarioLectura)->get(route('canchas.index'));
+
+        $respuesta->assertOk();
+        $respuesta->assertSee(route('canchas.bloqueos.index', $this->cancha), false);
+    }
+
+    public function test_formulario_web_liberar_bloqueo_valida_motivo_obligatorio(): void
+    {
+        $bloqueo = BloqueoCancha::create([
+            'cancha_id' => $this->cancha->id,
+            'fecha_inicio' => Carbon::now()->addDays(5)->setTime(8, 0),
+            'fecha_fin' => Carbon::now()->addDays(5)->setTime(16, 0),
+            'motivo' => 'Trabajos de prueba para validacion',
+        ]);
+
+        $respuesta = $this->from(route('canchas.bloqueos.index', $this->cancha))
+            ->actingAs($this->admin)
+            ->delete(route('canchas.bloqueos.destroy', [$this->cancha, $bloqueo]), [
+                // Sin motivo
+            ]);
+
+        $respuesta->assertRedirect(route('canchas.bloqueos.index', $this->cancha));
+        $respuesta->assertSessionHasErrors(['motivo']);
     }
 
     private function crearUsuario(string $email, string $rol): User

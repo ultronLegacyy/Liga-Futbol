@@ -273,7 +273,7 @@
                     </span>
                 </h3>
                 <p class="text-xs text-gray-400 mt-0.5">
-                    Registro historico de bloqueos concluidos para fines de consulta y auditoria inmutable (CA4).
+                    Registro histórico de bloqueos concluidos para fines de consulta y auditoría inmutable.
                 </p>
             </div>
         </div>
@@ -382,8 +382,8 @@
         </div>
 
         <div class="p-3 bg-gray-900/60 border border-gray-700/60 rounded-lg text-xs text-gray-400">
-            <span class="font-bold text-gray-300">Auditoria inmutable (CA4):</span>
-            El registro de este bloqueo se asociara a su cuenta de usuario y fecha en la bitacora oficial. No se permiten traslapes con otros bloqueos de la misma cancha (CA3).
+            <span class="font-bold text-gray-300">Auditoría inmutable:</span>
+            El registro de este bloqueo se asociará a su cuenta de usuario y fecha en la bitácora oficial. No se permiten traslapes con otros bloqueos de la misma cancha.
         </div>
 
         <div class="flex items-center justify-end gap-3 pt-3 border-t border-gray-700">
@@ -428,7 +428,7 @@
                       maxlength="255"
                       placeholder="Explique la causa del retiro (ej. Trabajos de mantenimiento concluidos satisfactoriamente antes de tiempo)..."
                       class="w-full bg-gray-900 border border-gray-700 text-gray-100 text-sm rounded-lg px-3 py-2 focus:ring-red-500 focus:border-red-500"></textarea>
-            <p class="text-xs text-gray-400 mt-1">Este motivo quedara registrado en la bitacora de auditoria (CA4).</p>
+            <p class="text-xs text-gray-400 mt-1">Este motivo quedará registrado en la bitácora de auditoría.</p>
         </div>
 
         <div class="flex items-center justify-end gap-3 pt-3 border-t border-gray-700">
@@ -450,12 +450,25 @@
 
 @push('scripts')
 <script>
+    let ultimoElementoActivo = null;
+
     function abrirModal(id) {
         const modal = document.getElementById(id);
         if (modal) {
+            ultimoElementoActivo = document.activeElement;
             modal.classList.remove('hidden');
             modal.classList.add('flex');
             document.body.classList.add('overflow-hidden');
+
+            setTimeout(() => {
+                const primerInput = modal.querySelector('input:not([type="hidden"]), textarea, select');
+                if (primerInput) {
+                    primerInput.focus();
+                } else {
+                    const primerBoton = modal.querySelector('button');
+                    if (primerBoton) primerBoton.focus();
+                }
+            }, 50);
         }
     }
 
@@ -465,6 +478,10 @@
             modal.classList.add('hidden');
             modal.classList.remove('flex');
             document.body.classList.remove('overflow-hidden');
+
+            if (ultimoElementoActivo && typeof ultimoElementoActivo.focus === 'function') {
+                ultimoElementoActivo.focus();
+            }
         }
     }
 
@@ -525,7 +542,13 @@
 
             if (!respuesta.ok) {
                 const errorData = await respuesta.json().catch(() => ({}));
-                const mensajeError = errorData.message || 'Error al validar el rango solicitado.';
+                let mensajeError = errorData.message || 'Error al validar el rango solicitado.';
+                if (errorData.errors) {
+                    const primerErrorKey = Object.keys(errorData.errors)[0];
+                    if (primerErrorKey && errorData.errors[primerErrorKey][0]) {
+                        mensajeError = errorData.errors[primerErrorKey][0];
+                    }
+                }
                 resultado.innerHTML = '<span class="text-red-400 font-semibold">' + mensajeError + '</span>';
                 return;
             }
@@ -545,14 +568,32 @@
         }
     }
 
-    // Cerrar modales abiertos con tecla Escape
+    // Gestion de teclado accesible en modales (Escape para cerrar, Tab para retener foco dentro del modal)
     document.addEventListener('keydown', function(event) {
+        const modales = Array.from(document.querySelectorAll('[role="dialog"]'));
+        const modalAbierto = modales.find(m => !m.classList.contains('hidden'));
+
+        if (!modalAbierto) return;
+
         if (event.key === 'Escape') {
-            document.querySelectorAll('[role="dialog"]').forEach(modal => {
-                if (!modal.classList.contains('hidden')) {
-                    cerrarModal(modal.id);
-                }
-            });
+            cerrarModal(modalAbierto.id);
+            return;
+        }
+
+        if (event.key === 'Tab') {
+            const focusables = Array.from(modalAbierto.querySelectorAll('button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'));
+            if (focusables.length === 0) return;
+
+            const primerElemento = focusables[0];
+            const ultimoElemento = focusables[focusables.length - 1];
+
+            if (event.shiftKey && document.activeElement === primerElemento) {
+                event.preventDefault();
+                ultimoElemento.focus();
+            } else if (!event.shiftKey && document.activeElement === ultimoElemento) {
+                event.preventDefault();
+                primerElemento.focus();
+            }
         }
     });
 

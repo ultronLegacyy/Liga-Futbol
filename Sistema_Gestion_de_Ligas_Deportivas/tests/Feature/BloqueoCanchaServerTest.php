@@ -67,7 +67,7 @@ class BloqueoCanchaServerTest extends TestCase
         );
     }
 
-    // 3. Metodo estaDisponible cuando existe un bloqueo solapado (CA2, CA3)
+    // 3. Metodo estaDisponible cuando existe un bloqueo solapado (HU-024)
     public function test_cancha_no_esta_disponible_si_existe_un_bloqueo_en_el_horario(): void
     {
         BloqueoCancha::create([
@@ -106,7 +106,7 @@ class BloqueoCanchaServerTest extends TestCase
     // 4. Cancha inactiva nunca esta disponible
     public function test_cancha_inactiva_nunca_esta_disponible(): void
     {
-        $this->cancha->update(['estado' => 'Inactiva']);
+        $this->cancha->forceFill(['estado' => 'Inactiva'])->save();
 
         $this->assertFalse(
             $this->cancha->estaDisponible('2026-11-01 08:00:00', '2026-11-01 10:00:00')
@@ -189,7 +189,7 @@ class BloqueoCanchaServerTest extends TestCase
         ]);
     }
 
-    // 9. Registro en auditoria inmutable (CA4, RNF-22)
+    // 9. Registro en auditoria inmutable (RNF-22)
     public function test_registro_de_bloqueo_crea_registro_en_auditoria_con_motivo(): void
     {
         $motivoEsperado = 'Suspension por evento oficial de la Liga';
@@ -210,7 +210,7 @@ class BloqueoCanchaServerTest extends TestCase
         ]);
     }
 
-    // 10. Prevencion estricta de traslapes en la misma cancha (CA3)
+    // 10. Prevencion estricta de traslapes en la misma cancha (HU-024)
     public function test_rechaza_registro_de_bloqueo_si_se_traslapa_con_otro_existente(): void
     {
         BloqueoCancha::create([
@@ -274,7 +274,7 @@ class BloqueoCanchaServerTest extends TestCase
         $respuesta->assertJsonValidationErrors(['fecha_fin']);
     }
 
-    // 13. Retiro / cancelacion de bloqueo con registro en auditoria (CA4)
+    // 13. Retiro / cancelacion de bloqueo con registro en auditoria (RNF-22, RNF-33)
     public function test_liberacion_de_bloqueo_elimina_registro_y_crea_auditoria(): void
     {
         $bloqueo = BloqueoCancha::create([
@@ -308,7 +308,28 @@ class BloqueoCanchaServerTest extends TestCase
         ]);
     }
 
-    // 14. Rechazo con 403 Forbidden a usuarios sin permiso campos.bloquear (CA4)
+    public function test_liberacion_de_bloqueo_exige_motivo_obligatorio_con_422(): void
+    {
+        $bloqueo = BloqueoCancha::create([
+            'cancha_id' => $this->cancha->id,
+            'fecha_inicio' => Carbon::parse('2026-11-15 08:00:00'),
+            'fecha_fin' => Carbon::parse('2026-11-15 12:00:00'),
+            'motivo' => 'Bloqueo temporal para prueba de validacion',
+        ]);
+
+        $respuesta = $this->actingAs($this->admin)
+            ->deleteJson(route('canchas.bloqueos.destroy', [$this->cancha, $bloqueo]), [
+                // Sin motivo
+            ]);
+
+        $respuesta->assertStatus(422);
+        $respuesta->assertJsonValidationErrors(['motivo']);
+        $respuesta->assertJsonFragment([
+            'motivo' => ['El motivo de la liberación o cancelación es obligatorio.'],
+        ]);
+    }
+
+    // 14. Rechazo con 403 Forbidden a usuarios sin permiso campos.bloquear
     public function test_usuario_sin_permiso_es_rechazado_con_403_al_intentar_bloquear(): void
     {
         $respuesta = $this->actingAs($this->usuarioSinPermiso)
@@ -357,6 +378,72 @@ class BloqueoCanchaServerTest extends TestCase
         $resLibre->assertJson([
             'cancha_id' => $this->cancha->id,
             'disponible' => true,
+        ]);
+    }
+
+    public function test_endpoint_de_disponibilidad_valida_formato_de_hora_invalido_con_422(): void
+    {
+        $respuesta = $this->actingAs($this->admin)
+            ->getJson(route('canchas.disponibilidad', [
+                'cancha' => $this->cancha,
+                'fecha' => '2026-11-25',
+                'hora_inicio' => 'abc',
+                'hora_fin' => '12:00',
+            ]));
+
+        $respuesta->assertStatus(422);
+        $respuesta->assertJsonValidationErrors(['hora_inicio']);
+        $respuesta->assertJsonFragment([
+            'hora_inicio' => ['El campo hora de inicio debe tener el formato HH:MM o HH:MM:SS.'],
+        ]);
+    }
+
+    public function test_endpoint_de_disponibilidad_valida_hora_fin_anterior_a_hora_inicio_con_422(): void
+    {
+        $respuesta = $this->actingAs($this->admin)
+            ->getJson(route('canchas.disponibilidad', [
+                'cancha' => $this->cancha,
+                'fecha' => '2026-11-25',
+                'hora_inicio' => '14:00',
+                'hora_fin' => '10:00',
+            ]));
+
+        $respuesta->assertStatus(422);
+        $respuesta->assertJsonValidationErrors(['hora_fin']);
+        $respuesta->assertJsonFragment([
+            'hora_fin' => ['La hora de fin debe ser posterior a la hora de inicio.'],
+        ]);
+    }
+
+    public function test_endpoint_de_disponibilidad_valida_fechas_invalidas_con_mensajes_en_espanol(): void
+    {
+        $respuesta = $this->actingAs($this->admin)
+            ->getJson(route('canchas.disponibilidad', [
+                'cancha' => $this->cancha,
+                'fecha_inicio' => 'fecha-invalida',
+                'fecha_fin' => '2026-11-25 18:00:00',
+            ]));
+
+        $respuesta->assertStatus(422);
+        $respuesta->assertJsonValidationErrors(['fecha_inicio']);
+        $respuesta->assertJsonFragment([
+            'fecha_inicio' => ['El campo fecha inicio debe ser una fecha válida.'],
+        ]);
+    }
+
+    public function test_endpoint_de_disponibilidad_valida_fecha_fin_anterior_a_fecha_inicio_con_422(): void
+    {
+        $respuesta = $this->actingAs($this->admin)
+            ->getJson(route('canchas.disponibilidad', [
+                'cancha' => $this->cancha,
+                'fecha_inicio' => '2026-11-25 18:00:00',
+                'fecha_fin' => '2026-11-25 15:00:00',
+            ]));
+
+        $respuesta->assertStatus(422);
+        $respuesta->assertJsonValidationErrors(['fecha_fin']);
+        $respuesta->assertJsonFragment([
+            'fecha_fin' => ['La fecha fin debe ser posterior a la fecha inicio.'],
         ]);
     }
 

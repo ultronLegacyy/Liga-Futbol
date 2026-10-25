@@ -43,21 +43,21 @@ class CanchaBloqueoTest extends TestCase
         // Tesorero: aislado de canchas (sin campos.ver ni campos.bloquear)
         $this->tesoreroSinAcceso = $this->crearUsuario('tesorero_test_bloqueo@liga.com', 'Tesorero');
 
-        $this->canchaPrincipal = Cancha::create([
+        $this->canchaPrincipal = Cancha::forceCreate([
             'nombre' => 'Cancha 12 U.D.C.',
             'direccion_ubicacion' => 'Unidad Deportiva Cuauhtemoc, Morelia',
             'capacidad_partidos_consecutivos' => 2,
             'estado' => 'Disponible',
         ]);
 
-        $this->canchaSecundaria = Cancha::create([
+        $this->canchaSecundaria = Cancha::forceCreate([
             'nombre' => 'Cancha 14 U.D.C.',
             'direccion_ubicacion' => 'Unidad Deportiva Cuauhtemoc, Morelia',
             'capacidad_partidos_consecutivos' => 2,
             'estado' => 'Disponible',
         ]);
 
-        $this->canchaInactiva = Cancha::create([
+        $this->canchaInactiva = Cancha::forceCreate([
             'nombre' => 'Cancha 3 Clausurada',
             'direccion_ubicacion' => 'Instalaciones Privadas',
             'capacidad_partidos_consecutivos' => 1,
@@ -203,7 +203,7 @@ class CanchaBloqueoTest extends TestCase
     }
 
     // =========================================================================
-    // BLOQUE 3: Criterio de Aceptacion 3 (CA3) - Rechazo estricto de traslapes
+    // BLOQUE 3: Regla de Negocio Anti-Traslapes (HU-024) - Rechazo estricto de traslapes
     // =========================================================================
 
     public function test_rechaza_traslape_cuando_nuevo_bloqueo_esta_contenido_en_uno_existente(): void
@@ -379,7 +379,7 @@ class CanchaBloqueoTest extends TestCase
     }
 
     // =========================================================================
-    // BLOQUE 4: Criterio de Aceptacion 4 (CA4) - Auditoria inmutable
+    // BLOQUE 4: Auditoria Inmutable y Trazabilidad (RNF-22, RNF-33)
     // =========================================================================
 
     public function test_alta_de_bloqueo_crea_registro_en_auditoria_logs_con_usuario_fecha_y_motivo(): void
@@ -564,6 +564,93 @@ class CanchaBloqueoTest extends TestCase
 
         $respuesta->assertStatus(422);
         $respuesta->assertJsonValidationErrors(['fecha_inicio', 'fecha_fin']);
+    }
+
+    public function test_endpoint_disponibilidad_valida_formato_de_hora_invalido_con_422(): void
+    {
+        $respuesta = $this->actingAs($this->admin)
+            ->getJson(route('canchas.disponibilidad', [
+                'cancha' => $this->canchaPrincipal,
+                'fecha' => '2026-11-20',
+                'hora_inicio' => 'no-valida',
+                'hora_fin' => '12:00',
+            ]));
+
+        $respuesta->assertStatus(422);
+        $respuesta->assertJsonValidationErrors(['hora_inicio']);
+        $respuesta->assertJsonFragment([
+            'hora_inicio' => ['El campo hora de inicio debe tener el formato HH:MM o HH:MM:SS.'],
+        ]);
+    }
+
+    public function test_endpoint_disponibilidad_valida_hora_fin_anterior_a_hora_inicio_con_422(): void
+    {
+        $respuesta = $this->actingAs($this->admin)
+            ->getJson(route('canchas.disponibilidad', [
+                'cancha' => $this->canchaPrincipal,
+                'fecha' => '2026-11-20',
+                'hora_inicio' => '16:00',
+                'hora_fin' => '11:00',
+            ]));
+
+        $respuesta->assertStatus(422);
+        $respuesta->assertJsonValidationErrors(['hora_fin']);
+        $respuesta->assertJsonFragment([
+            'hora_fin' => ['La hora de fin debe ser posterior a la hora de inicio.'],
+        ]);
+    }
+
+    public function test_endpoint_disponibilidad_valida_fechas_con_mensajes_en_espanol(): void
+    {
+        $respuesta = $this->actingAs($this->admin)
+            ->getJson(route('canchas.disponibilidad', [
+                'cancha' => $this->canchaPrincipal,
+                'fecha_inicio' => 'formato-invalido',
+                'fecha_fin' => '2026-11-20 18:00:00',
+            ]));
+
+        $respuesta->assertStatus(422);
+        $respuesta->assertJsonValidationErrors(['fecha_inicio']);
+        $respuesta->assertJsonFragment([
+            'fecha_inicio' => ['El campo fecha inicio debe ser una fecha válida.'],
+        ]);
+    }
+
+    public function test_endpoint_disponibilidad_valida_fecha_fin_anterior_a_fecha_inicio_con_422(): void
+    {
+        $respuesta = $this->actingAs($this->admin)
+            ->getJson(route('canchas.disponibilidad', [
+                'cancha' => $this->canchaPrincipal,
+                'fecha_inicio' => '2026-11-20 18:00:00',
+                'fecha_fin' => '2026-11-20 10:00:00',
+            ]));
+
+        $respuesta->assertStatus(422);
+        $respuesta->assertJsonValidationErrors(['fecha_fin']);
+        $respuesta->assertJsonFragment([
+            'fecha_fin' => ['La fecha fin debe ser posterior a la fecha inicio.'],
+        ]);
+    }
+
+    public function test_cancelacion_de_bloqueo_exige_motivo_obligatorio_con_422(): void
+    {
+        $bloqueo = BloqueoCancha::create([
+            'cancha_id' => $this->canchaPrincipal->id,
+            'fecha_inicio' => Carbon::now()->addDays(2)->setTime(8, 0),
+            'fecha_fin' => Carbon::now()->addDays(2)->setTime(12, 0),
+            'motivo' => 'Bloqueo temporal a eliminar sin motivo',
+        ]);
+
+        $respuesta = $this->actingAs($this->admin)
+            ->deleteJson(route('canchas.bloqueos.destroy', [$this->canchaPrincipal, $bloqueo]), [
+                // Sin motivo
+            ]);
+
+        $respuesta->assertStatus(422);
+        $respuesta->assertJsonValidationErrors(['motivo']);
+        $respuesta->assertJsonFragment([
+            'motivo' => ['El motivo de la liberación o cancelación es obligatorio.'],
+        ]);
     }
 
     public function test_factory_de_bloqueos_cancha_genera_registros_consistentes(): void

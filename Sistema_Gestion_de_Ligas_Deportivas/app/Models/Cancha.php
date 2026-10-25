@@ -22,7 +22,7 @@ class Cancha extends Model
     protected $table = 'canchas';
 
     // El estado no se captura directamente en el catalogo general; los bloqueos por mantenimiento o lluvia son de HU-024
-    protected $fillable = ['nombre', 'direccion_ubicacion', 'capacidad_partidos_consecutivos', 'estado'];
+    protected $fillable = ['nombre', 'direccion_ubicacion', 'capacidad_partidos_consecutivos'];
 
     /**
      * @return array<string, string>

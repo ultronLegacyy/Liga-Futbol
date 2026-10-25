@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use InvalidArgumentException;
 
 // Controlador para la gestion de disponibilidad y bloqueos de canchas (HU-024, RF-05.2)
 class CanchaBloqueoController extends Controller
@@ -76,7 +77,7 @@ class CanchaBloqueoController extends Controller
     }
 
     /**
-     * Registrar un bloqueo temporal sobre una cancha con motivo obligatorio (CA2, CA3, CA4).
+     * Registrar un bloqueo temporal sobre una cancha con motivo obligatorio (HU-024, CA2).
      */
     public function store(StoreBloqueoCanchaRequest $request, Cancha $cancha): JsonResponse|RedirectResponse
     {
@@ -102,7 +103,7 @@ class CanchaBloqueoController extends Controller
     }
 
     /**
-     * Retirar o cancelar un bloqueo temporal con registro obligatorio en auditoria (CA4).
+     * Retirar o cancelar un bloqueo temporal con registro obligatorio en auditoría (RNF-22, RNF-33).
      */
     public function destroy(Request $request, Cancha $cancha, BloqueoCancha $bloqueo): JsonResponse|RedirectResponse
     {
@@ -112,10 +113,16 @@ class CanchaBloqueoController extends Controller
 
         Gate::authorize('delete', $bloqueo);
 
-        $motivo = $request->input('motivo');
-        $motivoAuditoria = is_string($motivo) && trim($motivo) !== ''
-            ? trim($motivo)
-            : "Cancelacion o liberacion de bloqueo ID {$bloqueo->id} en cancha {$cancha->nombre}";
+        $datos = $request->validate([
+            'motivo' => ['required', 'string', 'min:3', 'max:255'],
+        ], [
+            'motivo.required' => 'El motivo de la liberación o cancelación es obligatorio.',
+            'motivo.string' => 'El motivo debe ser una cadena de texto válida.',
+            'motivo.min' => 'El motivo de la liberación debe contener al menos :min caracteres.',
+            'motivo.max' => 'El motivo de la liberación no puede exceder :max caracteres.',
+        ]);
+
+        $motivoAuditoria = trim((string) $datos['motivo']);
 
         $this->auditService->conMotivo(
             $motivoAuditoria,
@@ -136,35 +143,63 @@ class CanchaBloqueoController extends Controller
     }
 
     /**
-     * Endpoint para consultar la disponibilidad de una cancha en un rango horario (CA1).
+     * Endpoint para consultar la disponibilidad de una cancha en un rango horario (HU-024, CA1).
      */
     public function disponibilidad(Request $request, Cancha $cancha): JsonResponse
     {
         Gate::authorize('view', $cancha);
 
-        if ($request->filled('fecha') && $request->filled('hora_inicio') && $request->filled('hora_fin')) {
-            $request->validate([
-                'fecha' => 'required|date',
-                'hora_inicio' => 'required|string',
-                'hora_fin' => 'required|string',
+        if ($request->has('fecha') || $request->has('hora_inicio') || $request->has('hora_fin')) {
+            $datos = $request->validate([
+                'fecha' => ['required', 'date'],
+                'hora_inicio' => ['required', 'date_format:H:i,H:i:s'],
+                'hora_fin' => ['required', 'date_format:H:i,H:i:s', 'after:hora_inicio'],
+            ], [
+                'fecha.required' => 'El campo fecha es obligatorio.',
+                'fecha.date' => 'El campo fecha debe ser una fecha válida.',
+                'hora_inicio.required' => 'El campo hora de inicio es obligatorio.',
+                'hora_inicio.date_format' => 'El campo hora de inicio debe tener el formato HH:MM o HH:MM:SS.',
+                'hora_fin.required' => 'El campo hora de fin es obligatorio.',
+                'hora_fin.date_format' => 'El campo hora de fin debe tener el formato HH:MM o HH:MM:SS.',
+                'hora_fin.after' => 'La hora de fin debe ser posterior a la hora de inicio.',
             ]);
 
-            $fecha = (string) $request->input('fecha');
-            $horaInicio = (string) $request->input('hora_inicio');
-            $horaFin = (string) $request->input('hora_fin');
+            $fecha = (string) $datos['fecha'];
+            $horaInicio = (string) $datos['hora_inicio'];
+            $horaFin = (string) $datos['hora_fin'];
 
-            $inicio = Carbon::parse("{$fecha} {$horaInicio}");
-            $fin = Carbon::parse("{$fecha} {$horaFin}");
-            $disponible = $cancha->estaDisponible($fecha, $horaInicio, $horaFin);
+            try {
+                $inicio = Carbon::parse("{$fecha} {$horaInicio}");
+                $fin = Carbon::parse("{$fecha} {$horaFin}");
+                $disponible = $cancha->estaDisponible($fecha, $horaInicio, $horaFin);
+            } catch (InvalidArgumentException $e) {
+                return response()->json([
+                    'message' => $e->getMessage(),
+                    'errors' => ['hora_fin' => [$e->getMessage()]],
+                ], 422);
+            }
         } else {
-            $request->validate([
-                'fecha_inicio' => 'required|date',
-                'fecha_fin' => 'required|date|after:fecha_inicio',
+            $datos = $request->validate([
+                'fecha_inicio' => ['required', 'date'],
+                'fecha_fin' => ['required', 'date', 'after:fecha_inicio'],
+            ], [
+                'fecha_inicio.required' => 'El campo fecha inicio es obligatorio.',
+                'fecha_inicio.date' => 'El campo fecha inicio debe ser una fecha válida.',
+                'fecha_fin.required' => 'El campo fecha fin es obligatorio.',
+                'fecha_fin.date' => 'El campo fecha fin debe ser una fecha válida.',
+                'fecha_fin.after' => 'La fecha fin debe ser posterior a la fecha inicio.',
             ]);
 
-            $inicio = Carbon::parse((string) $request->input('fecha_inicio'));
-            $fin = Carbon::parse((string) $request->input('fecha_fin'));
-            $disponible = $cancha->estaDisponible($inicio, $fin);
+            try {
+                $inicio = Carbon::parse((string) $datos['fecha_inicio']);
+                $fin = Carbon::parse((string) $datos['fecha_fin']);
+                $disponible = $cancha->estaDisponible($inicio, $fin);
+            } catch (InvalidArgumentException $e) {
+                return response()->json([
+                    'message' => $e->getMessage(),
+                    'errors' => ['fecha_fin' => [$e->getMessage()]],
+                ], 422);
+            }
         }
 
         return response()->json([

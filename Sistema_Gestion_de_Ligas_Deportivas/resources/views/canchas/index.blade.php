@@ -50,6 +50,11 @@
                             <a href="{{ route('canchas.show', $cancha) }}" class="text-blue-400 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-400 rounded">
                                 Ver<span class="sr-only"> {{ $cancha->nombre }}</span>
                             </a>
+                            @can('view', $cancha)
+                                <a href="{{ route('canchas.bloqueos.index', $cancha) }}" class="text-green-400 hover:underline focus:outline-none focus:ring-2 focus:ring-green-400 rounded">
+                                    Disponibilidad y Bloqueos<span class="sr-only"> de {{ $cancha->nombre }}</span>
+                                </a>
+                            @endcan
                             @can('update', $cancha)
                                 <a href="{{ route('canchas.edit', $cancha) }}" class="text-yellow-400 hover:underline focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded">
                                     Editar<span class="sr-only"> {{ $cancha->nombre }}</span>
