@@ -298,7 +298,8 @@ class ReglasTemporadaTest extends TestCase
             ->assertSee('v1');
     }
 
-    // CA3: en una temporada cerrada se consultan exactamente las reglas que aplicaron, sin formulario de cambio
+    // CA3: en una temporada cerrada se consultan las reglas que aplicaron,
+    // sin permitir guardar nuevas versiones.
     public function test_temporada_cerrada_muestra_las_reglas_que_aplicaron_sin_permitir_cambios(): void
     {
         $admin = $this->crearAdministrador();
@@ -319,13 +320,18 @@ class ReglasTemporadaTest extends TestCase
         $this->actingAs($admin)
             ->get(route('temporadas.reglas.index', $temporada))
             ->assertOk()
-            ->assertSeeInOrder(['v2', 'Versión 2 de la temporada.', 'v1', 'Versión 1 de la temporada.'])
+            ->assertSeeInOrder([
+                'v2',
+                'Versión 2 de la temporada.',
+                'v1',
+                'Versión 1 de la temporada.',
+            ])
             ->assertSee('"puntos_victoria": 4')
             ->assertSee('La temporada está cerrada. Solo se permite consultar sus reglas.')
             ->assertDontSee('Guardar nueva versión');
     }
 
-    // El ejemplo que trae el formulario cumple el esquema y se puede guardar tal cual
+    // El ejemplo del formulario cumple el esquema y se puede guardar tal cual.
     public function test_el_ejemplo_del_formulario_se_guarda_sin_cambios(): void
     {
         $admin = $this->crearAdministrador();
@@ -336,7 +342,14 @@ class ReglasTemporadaTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertSame(1, preg_match('/<textarea id="reglas_json"[^>]*>(.*?)<\/textarea>/s', (string) $pagina, $coincidencia));
+        $this->assertSame(
+            1,
+            preg_match(
+                '/<textarea id="reglas_json"[^>]*>(.*?)<\/textarea>/s',
+                (string) $pagina,
+                $coincidencia
+            )
+        );
 
         $this->actingAs($admin)->post(
             route('temporadas.reglas.store', $temporada),
@@ -352,7 +365,7 @@ class ReglasTemporadaTest extends TestCase
         ]);
     }
 
-    // La consulta de la temporada enlaza a sus reglas solo para quien puede verlas
+    // La consulta de la temporada enlaza a sus reglas solo para quien puede verlas.
     public function test_la_temporada_enlaza_a_sus_reglas_segun_el_permiso(): void
     {
         $temporada = Temporada::factory()->activa()->create();
@@ -411,6 +424,46 @@ class ReglasTemporadaTest extends TestCase
         );
 
         $version->delete();
+    }
+
+    public function test_detalle_de_temporada_cerrada_muestra_aviso_de_solo_lectura(): void
+    {
+        $admin = $this->crearAdministrador();
+        $temporada = Temporada::factory()->cerrada()->create();
+
+        $this->actingAs($admin)
+            ->get(route('temporadas.show', $temporada))
+            ->assertOk()
+            ->assertSee('Temporada cerrada')
+            ->assertSee('Consulta histórica en modo de solo lectura')
+            ->assertSee('Las reglas y la estructura de esta temporada ya no se pueden modificar.');
+    }
+
+    public function test_detalle_de_temporada_activa_no_muestra_aviso_de_solo_lectura(): void
+    {
+        $admin = $this->crearAdministrador();
+        $temporada = Temporada::factory()->activa()->create();
+
+        $this->actingAs($admin)
+            ->get(route('temporadas.show', $temporada))
+            ->assertOk()
+            ->assertSee('Activa')
+            ->assertDontSee('Consulta histórica en modo de solo lectura');
+    }
+
+    public function test_detalle_de_temporada_no_duplica_accesos_de_gestion(): void
+    {
+        $admin = $this->crearAdministrador();
+        $temporada = Temporada::factory()->activa()->create();
+
+        $contenido = $this->actingAs($admin)
+            ->get(route('temporadas.show', $temporada))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertSame(1, substr_count($contenido, 'Categorías y grupos'));
+        $this->assertSame(1, substr_count($contenido, 'Consultar reglas e historial'));
+        $this->assertSame(1, substr_count($contenido, 'Descargar convocatoria vigente'));
     }
 
     /**

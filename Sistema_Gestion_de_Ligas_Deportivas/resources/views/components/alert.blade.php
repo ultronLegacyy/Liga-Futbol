@@ -1,47 +1,82 @@
+
 @props([
-    'type' => 'info', // success, error, warning, info
+    'type' => 'info',
     'message' => null,
-    'dismissible' => true,
+    'dismissible' => false,
 ])
 
 @php
-    $styles = match ($type) {
-        'success' => 'bg-emerald-950/60 border-emerald-600/40 text-emerald-200',
-        'error', 'danger' => 'bg-red-950/60 border-red-600/40 text-red-200',
-        'warning' => 'bg-amber-950/60 border-amber-600/40 text-amber-200',
-        default => 'bg-sky-950/60 border-sky-600/40 text-sky-200',
-    };
-    $accent = match ($type) {
-        'success' => 'text-emerald-400 border-emerald-500/40',
-        'error', 'danger' => 'text-red-400 border-red-500/40',
-        'warning' => 'text-amber-400 border-amber-500/40',
-        default => 'text-sky-400 border-sky-500/40',
-    };
-    $etiqueta = match ($type) {
-        'success' => 'Exito',
-        'error', 'danger' => 'Error',
-        'warning' => 'Atencion',
-        default => 'Informacion',
-    };
+    $tipos = [
+        'success' => [
+            'clases' => 'bg-green-500/10 border-green-500/30 text-green-400',
+            'icono' => '✓',
+            'etiqueta' => 'Éxito',
+            'rol' => 'status',
+        ],
+        'error' => [
+            'clases' => 'bg-red-500/10 border-red-500/30 text-red-400',
+            'icono' => '!',
+            'etiqueta' => 'Error',
+            'rol' => 'alert',
+        ],
+        'danger' => [
+            'clases' => 'bg-red-500/10 border-red-500/30 text-red-400',
+            'icono' => '!',
+            'etiqueta' => 'Error',
+            'rol' => 'alert',
+        ],
+        'warning' => [
+            'clases' => 'bg-amber-500/10 border-amber-500/30 text-amber-400',
+            'icono' => '!',
+            'etiqueta' => 'Atención',
+            'rol' => 'status',
+        ],
+        'info' => [
+            'clases' => 'bg-blue-500/10 border-blue-500/30 text-blue-400',
+            'icono' => 'i',
+            'etiqueta' => 'Información',
+            'rol' => 'status',
+        ],
+    ];
+
+    $tipoActual = array_key_exists($type, $tipos) ? $type : 'info';
+    $estilo = $tipos[$tipoActual];
+    $mensaje = $message;
 @endphp
 
-<div {{ $attributes->merge(['class' => "rounded-lg border p-4 text-sm {$styles} transition-all duration-150"]) }} role="alert">
-    <div class="flex items-start justify-between gap-3">
-        <div class="flex items-start gap-3 flex-1">
-            <span class="font-bold uppercase tracking-wider text-xs px-2 py-0.5 rounded border {{ $accent }}">
-                {{ $etiqueta }}
-            </span>
-            <div class="leading-relaxed">
-                {{ $message ?? $slot }}
-            </div>
+@if (filled($mensaje) || trim((string) $slot) !== '')
+    <div
+        {{ $attributes->merge([
+            'class' => 'mb-6 flex items-start gap-3 rounded-lg border px-4 py-3 text-sm '.$estilo['clases']
+        ]) }}
+        role="{{ $estilo['rol'] }}"
+        @if ($estilo['rol'] === 'alert') aria-live="assertive"
+        @else aria-live="polite" @endif
+    >
+        <span
+            aria-hidden="true"
+            class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-current font-bold"
+        >{{ $estilo['icono'] }}</span>
+
+        <div class="min-w-0 flex-1">
+            <span class="sr-only">{{ $estilo['etiqueta'] }}: </span>
+
+            @if (filled($mensaje))
+                {{ $mensaje }}
+            @else
+                {{ $slot }}
+            @endif
         </div>
-        @if($dismissible)
-            <button type="button"
-                    onclick="this.closest('[role=alert]').remove()"
-                    class="text-gray-400 hover:text-white transition"
-                    aria-label="Cerrar notificacion">
-                <span class="text-lg leading-none font-bold">&times;</span>
+
+        @if ($dismissible)
+            <button
+                type="button"
+                onclick="this.closest('[role=status], [role=alert]')?.remove()"
+                class="shrink-0 rounded text-current opacity-75 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-current"
+                aria-label="Cerrar notificación"
+            >
+                <span aria-hidden="true" class="text-lg leading-none font-bold">&times;</span>
             </button>
         @endif
     </div>
-</div>
+@endif
