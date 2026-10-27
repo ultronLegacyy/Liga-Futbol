@@ -289,7 +289,8 @@ class VersionadoReglasTest extends TestCase
         $this->actingAs($admin)
             ->get(route('temporadas.create'))
             ->assertOk()
-            ->assertSee('<label for="motivo">Motivo:</label>', false)
+            ->assertSee('for="motivo"', false)
+            ->assertSee('Motivo del registro', false)
             ->assertSee('id="motivo" name="motivo"', false);
 
         // Al faltar el motivo, se muestra el mensaje de error.
