@@ -124,6 +124,72 @@ class DatabaseSeeder extends Seeder
             'updated_at' => $now,
         ]);
 
+        $secretarioId = DB::table('usuarios')->insertGetId([
+            'name' => 'Secretario General Liga',
+            'email' => 'secretario@ligafutbol.com',
+            'password' => $passwordHash,
+            'password_hash' => $passwordHash,
+            'rol' => 'Secretario',
+            'club_id' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $comisionInfantilId = DB::table('usuarios')->insertGetId([
+            'name' => 'Comision Rama Infantil',
+            'email' => 'infantil@ligafutbol.com',
+            'password' => $passwordHash,
+            'password_hash' => $passwordHash,
+            'rol' => 'Consultor',
+            'club_id' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $programadorId = DB::table('usuarios')->insertGetId([
+            'name' => 'Programador Oficial de Partidos',
+            'email' => 'programador@ligafutbol.com',
+            'password' => $passwordHash,
+            'password_hash' => $passwordHash,
+            'rol' => 'Consultor',
+            'club_id' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $capturistaId = DB::table('usuarios')->insertGetId([
+            'name' => 'Capturista de Cedulas',
+            'email' => 'capturista@ligafutbol.com',
+            'password' => $passwordHash,
+            'password_hash' => $passwordHash,
+            'rol' => 'Capturista',
+            'club_id' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $comisionArbitralId = DB::table('usuarios')->insertGetId([
+            'name' => 'Comision Arbitral Oficial',
+            'email' => 'comision.arbitral@ligafutbol.com',
+            'password' => $passwordHash,
+            'password_hash' => $passwordHash,
+            'rol' => 'Comision Arbitral',
+            'club_id' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $tribunalId = DB::table('usuarios')->insertGetId([
+            'name' => 'Tribunal de Penas y Disciplina',
+            'email' => 'tribunal@ligafutbol.com',
+            'password' => $passwordHash,
+            'password_hash' => $passwordHash,
+            'rol' => 'Tribunal de Penas',
+            'club_id' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
         // Ejecucion del seeder de roles y permisos de gobernanza RBAC (Sprint 1)
         $this->call(RoleAndPermissionSeeder::class);
 
