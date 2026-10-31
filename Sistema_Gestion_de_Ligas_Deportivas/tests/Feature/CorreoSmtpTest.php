@@ -168,6 +168,38 @@ class CorreoSmtpTest extends TestCase
         $this->assertStringNotContainsString('enviado', $salida);
     }
 
+    // CA3: config/mail.php toma el servidor y las credenciales de las variables de entorno
+    public function test_la_configuracion_del_correo_se_lee_de_las_variables_de_entorno(): void
+    {
+        $valores = [
+            'MAIL_HOST' => 'smtp.desde-entorno.test',
+            'MAIL_PORT' => '2526',
+            'MAIL_SCHEME' => 'smtps',
+            'MAIL_USERNAME' => 'usuario-desde-entorno',
+            'MAIL_PASSWORD' => 'clave-desde-entorno',
+            'MAIL_REQUIRE_TLS' => 'true',
+        ];
+        $respaldo = [$_SERVER, $_ENV];
+
+        try {
+            foreach ($valores as $nombre => $valor) {
+                $_SERVER[$nombre] = $valor;
+                $_ENV[$nombre] = $valor;
+            }
+
+            $smtp = (require config_path('mail.php'))['mailers']['smtp'];
+        } finally {
+            [$_SERVER, $_ENV] = $respaldo;
+        }
+
+        $this->assertSame('smtp.desde-entorno.test', $smtp['host']);
+        $this->assertSame('2526', (string) $smtp['port']);
+        $this->assertSame('smtps', $smtp['scheme']);
+        $this->assertSame('usuario-desde-entorno', $smtp['username']);
+        $this->assertSame('clave-desde-entorno', $smtp['password']);
+        $this->assertTrue($smtp['require_tls']);
+    }
+
     /**
      * CA3 y CA4: el mailer smtp toma servidor y credenciales de la configuración (variables de entorno).
      *
