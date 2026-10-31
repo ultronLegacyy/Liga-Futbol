@@ -7,6 +7,7 @@ use App\Http\Controllers\ClubController;
 use App\Http\Controllers\EquipoController;
 use App\Http\Controllers\ForcePasswordChangeController;
 use App\Http\Controllers\GrupoController;
+use App\Http\Controllers\RecuperacionContrasenaController;
 use App\Http\Controllers\ReglaTemporadaController;
 use App\Http\Controllers\TemporadaController;
 use App\Http\Controllers\UserController;
@@ -15,6 +16,20 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
+});
+
+// Recuperación de contraseña por correo (HU-003). Cada envío tiene su propio contador de intentos por IP
+Route::middleware(['guest'])->group(function () {
+    Route::get('/forgot-password', [RecuperacionContrasenaController::class, 'solicitud'])
+        ->name('password.request');
+    Route::post('/forgot-password', [RecuperacionContrasenaController::class, 'enviarEnlace'])
+        ->middleware('throttle:5,1,solicitar-enlace')
+        ->name('password.email');
+    Route::get('/reset-password/{token}', [RecuperacionContrasenaController::class, 'formulario'])
+        ->name('password.reset');
+    Route::post('/reset-password', [RecuperacionContrasenaController::class, 'restablecer'])
+        ->middleware('throttle:5,1,restablecer')
+        ->name('password.update');
 });
 
 // Agrupamos todas las rutas que requieren sesión
