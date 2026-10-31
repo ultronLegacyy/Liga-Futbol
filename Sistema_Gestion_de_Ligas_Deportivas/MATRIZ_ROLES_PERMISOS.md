@@ -2,9 +2,9 @@
 
 Documento técnico de especificación de Control de Acceso Basado en Roles (RBAC) para el **Sistema de Gestión de Ligas Deportivas (SGLD)** de la Liga Municipal de Fútbol Amateur de Morelia, A.C.
 
-- **Incidencias Jira asociadas:** `SCRUM-14` (`HU-071`), `SCRUM-15` (`HU-072`), `SCRUM-16` (`HU-073`), `SCRUM-120` (`S2-T06`), `SCRUM-123` (`S2-T09`).
+- **Incidencias Jira asociadas:** `SCRUM-14` (`HU-071`), `SCRUM-15` (`HU-072`), `SCRUM-16` (`HU-073`), `SCRUM-120` (`S2-T06`), `SCRUM-123` (`S2-T09`), `SCRUM-130` (`S2-T16`).
 - **Base normativa:** Especificación de Requisitos de Software (ERS), Sección 2.3 (Características y Responsabilidades de los Usuarios) y Requisito Funcional `RF-12.1`.
-- **Estado de aprobación:** Propuesta técnica de arquitectura RBAC, sujeta a la revisión y aprobación formal del Product Owner (@Medina281) para el Criterio de Aceptación 3 (CA3 / SCRUM-123).
+- **Estado de aprobación:** Aprobado por el Product Owner (@Medina281) para Roles de Gobernanza (HU-071) y Roles Operativos Deportivos (HU-072 / SCRUM-15).
 - **Responsable de arquitectura:** Rafael Piedra Sánchez (Dev 2 — Backend Lead).
 
 ---
@@ -104,25 +104,25 @@ Donde:
 | | `jugadores.eliminar` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
 | | `jugadores.transferir`| Sí | No | No | No | No | No | No | No | No | No | Pendiente (HU-009) | Pendiente (HU-009) | No |
 | | `jugadores.validar_edad`| Sí | No | Sí | No | Sí* | No | No | No | No | No | No | No | No |
-| **Canchas e Instalac.**| `campos.ver` | Sí | Sí | Sí | No | Sí | Sí | Sí | Sí | Sí | No | Sí | Sí | Sí |
-| | `campos.crear` | Sí | No | No | No | No | Pendiente (HU-023) | No | No | No | No | No | No | No |
-| | `campos.editar` | Sí | No | No | No | No | Pendiente (HU-023) | No | No | No | No | No | No | No |
+| **Canchas e Instalac.**| `campos.ver` | Sí | Sí | Sí | No | Sí | Sí | Sí | Sí | Sí | Sí | Sí | Sí | Sí |
+| | `campos.crear` | Sí | No | No | No | No | Sí | No | No | No | No | No | No | No |
+| | `campos.editar` | Sí | No | No | No | No | Sí | No | No | No | No | No | No | No |
 | | `campos.eliminar` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
-| | `campos.bloquear` | Sí | No | No | No | No | Pendiente (HU-024) | No | No | No | No | No | No | No |
-| **Arbitraje y Padrón** | `arbitros.ver` | Sí | Pendiente (HU-010) | Pendiente (HU-010) | No | No | Pendiente (HU-010) | No | Pendiente (HU-010) | Pendiente (HU-010) | Pendiente (HU-010) | No | No | No |
-| | `arbitros.crear` | Sí | No | No | No | No | No | No | No | Pendiente (HU-010) | No | No | No | No |
-| | `arbitros.editar` | Sí | No | No | No | No | No | No | No | Pendiente (HU-010) | No | No | No | No |
-| | `arbitros.asignar` | Sí | No | No | No | No | Pendiente (HU-010) | No | No | Pendiente (HU-010) | No | No | No | No |
-| **Jornadas y Partidos** | `partidos.ver` | Sí | Pendiente (HU-014) | Pendiente (HU-014) | No | Pendiente (HU-014) | Pendiente (HU-014) | Pendiente (HU-014) | Pendiente (HU-014) | Pendiente (HU-014) | Pendiente (HU-014) | Pendiente (HU-014) | Pendiente (HU-014) | Pendiente (HU-014) |
-| | `partidos.programar` | Sí | No | No | No | No | Pendiente (HU-014) | No | No | No | No | No | No | No |
-| | `partidos.reprogramar`| Sí | No | No | No | No | Pendiente (HU-014) | No | No | No | No | No | No | No |
-| **Cédulas y Resultados**| `cedulas.ver` | Sí | Pendiente (HU-015) | Pendiente (HU-015) | No | No | Pendiente (HU-015) | Pendiente (HU-015) | Pendiente (HU-015) | No | Pendiente (HU-015) | Pendiente (HU-015) | Pendiente (HU-015) | Pendiente (HU-015) |
-| | `cedulas.capturar` | Sí | No | No | No | No | No | Pendiente (HU-015) | Pendiente (HU-015) | No | No | No | No | No |
-| | `cedulas.firmar` | No | No | No | No | No | No | No | Pendiente (HU-015) | No | No | No | Pendiente (HU-015) | No |
-| | `resultados.validar`| Sí | Pendiente (HU-016) | Pendiente (HU-016) | No | No | Pendiente (HU-016) | No | No | No | No | No | No | No |
-| **Régimen Disciplin.** | `disciplina.ver` | Sí | Pendiente (HU-017) | Pendiente (HU-017) | No | Pendiente (HU-017) | No | No | Pendiente (HU-017) | No | Pendiente (HU-017) | Pendiente (HU-017) | Pendiente (HU-017) | Pendiente (HU-017) |
-| | `disciplina.expedientes`| Sí | No | No | No | No | No | No | No | No | Pendiente (HU-017) | No | No | No |
-| | `disciplina.sancionar`| Sí | No | No | No | No | No | No | No | No | Pendiente (HU-017) | No | No | No |
+| | `campos.bloquear` | Sí | No | No | No | No | Sí | No | No | No | No | No | No | No |
+| **Arbitraje y Padrón** | `arbitros.ver` | Sí | No | No | No | No | Sí | No | Sí | Sí | Sí | No | No | No |
+| | `arbitros.crear` | Sí | No | No | No | No | No | No | No | Sí | No | No | No | No |
+| | `arbitros.editar` | Sí | No | No | No | No | No | No | No | Sí | No | No | No | No |
+| | `arbitros.asignar` | Sí | No | No | No | No | Sí | No | No | Sí | No | No | No | No |
+| **Jornadas y Partidos** | `partidos.ver` | Sí | No | No | No | No | Sí | Sí | Sí | Sí | Sí | No | No | No |
+| | `partidos.programar` | Sí | No | No | No | No | Sí | No | No | No | No | No | No | No |
+| | `partidos.reprogramar`| Sí | No | No | No | No | Sí | No | No | No | No | No | No | No |
+| **Cédulas y Resultados**| `cedulas.ver` | Sí | No | No | No | No | Sí | Sí | Sí | Sí | Sí | No | No | No |
+| | `cedulas.capturar` | Sí | No | No | No | No | No | Sí | Sí | No | No | No | No | No |
+| | `cedulas.firmar` | No | No | No | No | No | No | No | Sí | No | No | No | No | No |
+| | `resultados.validar`| Sí | No | No | No | No | Sí | No | No | No | No | No | No | No |
+| **Régimen Disciplin.** | `disciplina.ver` | Sí | No | No | No | No | No | No | Sí | No | Sí | No | No | No |
+| | `disciplina.expedientes`| Sí | No | No | No | No | No | No | No | No | Sí | No | No | No |
+| | `disciplina.sancionar`| Sí | No | No | No | No | No | No | No | No | Sí | No | No | No |
 | **Finanzas y Pagos** | `finanzas.ver` | Sí | No | No | Sí | No | No | No | No | No | No | Pendiente (HU-018) | Pendiente (HU-018) | No |
 | | `finanzas.cargos` | Sí | No | No | Sí | No | No | No | No | No | No | No | No | No |
 | | `finanzas.pagos_validar`| Sí | No | No | Sí | No | No | No | No | No | No | No | No | No |
