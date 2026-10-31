@@ -187,8 +187,22 @@
 
         .form-options {
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
+            justify-content: space-between;
+            gap: 10px;
             margin: 3px 0 23px;
+        }
+
+        .enlace-olvide {
+            color: var(--verde-claro);
+            font-size: 13px;
+            text-decoration: underline;
+            border-radius: 4px;
+        }
+
+        .enlace-olvide:hover {
+            color: var(--texto);
         }
 
         .remember {
@@ -232,7 +246,8 @@
         }
 
         .btn-submit:focus-visible,
-        .toggle-password:focus-visible {
+        .toggle-password:focus-visible,
+        .enlace-olvide:focus-visible {
             outline: 2px solid var(--verde-claro);
             outline-offset: 3px;
         }
@@ -374,6 +389,9 @@
 
                         Recordar mi sesión
                     </label>
+
+                    {{-- Recuperación de contraseña por correo (HU-003) --}}
+                    <a href="{{ route('password.request') }}" class="enlace-olvide">¿Olvidaste tu contraseña?</a>
                 </div>
 
                 <button type="submit" class="btn-submit">
