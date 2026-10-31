@@ -304,6 +304,8 @@ En producción solo cambian variables de entorno; el código es el mismo (RNF-42
 | `MAIL_REQUIRE_TLS` | `true`: impide enviar las credenciales sin cifrar (RNF-32) |
 | `MAIL_USERNAME` / `MAIL_PASSWORD` | Credenciales que entregue el proveedor |
 | `MAIL_FROM_ADDRESS` | Dirección del dominio de la liga (sustituye al marcador `no-responder@example.com`) |
+| `APP_URL` | URL pública real del sistema, con `https://`: con ella se arman los enlaces de los correos, como el de recuperación de contraseña (HU-003) |
+| `SESSION_DRIVER` | `database`: es necesario para cerrar las sesiones abiertas al restablecer la contraseña (HU-003) |
 
 - Se configuran **solo en el `.env` del servidor**, nunca en el repositorio, en `.env.example` ni en este README (IC-04, RNF-42).
 - El proveedor se definirá cuando se decida el hospedaje (V-09). Al 30/10/2026 sigue sin decidirse.
@@ -313,6 +315,8 @@ En producción solo cambian variables de entorno; el código es el mismo (RNF-42
 php artisan config:clear
 php artisan sgld:probar-correo <correo-de-prueba>
 ```
+
+**Antes de producción (RNF-12):** en el dominio remitente hay que configurar SPF, DKIM y DMARC para que los correos lleguen a la bandeja de entrada y no a spam. Los registros DNS los indica el proveedor de correo, y se configuran cuando se decidan el dominio y el hospedaje (V-09).
 
 ---
 
