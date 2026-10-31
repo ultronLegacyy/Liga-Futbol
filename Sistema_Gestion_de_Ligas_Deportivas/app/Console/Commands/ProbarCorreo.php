@@ -7,7 +7,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
-use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
+use Throwable;
 
 class ProbarCorreo extends Command
 {
@@ -42,18 +42,26 @@ class ProbarCorreo extends Command
                 'Correo de prueba del SGLD',
                 "Si recibiste este mensaje, el envío de correo del Sistema de Gestión de Ligas Deportivas funciona en este entorno.\n\nEntorno: ".app()->environment(),
             ));
-        } catch (TransportExceptionInterface $e) {
-            // El detalle técnico queda en el log; en la consola, solo un mensaje sin la traza
+        } catch (Throwable $e) {
+            // Cubre el servidor caído o la autenticación rechazada y también los errores de configuración
+            // (esquema, remitente o mailer inválidos). El detalle queda en el log; en la consola, solo un mensaje sin la traza
             Log::error('Falló el envío del correo de prueba (sgld:probar-correo).', [
                 'mailer' => $mailer,
                 'destinatario' => $destinatario,
                 'exception' => $e,
             ]);
 
-            $this->error('No se pudo enviar el correo de prueba: el servidor de correo rechazó la conexión o la autenticación.');
-            $this->line('Revisa MAIL_HOST, MAIL_PORT, MAIL_SCHEME, MAIL_USERNAME y MAIL_PASSWORD en el .env y ejecuta php artisan config:clear. El detalle quedó en el log.');
+            $this->error('No se pudo enviar el correo de prueba: revisa la configuración de correo y que el servidor esté disponible.');
+            $this->line('Revisa MAIL_MAILER, MAIL_HOST, MAIL_PORT, MAIL_SCHEME, MAIL_REQUIRE_TLS, MAIL_USERNAME, MAIL_PASSWORD y MAIL_FROM_ADDRESS en el .env y ejecuta php artisan config:clear. El detalle quedó en el log.');
 
             return self::FAILURE;
+        }
+
+        // log y array no entregan el correo a ningún servidor: no se puede decir que se envió
+        if (in_array($mailer, ['log', 'array'], true)) {
+            $this->warn("El correo no salió a ningún servidor: el mailer «{$mailer}» no envía correos. En producción MAIL_MAILER debe ser smtp.");
+
+            return self::SUCCESS;
         }
 
         $this->info("Correo de prueba enviado a {$destinatario}.");

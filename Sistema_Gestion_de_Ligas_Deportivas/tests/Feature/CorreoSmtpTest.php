@@ -41,6 +41,8 @@ class CorreoSmtpTest extends TestCase
     public function test_el_comando_envia_un_correo_de_prueba_al_destinatario(): void
     {
         Mail::fake();
+        // phpunit.xml usa el mailer array, que no envía; aquí se simula el entorno real
+        config(['mail.default' => 'smtp']);
 
         $this->artisan('sgld:probar-correo', ['destinatario' => 'prueba@example.com'])
             ->expectsOutputToContain('Correo de prueba enviado a prueba@example.com.')
@@ -105,6 +107,65 @@ class CorreoSmtpTest extends TestCase
         $this->assertStringContainsString('No se pudo enviar el correo de prueba', $salida);
         $this->assertStringNotContainsString('535', $salida);
         $this->assertStringNotContainsString('#0 ', $salida);
+    }
+
+    /**
+     * Errores de configuración: el comando termina con un mensaje en español, sin mostrar la excepción.
+     *
+     * @param  array<string, mixed>  $configuracion
+     */
+    #[DataProvider('configuracionesInvalidas')]
+    public function test_si_la_configuracion_es_invalida_termina_con_un_mensaje_en_espanol(array $configuracion, string $textoDeLaExcepcion): void
+    {
+        config($configuracion);
+        Log::shouldReceive('error')->once();
+
+        $codigo = Artisan::call('sgld:probar-correo', ['destinatario' => 'prueba@example.com']);
+        $salida = Artisan::output();
+
+        $this->assertSame(1, $codigo, $salida);
+        $this->assertStringContainsString('No se pudo enviar el correo de prueba: revisa la configuración de correo', $salida);
+        $this->assertStringNotContainsString($textoDeLaExcepcion, $salida);
+        $this->assertStringNotContainsString('Correo de prueba enviado', $salida);
+    }
+
+    /**
+     * @return array<string, array{array<string, mixed>, string}>
+     */
+    public static function configuracionesInvalidas(): array
+    {
+        return [
+            'MAIL_SCHEME=tls' => [
+                ['mail.default' => 'smtp', 'mail.mailers.smtp.url' => null, 'mail.mailers.smtp.scheme' => 'tls'],
+                'is not supported',
+            ],
+            'MAIL_FROM_ADDRESS inválido' => [
+                ['mail.default' => 'array', 'mail.from.address' => 'no-es-correo'],
+                'does not comply',
+            ],
+            'MAIL_FROM_ADDRESS vacío' => [
+                ['mail.default' => 'array', 'mail.from.address' => ''],
+                'does not comply',
+            ],
+            'MAIL_MAILER inexistente' => [
+                ['mail.default' => 'no-existe'],
+                'is not defined',
+            ],
+        ];
+    }
+
+    // Con log o array el correo no sale a ningún servidor: no se puede decir «enviado»
+    public function test_con_el_mailer_log_avisa_que_el_correo_no_salio(): void
+    {
+        Mail::fake();
+        config(['mail.default' => 'log']);
+
+        $codigo = Artisan::call('sgld:probar-correo', ['destinatario' => 'prueba@example.com']);
+        $salida = Artisan::output();
+
+        $this->assertSame(0, $codigo, $salida);
+        $this->assertStringContainsString('El correo no salió a ningún servidor: el mailer «log» no envía correos.', $salida);
+        $this->assertStringNotContainsString('enviado', $salida);
     }
 
     /**
