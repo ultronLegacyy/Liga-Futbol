@@ -248,22 +248,70 @@ El registro detallado del avance tecnico, el historial de tareas completadas por
 
 ## 10. Correo local con Mailpit
 
-Mailpit atrapa todos los correos que envía la aplicación en desarrollo; ninguno sale a internet. `.env.example` ya trae su configuración (`MAIL_MAILER=smtp`, `MAIL_HOST=127.0.0.1`, `MAIL_PORT=1025`); si tu `.env` es anterior, copia esos valores.
+Mailpit atrapa todos los correos que envía la aplicación en desarrollo; ninguno sale a internet. Se levanta **con autenticación SMTP** (IC-03), igual que un servidor real: sin usuario y contraseña correctos rechaza el envío.
+
+`.env.example` ya trae su configuración; si tu `.env` es anterior, copia estos valores:
+
+```dotenv
+MAIL_MAILER=smtp
+MAIL_SCHEME=null
+MAIL_HOST=127.0.0.1
+MAIL_PORT=1025
+MAIL_USERNAME=sgld
+MAIL_PASSWORD=mailpit-local
+MAIL_REQUIRE_TLS=false
+```
+
+`sgld` / `mailpit-local` son credenciales **solo locales** de ejemplo, no secretos reales.
+
+Si el servidor SMTP no ofrece autenticación, la aplicación ignora `MAIL_USERNAME` y `MAIL_PASSWORD` y el envío puede salir bien igual. Por eso CA1 (envío autenticado) se comprueba con Mailpit levantado con `MP_SMTP_AUTH`, como se muestra abajo.
 
 Con Docker:
 
 ```bash
-docker run -d --name mailpit -p 127.0.0.1:1025:1025 -p 127.0.0.1:8025:8025 axllent/mailpit:v1.31.6
+docker run -d --name mailpit -p 127.0.0.1:1025:1025 -p 127.0.0.1:8025:8025 \
+  -e MP_SMTP_AUTH="sgld:mailpit-local" \
+  -e MP_SMTP_AUTH_ALLOW_INSECURE=true \
+  axllent/mailpit:v1.31.6
 ```
 
+- `MP_SMTP_AUTH` define los pares `usuario:contraseña` que acepta Mailpit.
+- `MP_SMTP_AUTH_ALLOW_INSECURE=true` permite autenticarse sin TLS; Mailpit lo ofrece solo para pruebas locales.
+- Si ya tenías un contenedor `mailpit` sin autenticación, las variables no se le pueden agregar: detenlo (`docker stop mailpit`) y crea otro con un nombre distinto o, si ya no lo necesitas, elimínalo con `docker rm mailpit` antes de volver a crearlo.
 - Bandeja de entrada: http://localhost:8025
 - Detenerlo o reanudarlo: `docker stop mailpit` / `docker start mailpit`.
-- Alternativa sin Docker: instalar el binario nativo de Mailpit (https://github.com/axllent/mailpit) y ejecutar `mailpit`, que usa los mismos puertos por defecto.
+- Alternativa sin Docker: instalar el binario nativo de Mailpit (https://github.com/axllent/mailpit) y ejecutar `MP_SMTP_AUTH="sgld:mailpit-local" MP_SMTP_AUTH_ALLOW_INSECURE=true mailpit`, que usa los mismos puertos por defecto.
 
-Prueba rápida de envío:
+Prueba de envío (muestra mailer, host, puerto y si hay usuario, nunca la contraseña):
 
 ```bash
-php artisan tinker --execute="Illuminate\Support\Facades\Mail::raw('Prueba SGLD', fn (\$m) => \$m->to('prueba@example.com')->subject('Prueba Mailpit SGLD'));"
+php artisan config:clear
+php artisan sgld:probar-correo prueba@example.com
+```
+
+El correo llega a http://localhost:8025 con sus versiones HTML y texto plano. Si la contraseña es incorrecta o Mailpit no está levantado, el comando termina con un mensaje en español y el detalle queda en `storage/logs/laravel.log`.
+
+### Correo en producción
+
+En producción solo cambian variables de entorno; el código es el mismo (RNF-42):
+
+| Variable | Qué se pone |
+| --- | --- |
+| `MAIL_MAILER` | `smtp` (con `log` o `array` el correo no sale a ningún servidor) |
+| `MAIL_HOST` | Servidor SMTP del proveedor |
+| `MAIL_PORT` | `465` con SMTPS o `587` con STARTTLS |
+| `MAIL_SCHEME` | `smtps` para el puerto 465; `smtp` para el 587 (con `MAIL_REQUIRE_TLS=true`, STARTTLS es obligatorio y el envío falla si el servidor no lo ofrece) |
+| `MAIL_REQUIRE_TLS` | `true`: impide enviar las credenciales sin cifrar (RNF-32) |
+| `MAIL_USERNAME` / `MAIL_PASSWORD` | Credenciales que entregue el proveedor |
+| `MAIL_FROM_ADDRESS` | Dirección del dominio de la liga (sustituye al marcador `no-responder@example.com`) |
+
+- Se configuran **solo en el `.env` del servidor**, nunca en el repositorio, en `.env.example` ni en este README (IC-04, RNF-42).
+- El proveedor se definirá cuando se decida el hospedaje (V-09). Al 30/10/2026 sigue sin decidirse.
+- Después de cambiar las variables:
+
+```bash
+php artisan config:clear
+php artisan sgld:probar-correo <correo-de-prueba>
 ```
 
 ---
