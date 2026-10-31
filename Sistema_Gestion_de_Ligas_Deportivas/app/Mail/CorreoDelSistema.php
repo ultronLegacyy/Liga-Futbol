@@ -12,6 +12,9 @@ class CorreoDelSistema extends Mailable
     public function __construct(
         public string $asunto,
         public string $mensaje,
+        // Botón opcional, por ejemplo el enlace de recuperación de contraseña (HU-003)
+        public ?string $enlaceUrl = null,
+        public ?string $enlaceTexto = null,
     ) {
     }
 

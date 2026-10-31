@@ -9,6 +9,8 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Spatie\Permission\Traits\HasRoles;
 use App\Models\Concerns\Auditable;
+use App\Mail\CorreoDelSistema;
+use Illuminate\Support\Facades\Mail;
 
 class User extends Authenticatable
 {
@@ -65,5 +67,26 @@ class User extends Authenticatable
             'password' => 'hashed',
             'requires_password_change' => 'boolean', // Casteo requerido para HU-080
         ];
+    }
+
+    /**
+     * Envía el enlace de recuperación de contraseña con el correo del sistema (HU-003).
+     */
+    public function sendPasswordResetNotification(#[\SensitiveParameter] $token): void
+    {
+        // Con APP_URL y no con route() absoluto: route() usa la cabecera Host de la petición y permitiría
+        // mandar a la víctima un enlace con su token hacia otro dominio (RNF-42)
+        $enlace = rtrim((string) config('app.url'), '/').route('password.reset', ['token' => $token, 'email' => $this->email], false);
+        $minutos = (int) config('auth.passwords.users.expire');
+
+        Mail::to($this)->send(new CorreoDelSistema(
+            'Recupera tu contraseña del SGLD',
+            "Hola, {$this->name}:\n\n"
+                ."Recibimos una solicitud para restablecer la contraseña de tu cuenta en el Sistema de Gestión de Ligas Deportivas.\n\n"
+                ."El enlace vence en {$minutos} minutos y solo se puede usar una vez.\n\n"
+                .'Si no lo solicitaste, puedes ignorar este correo: tu contraseña no cambiará.',
+            $enlace,
+            'Restablecer mi contraseña',
+        ));
     }
 }
