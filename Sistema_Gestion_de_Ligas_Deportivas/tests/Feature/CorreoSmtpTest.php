@@ -110,7 +110,7 @@ class CorreoSmtpTest extends TestCase
     /**
      * CA3 y CA4: el mailer smtp toma servidor y credenciales de la configuración (variables de entorno).
      *
-     * @param  array{host: string, port: int, scheme: ?string, username: string, password: string}  $entorno
+     * @param  array{host: string, port: int, scheme: ?string, username: string, password: string, require_tls: bool}  $entorno
      */
     #[DataProvider('entornos')]
     public function test_el_mailer_smtp_toma_servidor_y_credenciales_de_la_configuracion(array $entorno, bool $tls): void
@@ -122,6 +122,7 @@ class CorreoSmtpTest extends TestCase
         $this->assertInstanceOf(EsmtpTransport::class, $transporte);
         $this->assertSame($entorno['username'], $transporte->getUsername());
         $this->assertSame($entorno['password'], $transporte->getPassword());
+        $this->assertSame($entorno['require_tls'], $transporte->isTlsRequired());
 
         $conexion = $transporte->getStream();
 
@@ -132,17 +133,17 @@ class CorreoSmtpTest extends TestCase
     }
 
     /**
-     * @return array<string, array{array{host: string, port: int, scheme: ?string, username: string, password: string}, bool}>
+     * @return array<string, array{array{host: string, port: int, scheme: ?string, username: string, password: string, require_tls: bool}, bool}>
      */
     public static function entornos(): array
     {
         return [
             'desarrollo con Mailpit' => [
-                ['host' => '127.0.0.1', 'port' => 1025, 'scheme' => null, 'username' => 'sgld', 'password' => 'mailpit-local'],
+                ['host' => '127.0.0.1', 'port' => 1025, 'scheme' => null, 'username' => 'sgld', 'password' => 'mailpit-local', 'require_tls' => false],
                 false,
             ],
             'producción con SMTPS' => [
-                ['host' => 'smtp.proveedor.test', 'port' => 465, 'scheme' => 'smtps', 'username' => 'notificaciones', 'password' => 'clave-de-prueba'],
+                ['host' => 'smtp.proveedor.test', 'port' => 465, 'scheme' => 'smtps', 'username' => 'notificaciones', 'password' => 'clave-de-prueba', 'require_tls' => true],
                 true,
             ],
         ];
