@@ -259,9 +259,12 @@ MAIL_HOST=127.0.0.1
 MAIL_PORT=1025
 MAIL_USERNAME=sgld
 MAIL_PASSWORD=mailpit-local
+MAIL_REQUIRE_TLS=false
 ```
 
 `sgld` / `mailpit-local` son credenciales **solo locales** de ejemplo, no secretos reales.
+
+Si el servidor SMTP no ofrece autenticación, la aplicación ignora `MAIL_USERNAME` y `MAIL_PASSWORD` y el envío puede salir bien igual. Por eso CA1 (envío autenticado) se comprueba con Mailpit levantado con `MP_SMTP_AUTH`, como se muestra abajo.
 
 Con Docker:
 
@@ -294,14 +297,16 @@ En producción solo cambian variables de entorno; el código es el mismo (RNF-42
 
 | Variable | Qué se pone |
 | --- | --- |
+| `MAIL_MAILER` | `smtp` (con `log` o `array` el correo no sale a ningún servidor) |
 | `MAIL_HOST` | Servidor SMTP del proveedor |
 | `MAIL_PORT` | `465` con SMTPS o `587` con STARTTLS |
-| `MAIL_SCHEME` | `smtps` para el puerto 465; `smtp` para el 587 (STARTTLS se negocia solo si el servidor lo ofrece) |
+| `MAIL_SCHEME` | `smtps` para el puerto 465; `smtp` para el 587 (con `MAIL_REQUIRE_TLS=true`, STARTTLS es obligatorio y el envío falla si el servidor no lo ofrece) |
+| `MAIL_REQUIRE_TLS` | `true`: impide enviar las credenciales sin cifrar (RNF-32) |
 | `MAIL_USERNAME` / `MAIL_PASSWORD` | Credenciales que entregue el proveedor |
 | `MAIL_FROM_ADDRESS` | Dirección del dominio de la liga (sustituye al marcador `no-responder@example.com`) |
 
 - Se configuran **solo en el `.env` del servidor**, nunca en el repositorio, en `.env.example` ni en este README (IC-04, RNF-42).
-- El proveedor se definirá cuando se decida el hospedaje (Review del 30/10, V-09).
+- El proveedor se definirá cuando se decida el hospedaje (V-09). Al 30/10/2026 sigue sin decidirse.
 - Después de cambiar las variables:
 
 ```bash
