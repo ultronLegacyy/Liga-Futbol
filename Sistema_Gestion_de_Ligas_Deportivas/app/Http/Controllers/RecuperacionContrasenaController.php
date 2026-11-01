@@ -63,7 +63,7 @@ class RecuperacionContrasenaController extends Controller
         $correo = $this->normalizarCorreo($request->query('email'));
         $usuario = $this->buscarUsuario($correo);
 
-        if (! $usuario || ! Password::broker()->tokenExists($usuario, $token)) {
+        if (! $usuario || ! Password::tokenExists($usuario, $token)) {
             return $this->enlaceVencido();
         }
 
