@@ -326,16 +326,43 @@ class RoleAndPermissionSeeder extends Seeder
         ];
         $rolesCreados['Tribunal de Penas']->syncPermissions($permisosTribunalPenas);
 
-        // 6. Asignacion preliminar para roles de Clubes y Jugadores (HU-073)
-        $permisosClub = [
+        // 6. Asignacion granular para roles de Clubes y Jugadores (HU-073 / SCRUM-16 / S2-T21)
+        // Rol Presidente del Club (Directivo de Club): representacion institucional, tarjeton digital, administracion de club y consulta deportiva
+        $permisosPresidenteClub = [
+            'temporadas.ver',
+            'convocatorias.ver',
+            'reglas_temporada.ver',
+            'categorias.ver',
+            'clubes.ver',
+            'equipos.ver',
+            'jugadores.ver',
+            'campos.ver',
+        ];
+        $rolesCreados['Presidente del Club']->syncPermissions($permisosPresidenteClub);
+
+        // Rol Delegado del Club (Titular / Suplente): enlace operativo, altas de jugadores, registro de equipos y consulta deportiva
+        $permisosDelegadoClub = [
+            'temporadas.ver',
+            'convocatorias.ver',
+            'reglas_temporada.ver',
+            'categorias.ver',
+            'clubes.ver',
+            'equipos.ver',
+            'jugadores.ver',
+            'campos.ver',
+        ];
+        $rolesCreados['Delegado del Club']->syncPermissions($permisosDelegadoClub);
+
+        // Rol Jugador: consulta exclusiva de perfil deportivo, credencial digital, partidos y estado disciplinario
+        $permisosJugador = [
             'temporadas.ver',
             'convocatorias.ver',
             'categorias.ver',
-            'clubes.ver',
+            'equipos.ver',
+            'jugadores.ver',
             'campos.ver',
         ];
-        $rolesCreados['Presidente del Club']->syncPermissions($permisosClub);
-        $rolesCreados['Delegado del Club']->syncPermissions($permisosClub);
+        $rolesCreados['Jugador']->syncPermissions($permisosJugador);
 
         // 7. Asignacion automatica de roles a los usuarios iniciales del sistema si existen
         $adminUser = User::where('email', 'admin@ligafutbol.com')->first();
@@ -366,6 +393,26 @@ class RoleAndPermissionSeeder extends Seeder
         $directivoUser = User::where('email', 'directivo@moreliafc.com')->first();
         if ($directivoUser && ! $directivoUser->hasRole('Presidente del Club')) {
             $directivoUser->assignRole('Presidente del Club');
+        }
+
+        $presidenteClubUser = User::where('email', 'presidente.club@ligafutbol.com')->first();
+        if ($presidenteClubUser && ! $presidenteClubUser->hasRole('Presidente del Club')) {
+            $presidenteClubUser->assignRole('Presidente del Club');
+        }
+
+        $delegadoMoreliaUser = User::where('email', 'delegado@moreliafc.com')->first();
+        if ($delegadoMoreliaUser && ! $delegadoMoreliaUser->hasRole('Delegado del Club')) {
+            $delegadoMoreliaUser->assignRole('Delegado del Club');
+        }
+
+        $delegadoClubUser = User::where('email', 'delegado.club@ligafutbol.com')->first();
+        if ($delegadoClubUser && ! $delegadoClubUser->hasRole('Delegado del Club')) {
+            $delegadoClubUser->assignRole('Delegado del Club');
+        }
+
+        $jugadorUser = User::where('email', 'jugador@ligafutbol.com')->first();
+        if ($jugadorUser && ! $jugadorUser->hasRole('Jugador')) {
+            $jugadorUser->assignRole('Jugador');
         }
 
         $arbitroUser = User::where('email', 'arbitro@ligafutbol.com')->first();
