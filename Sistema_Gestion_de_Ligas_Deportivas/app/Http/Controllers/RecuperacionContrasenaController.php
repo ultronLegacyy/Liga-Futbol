@@ -80,16 +80,28 @@ class RecuperacionContrasenaController extends Controller
     {
         $correo = $this->normalizarCorreo($request->input('email'));
 
-        // bail y string evitan que un arreglo llegue a RNF26Password y provoque un error 500
         $request->validate([
             'token' => ['required', 'string'],
             'email' => ['required', 'email'],
-            'password' => ['bail', 'required', 'string', 'confirmed', new RNF26Password($this->buscarUsuario($correo))],
         ], [
             'token.required' => 'El enlace de recuperación no es válido.',
             'token.string' => 'El enlace de recuperación no es válido.',
             'email.required' => 'El correo electrónico es obligatorio.',
             'email.email' => 'Escribe un correo electrónico válido.',
+        ]);
+
+        // El enlace se comprueba antes que la contraseña: las reglas de RNF-26 dependen de si la cuenta
+        // tiene doble factor y, sin un token válido, eso revelaría quién lo tiene
+        $usuario = $this->buscarUsuario($correo);
+
+        if (! $usuario || ! Password::tokenExists($usuario, (string) $request->input('token'))) {
+            return $this->enlaceVencido();
+        }
+
+        // bail y string evitan que un arreglo llegue a RNF26Password y provoque un error 500
+        $request->validate([
+            'password' => ['bail', 'required', 'string', 'confirmed', new RNF26Password($usuario)],
+        ], [
             'password.required' => 'La nueva contraseña es obligatoria.',
             'password.string' => 'La nueva contraseña no es válida.',
             'password.confirmed' => 'Las contraseñas no coinciden.',

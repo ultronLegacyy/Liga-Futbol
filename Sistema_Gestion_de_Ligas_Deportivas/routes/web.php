@@ -26,6 +26,7 @@ Route::middleware(['guest'])->group(function () {
         ->middleware('throttle:5,1,solicitar-enlace')
         ->name('password.email');
     Route::get('/reset-password/{token}', [RecuperacionContrasenaController::class, 'formulario'])
+        ->middleware('throttle:20,1,abrir-enlace')
         ->name('password.reset');
     Route::post('/reset-password', [RecuperacionContrasenaController::class, 'restablecer'])
         ->middleware('throttle:5,1,restablecer')

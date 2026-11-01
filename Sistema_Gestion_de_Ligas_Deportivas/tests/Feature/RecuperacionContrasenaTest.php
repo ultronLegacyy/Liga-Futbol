@@ -383,6 +383,59 @@ class RecuperacionContrasenaTest extends TestCase
             ->assertSessionHasErrors(['email' => 'Escribe un correo electrónico válido.']);
     }
 
+    // Con un token falso, cualquier cuenta responde igual: no se puede averiguar quién tiene doble factor
+    public function test_con_un_token_falso_no_revela_si_la_cuenta_tiene_doble_factor(): void
+    {
+        $conDobleFactor = $this->crearUsuario();
+        $conDobleFactor->forceFill(['two_factor_secret' => encrypt('secreto-de-prueba')])->save();
+        $sinDobleFactor = $this->crearUsuario('sin.doble.factor@liga.test');
+
+        foreach ([$conDobleFactor->email, $sinDobleFactor->email, 'nadie@liga.test'] as $correo) {
+            $this->post(route('password.update'), [
+                'token' => 'token-falso',
+                'email' => $correo,
+                'password' => 'diezcaract',
+                'password_confirmation' => 'diezcaract',
+            ])->assertStatus(410);
+        }
+    }
+
+    public function test_el_sexto_intento_de_restablecer_en_un_minuto_responde_429(): void
+    {
+        for ($intento = 1; $intento <= 5; $intento++) {
+            $this->post(route('password.update'), ['token' => 'falso', 'email' => self::CORREO])->assertStatus(410);
+        }
+
+        $this->post(route('password.update'), ['token' => 'falso', 'email' => self::CORREO])->assertStatus(429);
+    }
+
+    public function test_abrir_enlaces_tiene_limite_de_intentos(): void
+    {
+        for ($intento = 1; $intento <= 20; $intento++) {
+            $this->get(route('password.reset', ['token' => "falso{$intento}", 'email' => self::CORREO]))->assertStatus(410);
+        }
+
+        $this->get(route('password.reset', ['token' => 'falso21', 'email' => self::CORREO]))->assertStatus(429);
+    }
+
+    public function test_con_sesion_iniciada_no_se_abren_las_pantallas_de_recuperacion(): void
+    {
+        $usuario = $this->crearUsuario();
+        $token = Password::broker()->createToken($usuario);
+        $this->actingAs($usuario);
+
+        $this->get(route('password.request'))->assertRedirect();
+        $this->get($this->enlace($token))->assertRedirect();
+        $this->post(route('password.update'), [
+            'token' => $token,
+            'email' => self::CORREO,
+            'password' => self::CLAVE_NUEVA,
+            'password_confirmation' => self::CLAVE_NUEVA,
+        ])->assertRedirect();
+
+        $this->assertTrue(Hash::check(self::CLAVE_ANTERIOR, (string) $usuario->fresh()?->password));
+    }
+
     private function crearUsuario(string $email = self::CORREO, bool $requiereCambio = false): User
     {
         $usuario = User::create([
