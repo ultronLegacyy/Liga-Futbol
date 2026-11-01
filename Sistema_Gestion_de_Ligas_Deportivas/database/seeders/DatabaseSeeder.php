@@ -190,6 +190,50 @@ class DatabaseSeeder extends Seeder
             'updated_at' => $now,
         ]);
 
+        $presidenteClubId = DB::table('usuarios')->insertGetId([
+            'name' => 'Presidente Club Morelia',
+            'email' => 'presidente.club@ligafutbol.com',
+            'password' => $passwordHash,
+            'password_hash' => $passwordHash,
+            'rol' => 'Directivo Club',
+            'club_id' => $clubMoreliaId,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $delegadoId = DB::table('usuarios')->insertGetId([
+            'name' => 'Delegado Deportivo Morelia',
+            'email' => 'delegado@moreliafc.com',
+            'password' => $passwordHash,
+            'password_hash' => $passwordHash,
+            'rol' => 'Consultor',
+            'club_id' => $clubMoreliaId,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $delegadoClubId = DB::table('usuarios')->insertGetId([
+            'name' => 'Delegado General de Club',
+            'email' => 'delegado.club@ligafutbol.com',
+            'password' => $passwordHash,
+            'password_hash' => $passwordHash,
+            'rol' => 'Consultor',
+            'club_id' => $clubMoreliaId,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $jugadorId = DB::table('usuarios')->insertGetId([
+            'name' => 'Jugador Afiliado Morelia',
+            'email' => 'jugador@ligafutbol.com',
+            'password' => $passwordHash,
+            'password_hash' => $passwordHash,
+            'rol' => 'Jugador',
+            'club_id' => $clubMoreliaId,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
         // Ejecucion del seeder de roles y permisos de gobernanza RBAC (Sprint 1)
         $this->call(RoleAndPermissionSeeder::class);
 
