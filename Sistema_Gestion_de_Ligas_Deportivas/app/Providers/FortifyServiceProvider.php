@@ -47,8 +47,18 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::authenticateUsing(function (Request $request) {
             $bruteForce = app(BruteForceProtectionService::class);
             $campoIdentificador = Fortify::username();
-            $credencial = (string) $request->input($campoIdentificador);
-            $password = (string) $request->input('password');
+            $rawIdentificador = $request->input($campoIdentificador);
+            $rawPassword = $request->input('password');
+
+            // Prevención de TypeError y payloads maliciosos (array en password/email)
+            if (! is_string($rawIdentificador) || ! is_string($rawPassword)) {
+                throw ValidationException::withMessages([
+                    $campoIdentificador => ['Las credenciales proporcionadas no son válidas.'],
+                ]);
+            }
+
+            $credencial = trim($rawIdentificador);
+            $password = $rawPassword;
             $ip = (string) $request->ip();
 
             // 1. Verificación previa: ¿la cuenta está en bloqueo activo de 15 minutos?
@@ -75,7 +85,7 @@ class FortifyServiceProvider extends ServiceProvider
                 }
 
                 // Éxito: se reinicia el contador de intentos fallidos a cero (RNF-28)
-                $bruteForce->clearAttempts($credencial);
+                $bruteForce->clearAttempts($user);
 
                 // Registro del momento exacto del inicio de actividad para la auditoría de timeout
                 session(['last_activity_time' => now()->timestamp]);

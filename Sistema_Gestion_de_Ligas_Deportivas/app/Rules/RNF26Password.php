@@ -30,7 +30,7 @@ class RNF26Password implements ValidationRule
     protected mixed $user;
 
     /**
-     * Opcionalmente recibe el usuario para evaluar si tiene 2FA activo.
+     * Opcionalmente recibe el usuario para evaluar si tiene 2FA activo y confirmado.
      */
     public function __construct(mixed $user = null)
     {
@@ -44,7 +44,13 @@ class RNF26Password implements ValidationRule
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        $passwordString = (string) $value;
+        if (! is_string($value)) {
+            $fail('La contraseña debe ser una cadena de texto.');
+
+            return;
+        }
+
+        $passwordString = $value;
         $length = Str::length($passwordString);
 
         // Límite máximo establecido por RNF-26
@@ -54,14 +60,10 @@ class RNF26Password implements ValidationRule
             return;
         }
 
-        // Verificamos si el usuario fue pasado y si tiene el secreto 2FA configurado
+        // Verificamos si el usuario tiene doble factor (2FA) confirmado y activo
         $hasTwoFactor = false;
-        if ($this->user) {
-            if (method_exists($this->user, 'hasEnabledTwoFactorAuthentication')) {
-                $hasTwoFactor = $this->user->hasEnabledTwoFactorAuthentication() || ! empty($this->user->two_factor_secret);
-            } else {
-                $hasTwoFactor = ! empty($this->user->two_factor_secret) || ! empty($this->user->two_factor_confirmed_at);
-            }
+        if ($this->user && method_exists($this->user, 'hasEnabledTwoFactorAuthentication')) {
+            $hasTwoFactor = (bool) $this->user->hasEnabledTwoFactorAuthentication();
         }
 
         if ($hasTwoFactor) {
@@ -109,61 +111,24 @@ class RNF26Password implements ValidationRule
     }
 
     /**
-     * Carga el diccionario offline desde disco con fallback integrado.
+     * Carga el diccionario offline exclusivamente desde el archivo en disco.
      *
      * @return array<string, bool>
      */
     protected static function loadDictionary(): array
     {
         $dictionary = [];
+        $filePath = resource_path('data/compromised_passwords.txt');
 
-        // Catálogo básico embebido en código para garantizar funcionamiento inmediato
-        $builtin = [
-            '123456',
-            '12345678',
-            '123456789012345',
-            '1234567890123456',
-            'password',
-            'passwordpassword',
-            'qwertyuiopasdfg',
-            'qwertyuiopasdfgh',
-            'admin1234567890',
-            'adminadminadmin',
-            'administrador123',
-            'contrasenasegura',
-            'cambiame12345678',
-            'supersecretpassword',
-            'secretpassword123',
-            'correcthorsebatterystaple',
-            'iloveyouiloveyou',
-            'temporaltemporaltemporal',
-            'welcomewelcomewelcome',
-            'letmeinletmeinletmein',
-            'ligadeportiva2026',
-            'sistema_gestion_ligas',
-        ];
-
-        foreach ($builtin as $item) {
-            $dictionary[Str::lower($item)] = true;
-        }
-
-        // Lectura de archivos locales si existen
-        $candidates = [
-            resource_path('data/compromised_passwords.txt'),
-            storage_path('app/security/compromised_passwords.txt'),
-        ];
-
-        foreach ($candidates as $filePath) {
-            if (is_file($filePath) && is_readable($filePath)) {
-                $content = @file_get_contents($filePath);
-                if ($content !== false) {
-                    $lines = preg_split('/\r\n|\r|\n/', $content);
-                    if (is_array($lines)) {
-                        foreach ($lines as $line) {
-                            $clean = Str::lower(trim($line));
-                            if ($clean !== '') {
-                                $dictionary[$clean] = true;
-                            }
+        if (is_file($filePath) && is_readable($filePath)) {
+            $content = @file_get_contents($filePath);
+            if ($content !== false) {
+                $lines = preg_split('/\r\n|\r|\n/', $content);
+                if (is_array($lines)) {
+                    foreach ($lines as $line) {
+                        $clean = Str::lower(trim($line));
+                        if ($clean !== '') {
+                            $dictionary[$clean] = true;
                         }
                     }
                 }
