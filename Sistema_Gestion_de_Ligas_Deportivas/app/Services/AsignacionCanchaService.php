@@ -36,8 +36,6 @@ class AsignacionCanchaService
             // Un partido que empezó antes puede seguir ocupando la cancha, incluso desde el día anterior
             ->whereBetween('fecha_partido', [$inicio->copy()->subMinutes($minutos)->toDateString(), $fin->toDateString()])
             ->when($ignorar, fn ($consulta) => $consulta->whereKeyNot($ignorar->getKey()))
-            // Dentro de una transacción, una lectura normal usa la foto tomada al empezar y no ve lo que otro acaba de asignar
-            ->when(DB::transactionLevel() > 0, fn ($consulta) => $consulta->lockForUpdate())
             ->orderBy('fecha_partido')
             ->orderBy('hora_partido')
             ->get();
