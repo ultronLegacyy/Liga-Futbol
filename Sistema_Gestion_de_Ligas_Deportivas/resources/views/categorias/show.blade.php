@@ -48,11 +48,18 @@
             @forelse ($categoria->grupos as $grupo)
                 <li class="flex justify-between items-center gap-4 px-4 py-3">
                     <span class="text-white">{{ $grupo->nombre }}</span>
-                    @can('update', $grupo)
-                        <a href="{{ route('grupos.edit', $grupo) }}" class="text-yellow-400 hover:underline focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded">
-                            Renombrar<span class="sr-only"> {{ $grupo->nombre }}</span>
-                        </a>
-                    @endcan
+                    <span class="space-x-3 whitespace-nowrap">
+                        @can('view', $grupo)
+                            <a href="{{ route('grupos.configuracion', $grupo) }}" class="text-blue-400 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-400 rounded">
+                                Formato y clasificación<span class="sr-only"> de {{ $grupo->nombre }}</span>
+                            </a>
+                        @endcan
+                        @can('update', $grupo)
+                            <a href="{{ route('grupos.edit', $grupo) }}" class="text-yellow-400 hover:underline focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded">
+                                Renombrar<span class="sr-only"> {{ $grupo->nombre }}</span>
+                            </a>
+                        @endcan
+                    </span>
                 </li>
             @empty
                 <li class="px-4 py-4 text-gray-400">Esta categoría no tiene grupos.</li>

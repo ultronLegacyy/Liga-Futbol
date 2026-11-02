@@ -28,7 +28,15 @@ class GrupoPolicy
             : Response::deny('No cuenta con privilegios para administrar grupos.');
     }
 
-    // Renombrar un grupo, salvo que su temporada esté cerrada
+    // Consultar un grupo con su formato y criterios, también en una temporada cerrada (HU-008)
+    public function view(User $usuario, Grupo $grupo): Response
+    {
+        return $usuario->can('categorias.ver')
+            ? Response::allow()
+            : Response::deny('No cuenta con privilegios para consultar los grupos.');
+    }
+
+    // Renombrar un grupo o configurar su formato, salvo que su temporada esté cerrada
     public function update(User $usuario, Grupo $grupo): Response
     {
         if ($grupo->temporada?->estado === 'cerrada') {

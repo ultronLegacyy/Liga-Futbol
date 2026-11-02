@@ -65,6 +65,12 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('temporadas.categorias', CategoriaController::class)->shallow()->only(['index', 'create', 'store', 'show', 'edit', 'update']);
         Route::resource('categorias.grupos', GrupoController::class)->shallow()->only(['store', 'edit', 'update']);
 
+        // Formato de competencia y criterios de clasificación del grupo (HU-008, RF-02.3)
+        Route::get('/grupos/{grupo}/configuracion', [GrupoController::class, 'configuracion'])
+            ->name('grupos.configuracion');
+        Route::put('/grupos/{grupo}/configuracion', [GrupoController::class, 'guardarConfiguracion'])
+            ->name('grupos.configuracion.update');
+
         // Padrón de personas y sus roles por temporada (HU-013, RF-03.2)
         Route::resource('personas', PersonaController::class)->only(['index', 'create', 'store', 'show']);
         Route::post('/personas/{persona}/roles', [PersonaController::class, 'asignarRol'])
