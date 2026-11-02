@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 // Impide asignar una cancha bloqueada o ya ocupada en el mismo horario (HU-025, RF-05.3)
 class AsignacionCanchaService
@@ -17,7 +18,7 @@ class AsignacionCanchaService
      */
     public function motivoDeRechazo(Cancha $cancha, CarbonInterface $inicio, CarbonInterface $fin, ?Partido $ignorar = null): ?string
     {
-        if ($cancha->estado !== 'Disponible') {
+        if (in_array($cancha->estado, ['Inactiva', 'Mantenimiento'], true)) {
             return "La cancha no está disponible: su estado es {$cancha->estado}.";
         }
 
@@ -28,13 +29,17 @@ class AsignacionCanchaService
                 .' al '.$bloqueo->fecha_fin->format('d/m/Y H:i').". Motivo: {$bloqueo->motivo}.";
         }
 
-        $minutos = (int) config('programacion.duracion_partido_minutos');
+        $minutos = $this->duracionEnMinutos();
 
-        // El día anterior también cuenta: un partido nocturno puede terminar después de medianoche
         $partidos = $cancha->partidos()
             ->queOcupanCancha()
-            ->whereBetween('fecha_partido', [$inicio->copy()->subDay()->toDateString(), $fin->toDateString()])
+            // Un partido que empezó antes puede seguir ocupando la cancha, incluso desde el día anterior
+            ->whereBetween('fecha_partido', [$inicio->copy()->subMinutes($minutos)->toDateString(), $fin->toDateString()])
             ->when($ignorar, fn ($consulta) => $consulta->whereKeyNot($ignorar->getKey()))
+            // Dentro de una transacción, una lectura normal usa la foto tomada al empezar y no ve lo que otro acaba de asignar
+            ->when(DB::transactionLevel() > 0, fn ($consulta) => $consulta->lockForUpdate())
+            ->orderBy('fecha_partido')
+            ->orderBy('hora_partido')
             ->get();
 
         foreach ($partidos as $partido) {
@@ -57,7 +62,7 @@ class AsignacionCanchaService
      */
     public function asignar(Partido $partido, Cancha $cancha, CarbonInterface $inicio): void
     {
-        $fin = $inicio->copy()->addMinutes((int) config('programacion.duracion_partido_minutos'));
+        $fin = $inicio->copy()->addMinutes($this->duracionEnMinutos());
 
         DB::transaction(function () use ($partido, $cancha, $inicio, $fin): void {
             // El bloqueo de la fila evita que dos programadores ocupen el mismo horario a la vez
@@ -74,5 +79,17 @@ class AsignacionCanchaService
                 'hora_partido' => $inicio->format('H:i:s'),
             ])->save();
         });
+    }
+
+    // Una duración vacía, en 0 o negativa haría que ningún partido se solapara: se detiene en vez de permitirlo todo
+    private function duracionEnMinutos(): int
+    {
+        $minutos = (int) config('programacion.duracion_partido_minutos');
+
+        if ($minutos <= 0) {
+            throw new RuntimeException('PARTIDO_DURACION_MINUTOS debe ser un número entero mayor que cero.');
+        }
+
+        return $minutos;
     }
 }
