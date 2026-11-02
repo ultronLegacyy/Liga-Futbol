@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreBloqueoCanchaRequest;
 use App\Models\BloqueoCancha;
 use App\Models\Cancha;
+use App\Services\AsignacionCanchaService;
 use App\Services\AuditService;
 use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
@@ -202,10 +203,13 @@ class CanchaBloqueoController extends Controller
             }
         }
 
+        $motivo = app(AsignacionCanchaService::class)->motivoDeRechazo($cancha, $inicio, $fin);
+
         return response()->json([
             'cancha_id' => $cancha->id,
             'nombre' => $cancha->nombre,
-            'disponible' => $disponible,
+            'disponible' => $disponible && $motivo === null,
+            'motivo' => $motivo,
             'rango' => [
                 'inicio' => $inicio->toDateTimeString(),
                 'fin' => $fin->toDateTimeString(),

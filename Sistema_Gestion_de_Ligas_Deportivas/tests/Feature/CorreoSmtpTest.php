@@ -37,6 +37,18 @@ class CorreoSmtpTest extends TestCase
         $correo->assertDontSeeInText('>');
     }
 
+    // HU-003 agregó un enlace opcional: el correo sin enlace se sigue generando igual
+    public function test_el_correo_del_sistema_sin_enlace_sigue_funcionando(): void
+    {
+        $correo = new CorreoDelSistema('Aviso sin enlace', 'Mensaje sin botón');
+
+        $this->assertNull($correo->enlaceUrl);
+        $correo->assertSeeInHtml('Mensaje sin botón');
+        $correo->assertSeeInText('Mensaje sin botón');
+        $correo->assertDontSeeInHtml('Si el botón no funciona');
+        $correo->assertDontSeeInText('http');
+    }
+
     // CA1 y CA4: el comando envía con la configuración del entorno actual
     public function test_el_comando_envia_un_correo_de_prueba_al_destinatario(): void
     {
