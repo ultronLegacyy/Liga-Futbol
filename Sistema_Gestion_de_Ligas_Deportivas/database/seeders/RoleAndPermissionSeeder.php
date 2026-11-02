@@ -244,32 +244,136 @@ class RoleAndPermissionSeeder extends Seeder
         ];
         $rolesCreados['Comision de la Rama Infantil']->syncPermissions($permisosComisionInfantil);
 
-        // 5. Permisos que tenian los roles del Sprint 1, ahora en su equivalente de la ERS; el resto los definen HU-072 y HU-073
-        // Antes «Comision Disciplinaria»
-        $rolesCreados['Tribunal de Penas']->syncPermissions([
-            'disciplina.ver',
-            'disciplina.expedientes',
-            'disciplina.sancionar',
-        ]);
+        // 5. Asignacion granular para los 5 roles Operativos Deportivos (HU-072 / SCRUM-15 / S2-T16)
+        // Rol Programador de Partidos: logistica de campos, bloqueos, programacion de jornadas y validacion de resultados
+        $permisosProgramador = [
+            'temporadas.ver',
+            'convocatorias.ver',
+            'reglas_temporada.ver',
+            'categorias.ver',
+            'clubes.ver',
+            'equipos.ver',
+            'jugadores.ver',
+            'campos.ver',
+            'campos.crear',
+            'campos.editar',
+            'campos.bloquear',
+            'arbitros.ver',
+            'arbitros.asignar',
+            'partidos.ver',
+            'partidos.programar',
+            'partidos.reprogramar',
+            'cedulas.ver',
+            'resultados.validar',
+        ];
+        $rolesCreados['Programador de Partidos']->syncPermissions($permisosProgramador);
 
-        // Antes «Directivo de Club»: ClubPolicy y EquipoPolicy limitan a cada uno a su propio club (RNF-29)
-        $permisosClub = [
+        // Rol Capturista: captura de cedulas fisicas y resultados en sede de la liga (sin facultades sancionatorias ni de programacion)
+        $permisosCapturista = [
+            'temporadas.ver',
+            'convocatorias.ver',
+            'reglas_temporada.ver',
+            'categorias.ver',
+            'clubes.ver',
+            'equipos.ver',
+            'jugadores.ver',
+            'campos.ver',
+            'partidos.ver',
+            'cedulas.ver',
+            'cedulas.capturar',
+        ];
+        $rolesCreados['Capturista']->syncPermissions($permisosCapturista);
+
+        // Rol Arbitro en Campo: validacion en terreno, captura y firma de cedula digital (sin dictaminar sanciones)
+        $permisosArbitroCampo = [
             'temporadas.ver',
             'convocatorias.ver',
             'categorias.ver',
+            'equipos.ver',
+            'jugadores.ver',
+            'campos.ver',
+            'arbitros.ver',
+            'partidos.ver',
+            'cedulas.ver',
+            'cedulas.capturar',
+            'cedulas.firmar',
+            'disciplina.ver',
+        ];
+        $rolesCreados['Árbitro en Campo']->syncPermissions($permisosArbitroCampo);
+
+        // Rol Comision Arbitral: administracion del padron de arbitros y colegios, y asignacion de ternas arbitrales
+        $permisosComisionArbitral = [
+            'temporadas.ver',
+            'convocatorias.ver',
+            'categorias.ver',
+            'equipos.ver',
+            'jugadores.ver',
+            'campos.ver',
+            'arbitros.ver',
+            'arbitros.crear',
+            'arbitros.editar',
+            'arbitros.asignar',
+            'partidos.ver',
+            'cedulas.ver',
+        ];
+        $rolesCreados['Comisión Arbitral']->syncPermissions($permisosComisionArbitral);
+
+        // Rol Tribunal de Penas: organo sancionador autonomo, resolucion de incidentes, expedientes y sanciones oficiales
+        $permisosTribunalPenas = [
+            'temporadas.ver',
+            'convocatorias.ver',
+            'categorias.ver',
+            'equipos.ver',
+            'jugadores.ver',
+            'campos.ver',
+            'arbitros.ver',
+            'partidos.ver',
+            'cedulas.ver',
+            'disciplina.ver',
+            'disciplina.expedientes',
+            'disciplina.sancionar',
+        ];
+        $rolesCreados['Tribunal de Penas']->syncPermissions($permisosTribunalPenas);
+
+        // 6. Asignacion granular para roles de Clubes y Jugadores (HU-073 / SCRUM-16 / S2-T21)
+        // Rol Presidente del Club (Directivo de Club): representacion institucional, tarjeton digital, administracion de club y consulta deportiva
+        $permisosPresidenteClub = [
+            'temporadas.ver',
+            'convocatorias.ver',
+            'reglas_temporada.ver',
+            'categorias.ver',
             'clubes.ver',
+            'equipos.ver',
+            'jugadores.ver',
             'campos.ver',
         ];
-        $rolesCreados['Presidente del Club']->syncPermissions($permisosClub);
-        $rolesCreados['Delegado del Club']->syncPermissions($permisosClub);
+        $rolesCreados['Presidente del Club']->syncPermissions($permisosPresidenteClub);
 
-        // Antes «Arbitro»
-        $rolesCreados['Árbitro en Campo']->syncPermissions([
+        // Rol Delegado del Club (Titular / Suplente): enlace operativo, altas de jugadores, registro de equipos y consulta deportiva
+        $permisosDelegadoClub = [
             'temporadas.ver',
+            'convocatorias.ver',
+            'reglas_temporada.ver',
+            'categorias.ver',
+            'clubes.ver',
+            'equipos.ver',
+            'jugadores.ver',
             'campos.ver',
-        ]);
+        ];
+        $rolesCreados['Delegado del Club']->syncPermissions($permisosDelegadoClub);
 
-        // 6. Asignacion automatica de roles a los usuarios iniciales del sistema si existen
+        // Rol Jugador: consulta exclusiva de perfil deportivo, credencial digital, partidos y estado disciplinario
+        $permisosJugador = [
+            'temporadas.ver',
+            'convocatorias.ver',
+            'categorias.ver',
+            'equipos.ver',
+            'jugadores.ver',
+            'campos.ver',
+        ];
+        $rolesCreados['Jugador']->syncPermissions($permisosJugador);
+
+        // 7. Asignacion automatica de roles a los usuarios iniciales del sistema si existen
         $adminUser = User::where('email', 'admin@ligafutbol.com')->first();
         if ($adminUser && ! $adminUser->hasRole('Administrador General')) {
             $adminUser->assignRole('Administrador General');
@@ -300,9 +404,49 @@ class RoleAndPermissionSeeder extends Seeder
             $directivoUser->assignRole('Presidente del Club');
         }
 
+        $presidenteClubUser = User::where('email', 'presidente.club@ligafutbol.com')->first();
+        if ($presidenteClubUser && ! $presidenteClubUser->hasRole('Presidente del Club')) {
+            $presidenteClubUser->assignRole('Presidente del Club');
+        }
+
+        $delegadoMoreliaUser = User::where('email', 'delegado@moreliafc.com')->first();
+        if ($delegadoMoreliaUser && ! $delegadoMoreliaUser->hasRole('Delegado del Club')) {
+            $delegadoMoreliaUser->assignRole('Delegado del Club');
+        }
+
+        $delegadoClubUser = User::where('email', 'delegado.club@ligafutbol.com')->first();
+        if ($delegadoClubUser && ! $delegadoClubUser->hasRole('Delegado del Club')) {
+            $delegadoClubUser->assignRole('Delegado del Club');
+        }
+
+        $jugadorUser = User::where('email', 'jugador@ligafutbol.com')->first();
+        if ($jugadorUser && ! $jugadorUser->hasRole('Jugador')) {
+            $jugadorUser->assignRole('Jugador');
+        }
+
         $arbitroUser = User::where('email', 'arbitro@ligafutbol.com')->first();
         if ($arbitroUser && ! $arbitroUser->hasRole('Árbitro en Campo')) {
             $arbitroUser->assignRole('Árbitro en Campo');
+        }
+
+        $programadorUser = User::where('email', 'programador@ligafutbol.com')->first();
+        if ($programadorUser && ! $programadorUser->hasRole('Programador de Partidos')) {
+            $programadorUser->assignRole('Programador de Partidos');
+        }
+
+        $capturistaUser = User::where('email', 'capturista@ligafutbol.com')->first();
+        if ($capturistaUser && ! $capturistaUser->hasRole('Capturista')) {
+            $capturistaUser->assignRole('Capturista');
+        }
+
+        $comisionArbitralUser = User::where('email', 'comision.arbitral@ligafutbol.com')->first();
+        if ($comisionArbitralUser && ! $comisionArbitralUser->hasRole('Comisión Arbitral')) {
+            $comisionArbitralUser->assignRole('Comisión Arbitral');
+        }
+
+        $tribunalUser = User::where('email', 'tribunal@ligafutbol.com')->first();
+        if ($tribunalUser && ! $tribunalUser->hasRole('Tribunal de Penas')) {
+            $tribunalUser->assignRole('Tribunal de Penas');
         }
     }
 }

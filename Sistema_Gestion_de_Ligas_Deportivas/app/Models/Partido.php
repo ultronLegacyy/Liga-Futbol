@@ -3,10 +3,11 @@
 namespace App\Models;
 
 use App\Models\Concerns\Auditable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-// Partido de una jornada (RF-06.1). Modelo mínimo para asignar árbitros (HU-026); la programación la completa HU-014
+// Partido de una jornada (RF-06.1). HU-025 usa su cancha y su horario, HU-026 su árbitro; HU-014/HU-027 completan el resto
 class Partido extends Model
 {
     use Auditable;
@@ -58,12 +59,25 @@ class Partido extends Model
     /** @return BelongsTo<Cancha, $this> */
     public function cancha(): BelongsTo
     {
-        return $this->belongsTo(Cancha::class);
+        return $this->belongsTo(Cancha::class, 'cancha_id');
     }
 
     /** @return BelongsTo<Arbitro, $this> */
     public function arbitro(): BelongsTo
     {
         return $this->belongsTo(Arbitro::class);
+    }
+
+    /**
+     * Partidos que ocupan su cancha: tienen horario y no están suspendidos (RF-05.3).
+     *
+     * @param  Builder<Partido>  $query
+     * @return Builder<Partido>
+     */
+    public function scopeQueOcupanCancha(Builder $query): Builder
+    {
+        return $query->whereNotNull('fecha_partido')
+            ->whereNotNull('hora_partido')
+            ->where('estado', '!=', 'suspendido');
     }
 }

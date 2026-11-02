@@ -2,9 +2,9 @@
 
 Documento técnico de especificación de Control de Acceso Basado en Roles (RBAC) para el **Sistema de Gestión de Ligas Deportivas (SGLD)** de la Liga Municipal de Fútbol Amateur de Morelia, A.C.
 
-- **Incidencias Jira asociadas:** `SCRUM-14` (`HU-071`), `SCRUM-15` (`HU-072`), `SCRUM-16` (`HU-073`), `SCRUM-120` (`S2-T06`), `SCRUM-123` (`S2-T09`).
+- **Incidencias Jira asociadas:** `SCRUM-14` (`HU-071`), `SCRUM-15` (`HU-072`), `SCRUM-16` (`HU-073`), `SCRUM-120` (`S2-T06`), `SCRUM-123` (`S2-T09`), `SCRUM-130` (`S2-T16`).
 - **Base normativa:** Especificación de Requisitos de Software (ERS), Sección 2.3 (Características y Responsabilidades de los Usuarios) y Requisito Funcional `RF-12.1`.
-- **Estado de aprobación:** Propuesta técnica de arquitectura RBAC, sujeta a la revisión y aprobación formal del Product Owner (@Medina281) para el Criterio de Aceptación 3 (CA3 / SCRUM-123).
+- **Estado de aprobación:** Aprobado por el Product Owner (@Medina281) para Roles de Gobernanza (HU-071), Roles Operativos Deportivos (HU-072 / SCRUM-15) y Roles de Clubes y Jugadores (HU-073 / SCRUM-16).
 - **Responsable de arquitectura:** Rafael Piedra Sánchez (Dev 2 — Backend Lead).
 
 ---
@@ -107,25 +107,25 @@ Donde:
 | **Personas (HU-013)** | `personas.ver` | Sí | No | Sí | No | No | No | No | No | No | No | No | Pendiente (HU-016) | No |
 | | `personas.crear` | Sí | No | Sí | No | No | No | No | No | No | No | No | Pendiente (HU-016) | No |
 | | `personas.editar` | Sí | No | Sí | No | No | No | No | No | No | No | No | Pendiente (HU-016) | No |
-| **Canchas e Instalac.**| `campos.ver` | Sí | Sí | Sí | No | Sí | Sí | Sí | Sí | Sí | No | Sí | Sí | Sí |
-| | `campos.crear` | Sí | No | No | No | No | Pendiente (HU-023) | No | No | No | No | No | No | No |
-| | `campos.editar` | Sí | No | No | No | No | Pendiente (HU-023) | No | No | No | No | No | No | No |
+| **Canchas e Instalac.**| `campos.ver` | Sí | Sí | Sí | No | Sí | Sí | Sí | Sí | Sí | Sí | Sí | Sí | Sí |
+| | `campos.crear` | Sí | No | No | No | No | Sí | No | No | No | No | No | No | No |
+| | `campos.editar` | Sí | No | No | No | No | Sí | No | No | No | No | No | No | No |
 | | `campos.eliminar` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
-| | `campos.bloquear` | Sí | No | No | No | No | Pendiente (HU-024) | No | No | No | No | No | No | No |
-| **Arbitraje y Padrón** | `arbitros.ver` | Sí | Pendiente (HU-010) | Pendiente (HU-010) | No | No | Pendiente (HU-010) | No | Pendiente (HU-010) | Pendiente (HU-010) | Pendiente (HU-010) | No | No | No |
-| | `arbitros.crear` | Sí | No | No | No | No | No | No | No | Pendiente (HU-010) | No | No | No | No |
-| | `arbitros.editar` | Sí | No | No | No | No | No | No | No | Pendiente (HU-010) | No | No | No | No |
-| | `arbitros.asignar` | Sí | No | No | No | No | Pendiente (HU-010) | No | No | Pendiente (HU-010) | No | No | No | No |
-| **Jornadas y Partidos** | `partidos.ver` | Sí | Pendiente (HU-014) | Pendiente (HU-014) | No | Pendiente (HU-014) | Pendiente (HU-014) | Pendiente (HU-014) | Pendiente (HU-014) | Pendiente (HU-014) | Pendiente (HU-014) | Pendiente (HU-014) | Pendiente (HU-014) | Pendiente (HU-014) |
-| | `partidos.programar` | Sí | No | No | No | No | Pendiente (HU-014) | No | No | No | No | No | No | No |
-| | `partidos.reprogramar`| Sí | No | No | No | No | Pendiente (HU-014) | No | No | No | No | No | No | No |
-| **Cédulas y Resultados**| `cedulas.ver` | Sí | Pendiente (HU-015) | Pendiente (HU-015) | No | No | Pendiente (HU-015) | Pendiente (HU-015) | Pendiente (HU-015) | No | Pendiente (HU-015) | Pendiente (HU-015) | Pendiente (HU-015) | Pendiente (HU-015) |
-| | `cedulas.capturar` | Sí | No | No | No | No | No | Pendiente (HU-015) | Pendiente (HU-015) | No | No | No | No | No |
-| | `cedulas.firmar` | No | No | No | No | No | No | No | Pendiente (HU-015) | No | No | No | Pendiente (HU-015) | No |
-| | `resultados.validar`| Sí | Pendiente (HU-016) | Pendiente (HU-016) | No | No | Pendiente (HU-016) | No | No | No | No | No | No | No |
-| **Régimen Disciplin.** | `disciplina.ver` | Sí | Pendiente (HU-017) | Pendiente (HU-017) | No | Pendiente (HU-017) | No | No | Pendiente (HU-017) | No | Pendiente (HU-017) | Pendiente (HU-017) | Pendiente (HU-017) | Pendiente (HU-017) |
-| | `disciplina.expedientes`| Sí | No | No | No | No | No | No | No | No | Pendiente (HU-017) | No | No | No |
-| | `disciplina.sancionar`| Sí | No | No | No | No | No | No | No | No | Pendiente (HU-017) | No | No | No |
+| | `campos.bloquear` | Sí | No | No | No | No | Sí | No | No | No | No | No | No | No |
+| **Arbitraje y Padrón** | `arbitros.ver` | Sí | No | No | No | No | Sí | No | Sí | Sí | Sí | No | No | No |
+| | `arbitros.crear` | Sí | No | No | No | No | No | No | No | Sí | No | No | No | No |
+| | `arbitros.editar` | Sí | No | No | No | No | No | No | No | Sí | No | No | No | No |
+| | `arbitros.asignar` | Sí | No | No | No | No | Sí | No | No | Sí | No | No | No | No |
+| **Jornadas y Partidos** | `partidos.ver` | Sí | No | No | No | No | Sí | Sí | Sí | Sí | Sí | No | No | No |
+| | `partidos.programar` | Sí | No | No | No | No | Sí | No | No | No | No | No | No | No |
+| | `partidos.reprogramar`| Sí | No | No | No | No | Sí | No | No | No | No | No | No | No |
+| **Cédulas y Resultados**| `cedulas.ver` | Sí | No | No | No | No | Sí | Sí | Sí | Sí | Sí | No | No | No |
+| | `cedulas.capturar` | Sí | No | No | No | No | No | Sí | Sí | No | No | No | No | No |
+| | `cedulas.firmar` | No | No | No | No | No | No | No | Sí | No | No | No | No | No |
+| | `resultados.validar`| Sí | No | No | No | No | Sí | No | No | No | No | No | No | No |
+| **Régimen Disciplin.** | `disciplina.ver` | Sí | No | No | No | No | No | No | Sí | No | Sí | No | No | No |
+| | `disciplina.expedientes`| Sí | No | No | No | No | No | No | No | No | Sí | No | No | No |
+| | `disciplina.sancionar`| Sí | No | No | No | No | No | No | No | No | Sí | No | No | No |
 | **Finanzas y Pagos** | `finanzas.ver` | Sí | No | No | Sí | No | No | No | No | No | No | Pendiente (HU-018) | Pendiente (HU-018) | No |
 | | `finanzas.cargos` | Sí | No | No | Sí | No | No | No | No | No | No | No | No | No |
 | | `finanzas.pagos_validar`| Sí | No | No | Sí | No | No | No | No | No | No | No | No | No |
@@ -156,3 +156,11 @@ En cumplimiento de los criterios de aceptación de `HU-071`, `HU-072`, `HU-073` 
 5. **Alcance Institucional del Secretario vs. Delegado de Club (Acuerdo Product Owner):**
    - El Secretario gestiona fe pública, minutas, convocatorias oficiales y supervisión documental/etaria.
    - La inscripción de clubes (`clubes.crear`, `clubes.editar`) y registro de equipos (`equipos.crear`, `equipos.editar`) queda expresamente denegada al Secretario y asignada al Delegado del Club (`HU-012` y `HU-013` en Sprint 3).
+
+6. **Perímetro de Seguridad para Roles de Clubes y Jugadores (Criterio 3 de HU-073 / SCRUM-16):**
+   - Los roles `Presidente del Club`, `Delegado del Club` y `Jugador` tienen estrictamente bloqueado el acceso a la administración de usuarios y asignación de roles (`usuarios.*`, `roles.*`), la bitácora de auditoría inmutable (`auditoria.ver`), la creación, modificación o cierre de temporadas (`temporadas.crear`, `temporadas.editar`, `temporadas.cerrar`), la creación o edición de categorías (`categorias.crear`, `categorias.editar`), la modificación de reglas oficiales de competencia (`reglas_temporada.editar`), la gestión/bloqueo de canchas (`campos.bloquear`, `campos.crear`, `campos.editar`), la designación arbitral (`arbitros.asignar`), la programación de partidos (`partidos.programar`, `partidos.reprogramar`), la captura y firma de cédulas arbitrales (`cedulas.capturar`, `cedulas.firmar`) y la imposición de sanciones disciplinarias (`disciplina.sancionar`, `disciplina.expedientes`).
+   - El rol `Jugador` además tiene expresamente restringida la consulta de clubes globales (`clubes.ver`) y la consulta de la configuración interna de reglas de temporada (`reglas_temporada.ver`).
+   - Cualquier intento de invocar estas rutas, controladores o políticas responde indefectiblemente con **HTTP 403 Forbidden**.
+
+7. **Política de Expiración de Sesión por Inactividad (RNF-35):**
+   - En correspondencia con la naturaleza operativa y de fin de semana de las actividades de campo, los roles `Presidente del Club`, `Delegado del Club` y `Jugador` operan con un tiempo máximo de inactividad de **8 horas (28,800 segundos)** antes de requerir reautenticación, a diferencia de los roles con jerarquía directiva y disciplinaria que aplican 30 minutos (1,800 segundos).

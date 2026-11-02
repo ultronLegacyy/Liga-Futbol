@@ -110,7 +110,7 @@ return [
 
     'features' => [
         Features::registration(),
-        Features::resetPasswords(),
+        // El restablecimiento de contraseña usa un flujo propio (HU-003): RecuperacionContrasenaController
 
         // Features::emailVerification(),
 

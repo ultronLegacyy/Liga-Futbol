@@ -45,6 +45,16 @@ class Cancha extends Model
     }
 
     /**
+     * Partidos asignados a la cancha (HU-025, RF-05.3).
+     *
+     * @return HasMany<Partido, $this>
+     */
+    public function partidos(): HasMany
+    {
+        return $this->hasMany(Partido::class, 'cancha_id');
+    }
+
+    /**
      * Determina si la cancha se encuentra disponible para juego en un periodo especifico (HU-024).
      *
      * Permite firmas flexibles:
