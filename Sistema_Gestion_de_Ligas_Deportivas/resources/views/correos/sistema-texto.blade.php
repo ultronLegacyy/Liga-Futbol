@@ -4,6 +4,10 @@ Liga Fútbol · SGLD
 {!! $asunto !!}
 
 {!! $mensaje !!}
+@if ($enlaceUrl)
+
+{!! $enlaceTexto ?? 'Enlace' !!}: {!! $enlaceUrl !!}
+@endif
 
 --
 Correo automático del Sistema de Gestión de Ligas Deportivas.
