@@ -9,7 +9,17 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-// Identidad única y reutilizable de una persona (HU-013, RF-03.2); la CURP la distingue
+/**
+ * Identidad única y reutilizable de una persona (HU-013, RF-03.2); la CURP la distingue.
+ *
+ * @property int $id
+ * @property string $nombre
+ * @property string $apellidos
+ * @property \Illuminate\Support\Carbon $fecha_nacimiento
+ * @property string $curp
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ */
 class Persona extends Model
 {
     /** @use HasFactory<PersonaFactory> */
