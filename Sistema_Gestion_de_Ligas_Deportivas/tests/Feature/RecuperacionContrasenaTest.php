@@ -246,7 +246,10 @@ class RecuperacionContrasenaTest extends TestCase
     public function test_con_doble_factor_acepta_8_caracteres(): void
     {
         $usuario = $this->crearUsuario();
-        $usuario->forceFill(['two_factor_secret' => encrypt('secreto-de-prueba')])->save();
+        $usuario->forceFill([
+            'two_factor_secret' => encrypt('secreto-de-prueba'),
+            'two_factor_confirmed_at' => now(),
+        ])->save();
 
         $this->restablecer(Password::broker()->createToken($usuario), 'Ocho-123')
             ->assertRedirect(route('login'));
@@ -325,7 +328,9 @@ class RecuperacionContrasenaTest extends TestCase
 
         $this->assertNotSame($tokenAnterior, $usuario->remember_token);
         $this->assertFalse($usuario->requires_password_change);
-        $this->assertSame('argon2id', Hash::info((string) $usuario->password)['algoName']);
+        $supportsArgon = defined('PASSWORD_ARGON2ID') && in_array(PASSWORD_ARGON2ID, password_algos());
+        $algoEsperado = $supportsArgon ? 'argon2id' : 'bcrypt';
+        $this->assertSame($algoEsperado, Hash::info((string) $usuario->password)['algoName']);
     }
 
     // Auditoría: una sola fila con el motivo y sin secretos
