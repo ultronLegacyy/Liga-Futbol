@@ -7,6 +7,7 @@ use App\Http\Controllers\ClubController;
 use App\Http\Controllers\EquipoController;
 use App\Http\Controllers\ForcePasswordChangeController;
 use App\Http\Controllers\GrupoController;
+use App\Http\Controllers\PersonaController;
 use App\Http\Controllers\ReglaTemporadaController;
 use App\Http\Controllers\TemporadaController;
 use App\Http\Controllers\UserController;
@@ -63,6 +64,11 @@ Route::middleware(['auth'])->group(function () {
         // Categorías y grupos
         Route::resource('temporadas.categorias', CategoriaController::class)->shallow()->only(['index', 'create', 'store', 'show', 'edit', 'update']);
         Route::resource('categorias.grupos', GrupoController::class)->shallow()->only(['store', 'edit', 'update']);
+
+        // Padrón de personas y sus roles por temporada (HU-013, RF-03.2)
+        Route::resource('personas', PersonaController::class)->only(['index', 'create', 'store', 'show']);
+        Route::post('/personas/{persona}/roles', [PersonaController::class, 'asignarRol'])
+            ->name('personas.roles.store');
 
         // Grupo de rutas de administracion de gobernanza y gestión de cuentas (S2-T13)
         Route::middleware(['role:Administrador General'])->prefix('admin')->name('admin.')->group(function () {

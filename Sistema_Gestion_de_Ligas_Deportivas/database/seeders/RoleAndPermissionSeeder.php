@@ -105,6 +105,11 @@ class RoleAndPermissionSeeder extends Seeder
             'jugadores.transferir',
             'jugadores.validar_edad',
 
+            // Modulo Personas: identidad unica y roles por temporada (HU-013, RF-03.2)
+            'personas.ver',
+            'personas.crear',
+            'personas.editar',
+
             // Modulo Canchas e Instalaciones
             'campos.ver',
             'campos.crear',
@@ -206,6 +211,10 @@ class RoleAndPermissionSeeder extends Seeder
             'equipos.ver',
             'jugadores.ver',
             'jugadores.validar_edad',
+            // Actor de RF-03 en la matriz de trazabilidad de la ERS (HU-013)
+            'personas.ver',
+            'personas.crear',
+            'personas.editar',
             'campos.ver',
         ];
         $rolesCreados['Secretario']->syncPermissions($permisosSecretario);
