@@ -24,6 +24,12 @@ class ClubPolicy
         return $usuario->hasRole('Administrador General') || $usuario->can('clubes.ver');
     }
 
+    // Crear clubes: exclusivo de la administracion general
+    public function create(User $usuario): bool
+    {
+        return $usuario->hasRole('Administrador General');
+    }
+
     // Mitigacion de ID Tampering segun requisito RNF-29: un directivo solo puede consultar su propio club
     public function view(User $usuario, Club $club): Response
     {

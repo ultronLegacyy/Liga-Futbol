@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
@@ -65,5 +66,11 @@ class User extends Authenticatable
             'password' => 'hashed',
             'requires_password_change' => 'boolean', // Casteo requerido para HU-080
         ];
+    }
+
+    // Clubes de los que es propietario legal
+    public function clubesPropietario(): HasMany
+    {
+        return $this->hasMany(Club::class, 'propietario_usuario_id');
     }
 }
