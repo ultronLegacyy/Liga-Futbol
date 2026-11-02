@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ArbitroController;
 use App\Http\Controllers\CanchaBloqueoController;
 use App\Http\Controllers\CanchaController;
 use App\Http\Controllers\CategoriaController;
@@ -75,6 +76,15 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('personas', PersonaController::class)->only(['index', 'create', 'store', 'show']);
         Route::post('/personas/{persona}/roles', [PersonaController::class, 'asignarRol'])
             ->name('personas.roles.store');
+
+        // Padrón de árbitros y su asignación a partidos programados (HU-026, RF-06.1)
+        Route::get('/arbitros/asignaciones', [ArbitroController::class, 'asignaciones'])
+            ->name('arbitros.asignaciones');
+        Route::resource('arbitros', ArbitroController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+        Route::get('/partidos/{partido}/arbitro', [ArbitroController::class, 'editarAsignacion'])
+            ->name('partidos.arbitro.edit');
+        Route::put('/partidos/{partido}/arbitro', [ArbitroController::class, 'asignar'])
+            ->name('partidos.arbitro.update');
 
         // Grupo de rutas de administracion de gobernanza y gestión de cuentas (S2-T13)
         Route::middleware(['role:Administrador General'])->prefix('admin')->name('admin.')->group(function () {

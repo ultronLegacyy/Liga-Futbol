@@ -7,6 +7,7 @@ use Database\Factories\PersonaFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 // Identidad única y reutilizable de una persona (HU-013, RF-03.2); la CURP la distingue
 class Persona extends Model
@@ -37,6 +38,13 @@ class Persona extends Model
     public function roles(): HasMany
     {
         return $this->hasMany(PersonaRol::class);
+    }
+
+    // Registro en el padrón de árbitros, si es árbitro colegiado (HU-026)
+    /** @return HasOne<Arbitro, $this> */
+    public function arbitro(): HasOne
+    {
+        return $this->hasOne(Arbitro::class);
     }
 
     /**
