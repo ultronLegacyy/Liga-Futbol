@@ -29,6 +29,7 @@ class Club extends Model
     }
 
     // Relacion uno a muchos con los equipos pertenecientes al club
+    /** @return HasMany<Equipo, $this> */
     public function equipos(): HasMany
     {
         return $this->hasMany(Equipo::class, 'club_id');

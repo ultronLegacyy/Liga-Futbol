@@ -29,6 +29,7 @@ class Equipo extends Model
         return $this->belongsTo(Club::class, 'club_id');
     }
 
+    /** @return BelongsTo<Grupo, $this> */
     public function grupo(): BelongsTo
     {
         return $this->belongsTo(Grupo::class, 'grupo_id');

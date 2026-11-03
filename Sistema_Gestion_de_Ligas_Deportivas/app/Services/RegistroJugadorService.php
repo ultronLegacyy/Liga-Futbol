@@ -23,9 +23,13 @@ class RegistroJugadorService
                 ->first();
 
             if ($inscripcionAnterior !== null) {
+                $equipoOrigen = $inscripcionAnterior->equipo;
+                $categoriaOrigen = $equipoOrigen->grupo->categoria;
+                $categoriaDestino = $equipoDestino->grupo->categoria;
+
                 $this->reglaSaltoCategoria->validar(
-                    $inscripcionAnterior->equipo->grupo->categoria,
-                    $equipoDestino->grupo->categoria,
+                    $categoriaOrigen,
+                    $categoriaDestino,
                 );
             }
 
