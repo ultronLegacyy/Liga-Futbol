@@ -2,16 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use App\Models\Concerns\Auditable;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Club extends Model
 {
-    use HasFactory;
     use Auditable;
+    use HasFactory;
 
     protected $table = 'clubes';
 
@@ -45,13 +45,21 @@ class Club extends Model
         return $this->hasMany(DirectivoClub::class, 'club_id');
     }
 
-    // Propietario legal del club
+    // Tarjetones digitales del club (SCRUM-27)
+    /** @return HasMany<TarjetonDigital, $this> */
+    public function tarjetonesDigitales(): HasMany
+    {
+        return $this->hasMany(TarjetonDigital::class, 'club_id');
+    }
+
+    // Propietario legal del club (SCRUM-25)
     /** @return BelongsTo<User, $this> */
     public function propietario(): BelongsTo
     {
         return $this->belongsTo(User::class, 'propietario_usuario_id');
     }
 
+    // Historial de ventas del club (SCRUM-25)
     /** @return HasMany<HistorialVentaClub, $this> */
     public function historialVentas(): HasMany
     {
