@@ -127,6 +127,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/clubes/{club}', [ClubController::class, 'show'])->name('clubes.show');
         Route::put('/clubes/{club}', [ClubController::class, 'update'])->name('clubes.update');
         Route::get('/clubes/{club}/equipos', [ClubController::class, 'equipos'])->name('clubes.equipos');
+        Route::post('/clubes/{club}/venta', [ClubController::class, 'vender'])->name('clubes.venta');
 
         Route::get('/equipos/{equipo}', [EquipoController::class, 'show'])->name('equipos.show');
         Route::put('/equipos/{equipo}', [EquipoController::class, 'update'])->name('equipos.update');

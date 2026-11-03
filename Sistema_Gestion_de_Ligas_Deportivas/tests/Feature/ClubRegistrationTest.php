@@ -7,6 +7,7 @@ use App\Models\User;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class ClubRegistrationTest extends TestCase
@@ -103,11 +104,16 @@ class ClubRegistrationTest extends TestCase
         ]);
 
         $this->assertDatabaseHas('auditoria_logs', [
-            'accion' => 'club_creado',
+            'accion' => 'crear',
             'tabla_afectada' => 'clubes',
             'registro_id' => $clubId,
             'motivo' => 'Alta inicial para pruebas',
         ]);
+
+        $this->assertSame(1, DB::table('auditoria_logs')
+            ->where('tabla_afectada', 'clubes')
+            ->where('registro_id', $clubId)
+            ->count());
     }
 
     public function test_directivo_no_puede_registrar_clubes(): void
@@ -207,5 +213,124 @@ class ClubRegistrationTest extends TestCase
             $propietario->id,
             $club->propietario->id
         );
+    }
+
+    public function test_venta_traspasa_propiedad_registra_historial_y_reinicia_la_plantilla_deportiva(): void
+    {
+        $club = Club::findOrFail($this->directivo->club_id);
+        $club->update(['propietario_usuario_id' => $this->directivo->id]);
+
+        $nuevoPropietario = User::create([
+            'name' => 'Nuevo Propietario Registro Test',
+            'email' => 'nuevo-propietario-registro-test@example.com',
+            'password' => Hash::make('secreto123'),
+            'estatus' => 'activo',
+            'rol' => 'Consultor',
+        ]);
+
+        $ligaId = DB::table('ligas')->insertGetId([
+            'nombre' => 'Liga Venta Test',
+            'estado' => 'activa',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $temporadaId = DB::table('temporadas')->insertGetId([
+            'liga_id' => $ligaId,
+            'nombre' => 'Temporada Venta Test',
+            'fecha_inicio' => '2026-01-01',
+            'fecha_fin' => '2026-12-31',
+            'estado' => 'activa',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $categoriaId = DB::table('categorias')->insertGetId([
+            'nombre' => 'Categoría Venta Test',
+            'edad_min' => 18,
+            'edad_max' => 40,
+            'jerarquia_salto' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $grupoId = DB::table('grupos')->insertGetId([
+            'categoria_id' => $categoriaId,
+            'temporada_id' => $temporadaId,
+            'nombre' => 'Grupo Venta Test',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $equipoId = DB::table('equipos')->insertGetId([
+            'club_id' => $club->id,
+            'grupo_id' => $grupoId,
+            'nombre' => 'Equipo Venta Test',
+            'partidos_default_acumulados' => 9,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $personaId = DB::table('personas')->insertGetId([
+            'nombre' => 'Jugador',
+            'apellidos' => 'Venta Test',
+            'fecha_nacimiento' => '2000-01-01',
+            'curp' => 'VENTA'.str_pad((string) $club->id, 13, '0', STR_PAD_LEFT),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('jugadores_equipos')->insert([
+            'persona_id' => $personaId,
+            'equipo_id' => $equipoId,
+            'dorsal' => 10,
+            'estado_elegibilidad' => 'Activo',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $respuesta = $this->actingAs($this->directivo)->postJson("/clubes/{$club->id}/venta", [
+            'propietario_usuario_id' => $nuevoPropietario->id,
+            'carta_venta_pdf' => 'ventas/carta-venta.pdf',
+            'fecha_venta' => '2026-11-01',
+        ]);
+
+        $respuesta->assertCreated();
+        $this->assertDatabaseHas('clubes', [
+            'id' => $club->id,
+            'propietario_usuario_id' => $nuevoPropietario->id,
+        ]);
+        $this->assertDatabaseHas('historial_ventas_club', [
+            'club_id' => $club->id,
+            'propietario_anterior_usuario_id' => $this->directivo->id,
+            'propietario_nuevo_usuario_id' => $nuevoPropietario->id,
+            'propietario_anterior' => $this->directivo->name,
+            'propietario_nuevo' => $nuevoPropietario->name,
+            'carta_venta_pdf' => 'ventas/carta-venta.pdf',
+            'fecha_venta' => '2026-11-01',
+        ]);
+        $this->assertDatabaseHas('equipos', [
+            'id' => $equipoId,
+            'partidos_default_acumulados' => 0,
+        ]);
+        $this->assertDatabaseMissing('jugadores_equipos', [
+            'persona_id' => $personaId,
+            'equipo_id' => $equipoId,
+        ]);
+    }
+
+    public function test_directivo_recibe_403_al_consultar_o_modificar_club_ajeno(): void
+    {
+        $clubAjeno = Club::create([
+            'nombre' => 'Club Ajeno Registro Test',
+            'estado' => 'activo',
+        ]);
+
+        $this->actingAs($this->directivo)
+            ->getJson("/clubes/{$clubAjeno->id}")
+            ->assertForbidden();
+
+        $this->actingAs($this->directivo)
+            ->putJson("/clubes/{$clubAjeno->id}", ['nombre' => 'Nombre cambiado sin permiso'])
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('clubes', [
+            'id' => $clubAjeno->id,
+            'nombre' => 'Club Ajeno Registro Test',
+        ]);
     }
 }

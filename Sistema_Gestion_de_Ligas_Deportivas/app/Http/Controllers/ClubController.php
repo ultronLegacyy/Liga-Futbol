@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Club;
+use App\Http\Requests\StoreVentaClubRequest;
 use App\Services\AuditService;
+use App\Services\VentaClubService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -67,15 +69,6 @@ class ClubController extends Controller
                     'propietario_usuario_id' =>
                         $datos['propietario_usuario_id'] ?? null,
                 ]);
-
-                // Registrar auditoría del club
-                app(AuditService::class)->registrar(
-                    'club_creado',
-                    $club,
-                    null,
-                    $club->getAttributes(),
-                    $motivo
-                );
 
                 // Registrar integrantes de la directiva
                 foreach ($datos['directivos'] as $directivo) {
@@ -152,5 +145,21 @@ class ClubController extends Controller
             'equipos' => $club->equipos,
             'acceso' => 'autorizado',
         ]);
+    }
+
+    public function vender(StoreVentaClubRequest $request, Club $club, VentaClubService $servicio): JsonResponse
+    {
+        $datos = $request->validated();
+        $historial = $servicio->vender(
+            $club,
+            (int) $datos['propietario_usuario_id'],
+            $datos['fecha_venta'],
+            $datos['carta_venta_pdf'] ?? null,
+        );
+
+        return response()->json([
+            'mensaje' => 'El traspaso del club se registró y su plantilla deportiva fue reiniciada.',
+            'venta' => $historial,
+        ], 201);
     }
 }
