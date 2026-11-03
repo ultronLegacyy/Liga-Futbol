@@ -23,14 +23,28 @@ class Club extends Model
     ];
 
     // Relacion uno a muchos con usuarios adscritos al club
+    /** @return HasMany<User, $this> */
     public function usuarios(): HasMany
     {
         return $this->hasMany(User::class, 'club_id');
     }
 
     // Relacion uno a muchos con los equipos pertenecientes al club
+    /** @return HasMany<Equipo, $this> */
     public function equipos(): HasMany
     {
         return $this->hasMany(Equipo::class, 'club_id');
+    }
+
+    /** @return HasMany<DirectivoClub, $this> */
+    public function directivos(): HasMany
+    {
+        return $this->hasMany(DirectivoClub::class, 'club_id');
+    }
+
+    /** @return HasMany<TarjetonDigital, $this> */
+    public function tarjetonesDigitales(): HasMany
+    {
+        return $this->hasMany(TarjetonDigital::class, 'club_id');
     }
 }

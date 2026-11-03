@@ -10,6 +10,7 @@ use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\RecuperacionContrasenaController;
 use App\Http\Controllers\ReglaTemporadaController;
 use App\Http\Controllers\TemporadaController;
+use App\Http\Controllers\TarjetonDigitalController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\ForcePasswordChange;
 use Illuminate\Support\Facades\Route;
@@ -119,6 +120,14 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/clubes/{club}', [ClubController::class, 'show'])->name('clubes.show');
         Route::put('/clubes/{club}', [ClubController::class, 'update'])->name('clubes.update');
         Route::get('/clubes/{club}/equipos', [ClubController::class, 'equipos'])->name('clubes.equipos');
+
+        Route::get('/clubes/{club}/temporadas/{temporada}/tarjetones', [TarjetonDigitalController::class, 'index'])
+            ->name('clubes.temporadas.tarjetones.index');
+        Route::post('/clubes/{club}/temporadas/{temporada}/tarjetones', [TarjetonDigitalController::class, 'store'])
+            ->name('clubes.temporadas.tarjetones.store');
+        Route::get('/clubes/{club}/temporadas/{temporada}/tarjetones/{version}', [TarjetonDigitalController::class, 'show'])
+            ->whereNumber('version')
+            ->name('clubes.temporadas.tarjetones.show');
 
         Route::get('/equipos/{equipo}', [EquipoController::class, 'show'])->name('equipos.show');
         Route::put('/equipos/{equipo}', [EquipoController::class, 'update'])->name('equipos.update');

@@ -91,6 +91,10 @@ class RoleAndPermissionSeeder extends Seeder
             'clubes.editar',
             'clubes.eliminar',
 
+            // Módulo de Tarjetón Digital de Afiliación
+            'tarjetones.ver',
+            'tarjetones.generar',
+
             // Modulo Equipos
             'equipos.ver',
             'equipos.crear',
@@ -334,6 +338,8 @@ class RoleAndPermissionSeeder extends Seeder
             'reglas_temporada.ver',
             'categorias.ver',
             'clubes.ver',
+            'tarjetones.ver',
+            'tarjetones.generar',
             'equipos.ver',
             'jugadores.ver',
             'campos.ver',
