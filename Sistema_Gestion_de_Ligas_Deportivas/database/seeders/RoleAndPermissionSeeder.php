@@ -245,6 +245,7 @@ class RoleAndPermissionSeeder extends Seeder
             'clubes.ver',
             'equipos.ver',
             'jugadores.ver',
+            'jugadores.crear',
             'campos.ver',
             'campos.crear',
             'campos.editar',
@@ -348,7 +349,9 @@ class RoleAndPermissionSeeder extends Seeder
             'categorias.ver',
             'clubes.ver',
             'equipos.ver',
+            'equipos.crear',
             'jugadores.ver',
+            'jugadores.crear',
             'campos.ver',
         ];
         $rolesCreados['Delegado del Club']->syncPermissions($permisosDelegadoClub);

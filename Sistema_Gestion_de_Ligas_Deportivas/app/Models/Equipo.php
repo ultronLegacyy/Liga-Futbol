@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Equipo extends Model
 {
@@ -16,6 +17,7 @@ class Equipo extends Model
     // Atributos asignables de forma masiva
     protected $fillable = [
         'club_id',
+        'temporada_id',
         'grupo_id',
         'nombre',
         'partidos_default_acumulados',
@@ -25,5 +27,16 @@ class Equipo extends Model
     public function club(): BelongsTo
     {
         return $this->belongsTo(Club::class, 'club_id');
+    }
+
+    public function grupo(): BelongsTo
+    {
+        return $this->belongsTo(Grupo::class, 'grupo_id');
+    }
+
+    /** @return HasMany<Jugador, $this> */
+    public function jugadores(): HasMany
+    {
+        return $this->hasMany(Jugador::class, 'equipo_id');
     }
 }

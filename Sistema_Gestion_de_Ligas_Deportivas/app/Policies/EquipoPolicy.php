@@ -18,6 +18,25 @@ class EquipoPolicy
         return null;
     }
 
+    public function create(User $usuario): Response
+    {
+        return $usuario->hasRole('Delegado del Club')
+            && $usuario->club_id !== null
+            && $usuario->can('equipos.crear')
+                ? Response::allow()
+                : Response::deny('Solo el Delegado del Club con permiso y club asignado puede registrar equipos.');
+    }
+
+    public function addPlayer(User $usuario, Equipo $equipo): Response
+    {
+        return $usuario->hasRole('Delegado del Club')
+            && $usuario->club_id !== null
+            && (int) $usuario->club_id === (int) $equipo->club_id
+            && $usuario->can('jugadores.crear')
+                ? Response::allow()
+                : Response::deny('Solo el Delegado del Club puede inscribir jugadores en equipos de su club.');
+    }
+
     // Mitigacion de ID Tampering: un directivo solo puede consultar equipos de su club adscrito
     public function view(User $usuario, Equipo $equipo): Response
     {
