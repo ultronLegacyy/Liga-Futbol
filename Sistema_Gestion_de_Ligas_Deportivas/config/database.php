@@ -46,6 +46,8 @@ return [
 
         'mysql' => [
             'driver' => 'mysql',
+            // Cada lectura ve lo último confirmado: asignar una cancha no debe decidir con una foto vieja (HU-025)
+            'isolation_level' => 'READ COMMITTED',
             'url' => env('DB_URL'),
             'host' => env('DB_HOST', '127.0.0.1'),
             'port' => env('DB_PORT', '3306'),
@@ -66,6 +68,8 @@ return [
 
         'mariadb' => [
             'driver' => 'mariadb',
+            // Cada lectura ve lo último confirmado: asignar una cancha no debe decidir con una foto vieja (HU-025)
+            'isolation_level' => 'READ COMMITTED',
             'url' => env('DB_URL'),
             'host' => env('DB_HOST', '127.0.0.1'),
             'port' => env('DB_PORT', '3306'),
