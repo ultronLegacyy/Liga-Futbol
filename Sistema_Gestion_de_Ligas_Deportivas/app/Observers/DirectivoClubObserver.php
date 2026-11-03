@@ -25,6 +25,13 @@ class DirectivoClubObserver
     public function updated(DirectivoClub $directivoClub): void
     {
         $this->tarjetonDigital->reemitirParaClub((int) $directivoClub->club_id);
+
+        $clubAnteriorId = $directivoClub->getPrevious()['club_id'] ?? null;
+
+        if ($directivoClub->wasChanged('club_id') && is_numeric($clubAnteriorId)
+            && (int) $clubAnteriorId !== (int) $directivoClub->club_id) {
+            $this->tarjetonDigital->reemitirParaClub((int) $clubAnteriorId);
+        }
     }
 
     /**

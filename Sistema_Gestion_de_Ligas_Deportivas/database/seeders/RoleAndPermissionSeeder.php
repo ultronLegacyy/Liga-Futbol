@@ -353,6 +353,8 @@ class RoleAndPermissionSeeder extends Seeder
             'reglas_temporada.ver',
             'categorias.ver',
             'clubes.ver',
+            'tarjetones.ver',
+            'tarjetones.generar',
             'equipos.ver',
             'jugadores.ver',
             'campos.ver',

@@ -25,6 +25,13 @@ class EquipoObserver
     public function updated(Equipo $equipo): void
     {
         $this->tarjetonDigital->reemitirParaClub((int) $equipo->club_id);
+
+        $clubAnteriorId = $equipo->getPrevious()['club_id'] ?? null;
+
+        if ($equipo->wasChanged('club_id') && is_numeric($clubAnteriorId)
+            && (int) $clubAnteriorId !== (int) $equipo->club_id) {
+            $this->tarjetonDigital->reemitirParaClub((int) $clubAnteriorId);
+        }
     }
 
     /**

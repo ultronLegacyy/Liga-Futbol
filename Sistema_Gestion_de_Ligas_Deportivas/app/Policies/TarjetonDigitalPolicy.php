@@ -24,9 +24,7 @@ class TarjetonDigitalPolicy
 
     public function view(User $user, TarjetonDigital $tarjeton): Response
     {
-        return $user->hasRole('Presidente del Club')
-            && $user->club_id !== null
-            && (int) $user->club_id === (int) $tarjeton->club_id
+        return $this->puedeGestionarClub($user, $tarjeton->club_id)
             && $user->can('tarjetones.ver')
                 ? Response::allow()
                 : Response::deny('No tiene autorización para consultar este tarjetón.');
@@ -38,19 +36,22 @@ class TarjetonDigitalPolicy
             return Response::deny('El tarjetón solo se puede generar para una temporada activa.');
         }
 
-        return $user->hasRole('Presidente del Club')
-            && $user->club_id !== null
-            && (int) $user->club_id === (int) $club->id
+        return $this->puedeGestionarClub($user, $club->id)
             && $user->can('tarjetones.generar')
                 ? Response::allow()
-                : Response::deny('Solo el Presidente del Club puede generar el tarjetón de su club.');
+                : Response::deny('Solo la directiva autorizada del club puede generar su tarjetón.');
     }
 
     private function presidentePuedeConsultar(User $user, Club $club): bool
     {
-        return $user->hasRole('Presidente del Club')
-            && $user->club_id !== null
-            && (int) $user->club_id === (int) $club->id
+        return $this->puedeGestionarClub($user, $club->id)
             && $user->can('tarjetones.ver');
+    }
+
+    private function puedeGestionarClub(User $user, int|string $clubId): bool
+    {
+        return $user->hasAnyRole(['Presidente del Club', 'Delegado del Club'])
+            && $user->club_id !== null
+            && (int) $user->club_id === (int) $clubId;
     }
 }
