@@ -21,6 +21,15 @@
                         <td style="padding: 24px;">
                             <h1 style="margin: 0 0 16px; font-size: 20px; color: #111827;">{{ $asunto }}</h1>
                             <p style="margin: 0; font-size: 15px; line-height: 1.6;">{!! nl2br(e($mensaje)) !!}</p>
+                            @if ($enlaceUrl)
+                                <p style="margin: 24px 0 0;">
+                                    <a href="{{ $enlaceUrl }}" style="display: inline-block; background-color: #16a34a; color: #ffffff; font-weight: bold; font-size: 15px; text-decoration: none; padding: 12px 20px; border-radius: 6px;">{{ $enlaceTexto ?? 'Abrir enlace' }}</a>
+                                </p>
+                                {{-- La URL como texto, para copiarla si el botón no funciona --}}
+                                <p style="margin: 16px 0 0; font-size: 12px; color: #6b7280; line-height: 1.5;">Si el botón no funciona, copia y pega esta dirección en tu navegador:<br>
+                                    <span style="word-break: break-all; color: #374151;">{{ $enlaceUrl }}</span>
+                                </p>
+                            @endif
                         </td>
                     </tr>
                     <tr>
