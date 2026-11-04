@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
+use Illuminate\Support\Timebox;
 use Illuminate\View\View;
 use Throwable;
 
@@ -63,7 +64,7 @@ class RecuperacionContrasenaController extends Controller
         $correo = $this->normalizarCorreo($request->query('email'));
         $usuario = $this->buscarUsuario($correo);
 
-        if (! $usuario || ! Password::tokenExists($usuario, $token)) {
+        if (! $this->enlaceValido($usuario, $token)) {
             return $this->enlaceVencido();
         }
 
@@ -94,7 +95,7 @@ class RecuperacionContrasenaController extends Controller
         // tiene doble factor y, sin un token válido, eso revelaría quién lo tiene
         $usuario = $this->buscarUsuario($correo);
 
-        if (! $usuario || ! Password::tokenExists($usuario, (string) $request->input('token'))) {
+        if (! $this->enlaceValido($usuario, (string) $request->input('token'))) {
             return $this->enlaceVencido();
         }
 
@@ -133,6 +134,16 @@ class RecuperacionContrasenaController extends Controller
 
         // Enlace vencido, usado o alterado: no se indica si el correo existe
         return $this->enlaceVencido();
+    }
+
+    // Comprobar un token pendiente calcula argon2id. Sin un tiempo fijo, pedir un enlace para un correo y medir
+    // cuánto tarda esta respuesta revelaría qué correos tienen cuenta
+    private function enlaceValido(?User $usuario, string $token): bool
+    {
+        return app(Timebox::class)->call(
+            fn (): bool => $usuario !== null && Password::tokenExists($usuario, $token),
+            (int) config('auth.timebox_duration', 200000),
+        );
     }
 
     private function enlaceVencido(): Response

@@ -2,18 +2,18 @@
 
 namespace App\Actions\Fortify;
 
-use Illuminate\Contracts\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
+use App\Rules\RNF26Password;
 
 trait PasswordValidationRules
 {
     /**
-     * Get the validation rules used to validate passwords.
+     * Obtener las reglas de validación de contraseñas conforme a RNF-26.
      *
-     * @return array<int, Rule|array<mixed>|string>
+     * @param  mixed  $user
+     * @return array<int, mixed>
      */
-    protected function passwordRules(): array
+    protected function passwordRules(mixed $user = null): array
     {
-        return ['required', 'string', Password::default(), 'confirmed'];
+        return ['required', 'string', new RNF26Password($user), 'confirmed'];
     }
 }

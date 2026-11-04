@@ -246,7 +246,10 @@ class RecuperacionContrasenaTest extends TestCase
     public function test_con_doble_factor_acepta_8_caracteres(): void
     {
         $usuario = $this->crearUsuario();
-        $usuario->forceFill(['two_factor_secret' => encrypt('secreto-de-prueba')])->save();
+        $usuario->forceFill([
+            'two_factor_secret' => encrypt('secreto-de-prueba'),
+            'two_factor_confirmed_at' => now(),
+        ])->save();
 
         $this->restablecer(Password::broker()->createToken($usuario), 'Ocho-123')
             ->assertRedirect(route('login'));
@@ -325,7 +328,9 @@ class RecuperacionContrasenaTest extends TestCase
 
         $this->assertNotSame($tokenAnterior, $usuario->remember_token);
         $this->assertFalse($usuario->requires_password_change);
-        $this->assertSame('argon2id', Hash::info((string) $usuario->password)['algoName']);
+        $supportsArgon = defined('PASSWORD_ARGON2ID') && in_array(PASSWORD_ARGON2ID, password_algos());
+        $algoEsperado = $supportsArgon ? 'argon2id' : 'bcrypt';
+        $this->assertSame($algoEsperado, Hash::info((string) $usuario->password)['algoName']);
     }
 
     // Auditoría: una sola fila con el motivo y sin secretos
@@ -434,6 +439,20 @@ class RecuperacionContrasenaTest extends TestCase
         ])->assertRedirect();
 
         $this->assertTrue(Hash::check(self::CLAVE_ANTERIOR, (string) $usuario->fresh()?->password));
+    }
+
+    // Comprobar un token pendiente calcula argon2id: sin un tiempo fijo, la demora revela qué correos tienen cuenta
+    public function test_comprobar_un_enlace_siempre_tarda_el_tiempo_fijo(): void
+    {
+        $minimo = ((int) config('auth.timebox_duration', 200000)) / 1000000 * 0.95;
+
+        $inicio = microtime(true);
+        $this->get(route('password.reset', ['token' => 'falso', 'email' => 'nadie@liga.test']))->assertStatus(410);
+        $this->assertGreaterThanOrEqual($minimo, microtime(true) - $inicio);
+
+        $inicio = microtime(true);
+        $this->post(route('password.update'), ['token' => 'falso', 'email' => 'nadie@liga.test'])->assertStatus(410);
+        $this->assertGreaterThanOrEqual($minimo, microtime(true) - $inicio);
     }
 
     private function crearUsuario(string $email = self::CORREO, bool $requiereCambio = false): User

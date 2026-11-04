@@ -7,10 +7,12 @@ use App\Models\BloqueoCancha;
 use App\Models\Cancha;
 use App\Models\Categoria;
 use App\Models\Club;
+use App\Models\DirectivoClub;
 use App\Models\Equipo;
 use App\Models\Grupo;
 use App\Models\Persona;
 use App\Models\Temporada;
+use App\Models\TarjetonDigital;
 use App\Models\User;
 use App\Policies\ArbitroPolicy;
 use App\Policies\BloqueoCanchaPolicy;
@@ -21,8 +23,12 @@ use App\Policies\EquipoPolicy;
 use App\Policies\GrupoPolicy;
 use App\Policies\PersonaPolicy;
 use App\Policies\TemporadaPolicy;
+use App\Policies\TarjetonDigitalPolicy;
 use App\Policies\UserPolicy;
 use App\Services\AuditService;
+use App\Observers\ClubObserver;
+use App\Observers\DirectivoClubObserver;
+use App\Observers\EquipoObserver;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -53,5 +59,10 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Grupo::class, GrupoPolicy::class);
         Gate::policy(Persona::class, PersonaPolicy::class);
         Gate::policy(Arbitro::class, ArbitroPolicy::class);
+        Gate::policy(TarjetonDigital::class, TarjetonDigitalPolicy::class);
+
+        Club::observe(ClubObserver::class);
+        DirectivoClub::observe(DirectivoClubObserver::class);
+        Equipo::observe(EquipoObserver::class);
     }
 }

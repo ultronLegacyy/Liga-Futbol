@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 // Categoría de una temporada (RF-02.1): división por rama y por año de nacimiento o edad
 class Categoria extends Model
@@ -29,6 +30,7 @@ class Categoria extends Model
         'anio_nacimiento_desde',
         'anio_nacimiento_hasta',
         'edad_min',
+        'jerarquia_salto',
     ];
 
     /**
@@ -40,6 +42,7 @@ class Categoria extends Model
             'anio_nacimiento_desde' => 'integer',
             'anio_nacimiento_hasta' => 'integer',
             'edad_min' => 'integer',
+            'jerarquia_salto' => 'integer',
         ];
     }
 
@@ -54,5 +57,11 @@ class Categoria extends Model
     public function grupos(): HasMany
     {
         return $this->hasMany(Grupo::class);
+    }
+
+    /** @return HasManyThrough<Equipo, Grupo, $this> */
+    public function equipos(): HasManyThrough
+    {
+        return $this->hasManyThrough(Equipo::class, Grupo::class);
     }
 }

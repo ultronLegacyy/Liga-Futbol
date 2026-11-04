@@ -79,6 +79,7 @@ class ForcePasswordChangeTest extends TestCase
         $usuario = User::factory()->create([
             'requires_password_change' => true,
             'two_factor_secret' => 'secreto2faactivo', // Con 2FA simulado
+            'two_factor_confirmed_at' => now(),
         ]);
 
         $this->actingAs($usuario);

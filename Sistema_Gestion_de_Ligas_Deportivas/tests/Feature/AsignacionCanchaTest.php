@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditoriaLog;
 use App\Models\BloqueoCancha;
 use App\Models\Cancha;
 use App\Models\Grupo;
@@ -15,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\Attributes\DataProvider;
+use RuntimeException;
 use Tests\TestCase;
 
 // HU-025 (SCRUM-40): impedir asignar una cancha bloqueada u ocupada en el mismo horario (RF-05.3)
@@ -231,6 +233,104 @@ class AsignacionCanchaTest extends TestCase
                 'disponible' => false,
                 'motivo' => 'La cancha ya está ocupada por otro partido el 07/11/2026 de 10:00 a 12:00.',
             ]);
+    }
+
+    // Una duración vacía, en 0 o negativa no debe apagar la regla: se detiene en vez de permitirlo todo
+    #[DataProvider('duracionesInvalidas')]
+    public function test_una_duracion_invalida_detiene_la_asignacion(int $minutos): void
+    {
+        config(['programacion.duracion_partido_minutos' => $minutos]);
+        $partido = $this->crearPartido();
+
+        try {
+            $this->servicio->asignar($partido, $this->cancha, $this->momento('10:00'));
+            $this->fail('Se esperaba que la asignación se detuviera.');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('PARTIDO_DURACION_MINUTOS', $e->getMessage());
+        }
+
+        $this->assertNull($partido->fresh()?->cancha_id);
+    }
+
+    /**
+     * @return array<string, array{int}>
+     */
+    public static function duracionesInvalidas(): array
+    {
+        return [
+            'cero o vacía' => [0],
+            'negativa' => [-30],
+        ];
+    }
+
+    // La ventana hacia atrás depende de la duración, no de un día fijo
+    public function test_detecta_un_partido_largo_que_empezo_hace_mas_de_un_dia(): void
+    {
+        config(['programacion.duracion_partido_minutos' => 2880]);
+        $this->crearPartido($this->cancha, '2026-11-05', '12:00:00');
+        $partido = $this->crearPartido();
+
+        $this->mensajeDeRechazo($partido, $this->cancha, '10:00');
+
+        $this->assertNull($partido->fresh()?->cancha_id);
+    }
+
+    // Una cancha recién creada no trae en memoria el valor por omisión de la columna estado
+    public function test_una_cancha_sin_estado_en_memoria_no_se_rechaza_por_su_estado(): void
+    {
+        $cancha = Cancha::create(['nombre' => 'Recién creada HU-025', 'capacidad_partidos_consecutivos' => 1]);
+
+        $this->assertNull($this->servicio->motivoDeRechazo($cancha, $this->momento('10:00'), $this->momento('12:00')));
+    }
+
+    // Con REPEATABLE READ, una transacción que ya leyó algo no ve lo que otro proceso acaba de asignar (doble reserva)
+    public function test_la_conexion_lee_lo_ultimo_confirmado(): void
+    {
+        $nivel = DB::selectOne('select @@transaction_isolation as nivel');
+
+        $this->assertSame('READ-COMMITTED', $nivel->nivel);
+    }
+
+    // Con varios partidos en el rango, el motivo siempre informa el primero
+    public function test_el_motivo_informa_el_primer_partido_del_rango(): void
+    {
+        $this->crearPartido($this->cancha, self::FECHA, '11:00:00');
+        $this->crearPartido($this->cancha, self::FECHA, '09:00:00');
+
+        $motivo = $this->servicio->motivoDeRechazo($this->cancha, $this->momento('10:00'), $this->momento('12:00'));
+
+        $this->assertStringContainsString('09:00', (string) $motivo);
+    }
+
+    // Sin el bloqueo de la cancha, dos procesos simultáneos pueden ocupar el mismo horario
+    public function test_asignar_bloquea_la_fila_de_la_cancha(): void
+    {
+        DB::enableQueryLog();
+
+        $this->servicio->asignar($this->crearPartido(), $this->cancha, $this->momento('10:00'));
+
+        $consultas = collect(DB::getQueryLog())->pluck('query')
+            ->filter(fn (string $sql) => str_contains($sql, 'from `canchas`') && str_contains($sql, 'for update'));
+
+        $this->assertCount(1, $consultas);
+    }
+
+    // RNF-33: la asignación queda en la auditoría y un rechazo no deja rastro
+    public function test_la_asignacion_queda_en_la_auditoria_y_el_rechazo_no(): void
+    {
+        $partido = $this->crearPartido();
+        $this->servicio->asignar($partido, $this->cancha, $this->momento('10:00'));
+
+        $log = AuditoriaLog::query()->where('tabla_afectada', 'partidos')->where('registro_id', $partido->id)
+            ->where('accion', 'actualizar')->sole();
+        $this->assertSame($this->cancha->id, $log->valores_nuevos['cancha_id']);
+        $this->assertNull($log->valores_anteriores['cancha_id']);
+
+        $rechazado = $this->crearPartido();
+        $this->mensajeDeRechazo($rechazado, $this->cancha, '10:00');
+
+        $this->assertSame(0, AuditoriaLog::query()->where('tabla_afectada', 'partidos')->where('registro_id', $rechazado->id)
+            ->where('accion', 'actualizar')->count());
     }
 
     private function crearEquipo(int $clubId, int $grupoId, string $nombre): int

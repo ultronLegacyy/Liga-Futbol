@@ -8,12 +8,12 @@ use App\Actions\Fortify\UpdateUserProfileInformation;
 use App\Http\Responses\LoginResponse as CustomLoginResponse;
 use App\Http\Responses\LogoutResponse as CustomLogoutResponse;
 use App\Models\User;
+use App\Services\BruteForceProtectionService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Laravel\Fortify\Actions\RedirectIfTwoFactorAuthenticatable;
 use Laravel\Fortify\Contracts\LoginResponse;
@@ -27,45 +27,92 @@ class FortifyServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // Enlace de las respuestas personalizadas de inicio y cierre de sesion
+        // Enlace de las respuestas personalizadas de inicio y cierre de sesión
         $this->app->singleton(LoginResponse::class, CustomLoginResponse::class);
         $this->app->singleton(LogoutResponse::class, CustomLogoutResponse::class);
+        $this->app->singleton(BruteForceProtectionService::class);
     }
 
     /**
-     * Inicializar servicios de autenticacion y reglas de negocio.
+     * Inicializar servicios de autenticación y reglas de negocio.
      */
     public function boot(): void
     {
-        // Asignacion de la vista visual del formulario de login
+        // Asignación de la vista visual del formulario de login
         Fortify::loginView(function () {
             return view('auth.login');
         });
 
-        // Validacion personalizada de autenticacion con comprobacion de estatus activo
+        // Validación personalizada de autenticación con protección contra fuerza bruta (RNF-28)
         Fortify::authenticateUsing(function (Request $request) {
+            $bruteForce = app(BruteForceProtectionService::class);
             $campoIdentificador = Fortify::username();
-            $credencial = $request->input($campoIdentificador);
-            $password = $request->input('password');
+            $rawIdentificador = $request->input($campoIdentificador);
+            $rawPassword = $request->input('password');
 
-            // Busqueda del modelo de usuario por correo electronico
+            // Prevención de TypeError y payloads maliciosos (array en password/email)
+            if (! is_string($rawIdentificador) || ! is_string($rawPassword)) {
+                throw ValidationException::withMessages([
+                    $campoIdentificador => ['Las credenciales proporcionadas no son válidas.'],
+                ]);
+            }
+
+            $credencial = trim($rawIdentificador);
+            $password = $rawPassword;
+            $ip = (string) $request->ip();
+
+            // 1. Verificación previa: ¿la cuenta está en bloqueo activo de 15 minutos?
+            if ($bruteForce->isLocked($credencial)) {
+                $minutosRestantes = $bruteForce->getLockoutRemainingMinutes($credencial);
+
+                throw ValidationException::withMessages([
+                    $campoIdentificador => [
+                        "Su cuenta ha sido bloqueada temporalmente por 15 minutos debido a 5 intentos fallidos consecutivos de inicio de sesión. Por favor intente de nuevo en {$minutosRestantes} minuto(s).",
+                    ],
+                ]);
+            }
+
+            // 2. Búsqueda del modelo de usuario por correo electrónico
             $user = User::where($campoIdentificador, $credencial)->first();
 
+            // 3. Comprobación de credenciales
             if ($user && Hash::check($password, $user->password)) {
-                // Restriccion estricta: solo usuarios con estatus activo pueden ingresar al sistema
+                // Restricción estricta: solo usuarios con estatus activo pueden ingresar al sistema
                 if (isset($user->estatus) && $user->estatus !== 'activo') {
                     throw ValidationException::withMessages([
                         $campoIdentificador => ['Su cuenta no se encuentra activa en el sistema. Contacte a la administracion.'],
                     ]);
                 }
 
-                // Registro del momento exacto del inicio de actividad para la auditoria de timeout
+                // Éxito: se reinicia el contador de intentos fallidos a cero (RNF-28)
+                $bruteForce->clearAttempts($user);
+
+                // Registro del momento exacto del inicio de actividad para la auditoría de timeout
                 session(['last_activity_time' => now()->timestamp]);
 
                 return $user;
             }
 
-            return null;
+            // 4. Intento fallido: registrar en el servicio de fuerza bruta
+            $intentos = $bruteForce->recordFailedAttempt($credencial, $ip, $request);
+
+            if ($intentos >= BruteForceProtectionService::MAX_ATTEMPTS) {
+                $minutosRestantes = $bruteForce->getLockoutRemainingMinutes($credencial);
+
+                throw ValidationException::withMessages([
+                    $campoIdentificador => [
+                        "Su cuenta ha sido bloqueada temporalmente por 15 minutos debido a 5 intentos fallidos consecutivos de inicio de sesión. Por favor intente de nuevo en {$minutosRestantes} minuto(s).",
+                    ],
+                ]);
+            }
+
+            $restantes = BruteForceProtectionService::MAX_ATTEMPTS - $intentos;
+
+            throw ValidationException::withMessages([
+                $campoIdentificador => [
+                    "Credenciales incorrectas. Le quedan {$restantes} intento(s) antes del bloqueo temporal de la cuenta por 15 minutos.",
+                ],
+            ]);
         });
 
         Fortify::createUsersUsing(CreateNewUser::class);
@@ -73,10 +120,11 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::updateUserPasswordsUsing(UpdateUserPassword::class);
         Fortify::redirectUserForTwoFactorAuthenticationUsing(RedirectIfTwoFactorAuthenticatable::class);
 
+        // Límite de peticiones de login por dirección IP (rate limiting de red RNF-28)
         RateLimiter::for('login', function (Request $request) {
-            $throttleKey = Str::transliterate(Str::lower($request->input(Fortify::username())).'|'.$request->ip());
-
-            return Limit::perMinute(5)->by($throttleKey);
+            return Limit::perMinute(10)->by($request->ip())->response(function () {
+                return response('Demasiadas solicitudes de inicio de sesión desde esta dirección IP. Por favor intente más tarde.', 429);
+            });
         });
 
         RateLimiter::for('two-factor', function (Request $request) {

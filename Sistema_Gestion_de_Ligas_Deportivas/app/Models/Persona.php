@@ -50,6 +50,13 @@ class Persona extends Model
         return $this->hasMany(PersonaRol::class);
     }
 
+    // Inscripciones de la persona como jugador en equipos (HU-012)
+    /** @return HasMany<Jugador, $this> */
+    public function inscripciones(): HasMany
+    {
+        return $this->hasMany(Jugador::class, 'persona_id');
+    }
+
     // Registro en el padrón de árbitros, si es árbitro colegiado (HU-026)
     /** @return HasOne<Arbitro, $this> */
     public function arbitro(): HasOne
