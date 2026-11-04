@@ -283,17 +283,23 @@ class AsignacionCanchaTest extends TestCase
         $this->assertNull($this->servicio->motivoDeRechazo($cancha, $this->momento('10:00'), $this->momento('12:00')));
     }
 
-    // Dentro de una transacción, una lectura normal no ve lo que otro proceso acaba de asignar (doble reserva)
-    public function test_dentro_de_una_transaccion_lee_los_partidos_con_bloqueo(): void
+    // Con REPEATABLE READ, una transacción que ya leyó algo no ve lo que otro proceso acaba de asignar (doble reserva)
+    public function test_la_conexion_lee_lo_ultimo_confirmado(): void
     {
-        DB::enableQueryLog();
+        $nivel = DB::selectOne('select @@transaction_isolation as nivel');
 
-        $this->servicio->motivoDeRechazo($this->cancha, $this->momento('10:00'), $this->momento('12:00'));
+        $this->assertSame('READ-COMMITTED', $nivel->nivel);
+    }
 
-        $consultas = collect(DB::getQueryLog())->pluck('query')->filter(fn (string $sql) => str_contains($sql, '`partidos`'));
+    // Con varios partidos en el rango, el motivo siempre informa el primero
+    public function test_el_motivo_informa_el_primer_partido_del_rango(): void
+    {
+        $this->crearPartido($this->cancha, self::FECHA, '11:00:00');
+        $this->crearPartido($this->cancha, self::FECHA, '09:00:00');
 
-        $this->assertCount(1, $consultas);
-        $this->assertStringContainsString('for update', (string) $consultas->first());
+        $motivo = $this->servicio->motivoDeRechazo($this->cancha, $this->momento('10:00'), $this->momento('12:00'));
+
+        $this->assertStringContainsString('09:00', (string) $motivo);
     }
 
     // Sin el bloqueo de la cancha, dos procesos simultáneos pueden ocupar el mismo horario

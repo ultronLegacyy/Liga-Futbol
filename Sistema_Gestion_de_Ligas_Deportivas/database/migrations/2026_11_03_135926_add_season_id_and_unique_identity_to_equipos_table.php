@@ -31,10 +31,6 @@ return new class () extends Migration {
     public function down(): void
     {
         Schema::table('equipos', function (Blueprint $table) {
-            $table->index('club_id', 'equipos_club_id_index');
-        });
-
-        Schema::table('equipos', function (Blueprint $table) {
             $table->dropUnique('equipos_club_temporada_nombre_unique');
             $table->dropForeign(['temporada_id']);
             $table->dropColumn('temporada_id');

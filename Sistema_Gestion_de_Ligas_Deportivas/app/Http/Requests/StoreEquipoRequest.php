@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\Equipo;
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -20,9 +21,11 @@ class StoreEquipoRequest extends FormRequest
      */
     public function rules(): array
     {
-        $clubId = $this->user()?->club_id;
+        $usuario = $this->user();
+        $esAdministradorGeneral = $usuario instanceof User && $usuario->hasRole('Administrador General');
+        $clubId = $esAdministradorGeneral ? $this->input('club_id') : $usuario?->club_id;
 
-        return [
+        $reglas = [
             'temporada_id' => ['bail', 'required', 'integer', Rule::exists('temporadas', 'id')->where('estado', 'activa')],
             'categoria_id' => ['bail', 'required', 'integer', Rule::exists('categorias', 'id')->where('temporada_id', $this->input('temporada_id'))],
             'grupo_id' => [
@@ -42,6 +45,12 @@ class StoreEquipoRequest extends FormRequest
                     ->where('temporada_id', $this->input('temporada_id')),
             ],
         ];
+
+        if ($esAdministradorGeneral) {
+            $reglas['club_id'] = ['required', 'integer', Rule::exists('clubes', 'id')];
+        }
+
+        return $reglas;
     }
 
     /** @return array<string, string> */

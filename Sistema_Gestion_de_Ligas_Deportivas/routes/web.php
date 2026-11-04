@@ -61,6 +61,7 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/temporadas/{temporada}/convocatoria', [TemporadaController::class, 'convocatoria'])
             ->name('temporadas.convocatoria');
+
         Route::post('/temporadas/{temporada}/convocatoria', [TemporadaController::class, 'versionarConvocatoria'])
             ->name('temporadas.convocatoria.versionar');
 
@@ -70,10 +71,13 @@ Route::middleware(['auth'])->group(function () {
         // Disponibilidad y bloqueos temporales de canchas (HU-024, RF-05.2)
         Route::get('/canchas/{cancha}/bloqueos', [CanchaBloqueoController::class, 'index'])
             ->name('canchas.bloqueos.index');
+
         Route::post('/canchas/{cancha}/bloqueos', [CanchaBloqueoController::class, 'store'])
             ->name('canchas.bloqueos.store');
+
         Route::delete('/canchas/{cancha}/bloqueos/{bloqueo}', [CanchaBloqueoController::class, 'destroy'])
             ->name('canchas.bloqueos.destroy');
+
         Route::get('/canchas/{cancha}/disponibilidad', [CanchaBloqueoController::class, 'disponibilidad'])
             ->name('canchas.disponibilidad');
 
@@ -117,9 +121,14 @@ Route::middleware(['auth'])->group(function () {
         });
 
         // Rutas de gestion de clubes y equipos
+
+        // Registrar un club (HU-011)
+        Route::post('/clubes', [ClubController::class, 'store'])->name('clubes.store');
+
         Route::get('/clubes/{club}', [ClubController::class, 'show'])->name('clubes.show');
         Route::put('/clubes/{club}', [ClubController::class, 'update'])->name('clubes.update');
         Route::get('/clubes/{club}/equipos', [ClubController::class, 'equipos'])->name('clubes.equipos');
+        Route::post('/clubes/{club}/venta', [ClubController::class, 'vender'])->name('clubes.venta');
 
         Route::get('/equipos/{equipo}', [EquipoController::class, 'show'])->name('equipos.show');
         Route::post('/equipos', [EquipoController::class, 'store'])->name('equipos.store');

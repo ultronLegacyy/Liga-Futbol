@@ -245,7 +245,6 @@ class RoleAndPermissionSeeder extends Seeder
             'clubes.ver',
             'equipos.ver',
             'jugadores.ver',
-            'jugadores.crear',
             'campos.ver',
             'campos.crear',
             'campos.editar',

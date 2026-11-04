@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Notifications\Notifiable;
@@ -74,6 +75,15 @@ class User extends Authenticatable
     public function club(): BelongsTo
     {
         return $this->belongsTo(Club::class, 'club_id');
+    }
+
+    /**
+     * Clubes de los que es propietario legal (SCRUM-25).
+     */
+    /** @return HasMany<Club, $this> */
+    public function clubesPropietario(): HasMany
+    {
+        return $this->hasMany(Club::class, 'propietario_usuario_id');
     }
 
     /**

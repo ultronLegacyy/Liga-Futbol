@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Jugador extends Model
 {
+    use Auditable;
+
     protected $table = 'jugadores_equipos';
 
     protected $fillable = ['persona_id', 'equipo_id', 'dorsal', 'estado_elegibilidad'];

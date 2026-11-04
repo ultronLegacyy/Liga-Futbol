@@ -35,7 +35,7 @@ class EquipoRegistrationTest extends TestCase
         $delegado = $this->crearDelegado($club);
         [$temporada, $categoria, $grupo] = $this->crearGrupoActivo('Torneo Activo');
 
-        $this->actingAs($delegado)->postJson(route('equipos.store'), [
+        $respuesta = $this->actingAs($delegado)->postJson(route('equipos.store'), [
             'temporada_id' => $temporada->id,
             'categoria_id' => $categoria->id,
             'grupo_id' => $grupo->id,
@@ -46,11 +46,63 @@ class EquipoRegistrationTest extends TestCase
             ->assertJsonPath('equipo.categoria_id', $categoria->id)
             ->assertJsonPath('equipo.grupo_id', $grupo->id);
 
+        $equipoId = (int) $respuesta->json('equipo.id');
+
         $this->assertDatabaseHas('equipos', [
             'club_id' => $club->id,
             'grupo_id' => $grupo->id,
             'nombre' => 'Sub 18',
         ]);
+        $this->assertDatabaseHas('auditoria_logs', [
+            'accion' => 'crear',
+            'tabla_afectada' => 'equipos',
+            'registro_id' => $equipoId,
+            'motivo' => 'Registro de equipo deportivo',
+        ]);
+    }
+
+    public function test_administrador_general_registra_equipo_con_club_explicito_y_se_audita(): void
+    {
+        $club = $this->crearClub('Club Seleccionado por Admin');
+        $administrador = User::create([
+            'name' => 'Administrador General SCRUM-26',
+            'email' => str()->uuid().'@liga.test',
+            'password' => Hash::make('secreto123'),
+            'rol' => 'Administrador General',
+            'estatus' => 'activo',
+        ]);
+        $administrador->assignRole('Administrador General');
+        [$temporada, $categoria, $grupo] = $this->crearGrupoActivo('Torneo del Admin');
+
+        $respuesta = $this->actingAs($administrador)->postJson(route('equipos.store'), [
+            'club_id' => $club->id,
+            'temporada_id' => $temporada->id,
+            'categoria_id' => $categoria->id,
+            'grupo_id' => $grupo->id,
+            'nombre' => 'Equipo creado por admin',
+        ]);
+
+        $respuesta->assertCreated()
+            ->assertJsonPath('equipo.club_id', $club->id);
+        $this->assertDatabaseHas('equipos', [
+            'club_id' => $club->id,
+            'temporada_id' => $temporada->id,
+            'grupo_id' => $grupo->id,
+            'nombre' => 'Equipo creado por admin',
+        ]);
+        $this->assertDatabaseHas('auditoria_logs', [
+            'accion' => 'crear',
+            'tabla_afectada' => 'equipos',
+            'registro_id' => $respuesta->json('equipo.id'),
+            'motivo' => 'Registro de equipo deportivo',
+        ]);
+    }
+
+    public function test_programador_no_recibe_permiso_para_crear_jugadores(): void
+    {
+        $rolProgramador = \Spatie\Permission\Models\Role::findByName('Programador de Partidos');
+
+        $this->assertFalse($rolProgramador->hasPermissionTo('jugadores.crear'));
     }
 
     public function test_no_permite_registrar_en_temporada_cerrada(): void
@@ -179,9 +231,10 @@ class EquipoRegistrationTest extends TestCase
 
     public function test_inscripcion_de_jugador_rechaza_destino_dos_niveles_arriba(): void
     {
+        $temporadaOrigen = Temporada::factory()->activa()->create(['nombre' => 'Temporada de Origen']);
         $temporada = Temporada::factory()->activa()->create(['nombre' => 'Temporada de Transferencia']);
         $origen = Categoria::factory()->create([
-            'temporada_id' => $temporada->id,
+            'temporada_id' => $temporadaOrigen->id,
             'jerarquia_salto' => 1,
         ]);
         $destino = Categoria::factory()->create([
@@ -190,7 +243,7 @@ class EquipoRegistrationTest extends TestCase
         ]);
         $grupoOrigen = Grupo::factory()->create([
             'categoria_id' => $origen->id,
-            'temporada_id' => $temporada->id,
+            'temporada_id' => $temporadaOrigen->id,
         ]);
         $grupoDestino = Grupo::factory()->create([
             'categoria_id' => $destino->id,
@@ -198,7 +251,7 @@ class EquipoRegistrationTest extends TestCase
         ]);
         $clubOrigen = $this->crearClub('Club de Origen');
         $clubDestino = $this->crearClub('Club de Destino');
-        $equipoOrigen = $this->crearEquipoParaGrupo($clubOrigen, $temporada, $grupoOrigen, 'Origen');
+        $equipoOrigen = $this->crearEquipoParaGrupo($clubOrigen, $temporadaOrigen, $grupoOrigen, 'Origen');
         $equipoDestino = $this->crearEquipoParaGrupo($clubDestino, $temporada, $grupoDestino, 'Destino');
         $personaId = $this->crearPersona();
         Jugador::create(['persona_id' => $personaId, 'equipo_id' => $equipoOrigen->id]);
@@ -213,9 +266,10 @@ class EquipoRegistrationTest extends TestCase
 
     public function test_inscripcion_de_jugador_permite_destino_un_nivel_arriba(): void
     {
+        $temporadaOrigen = Temporada::factory()->activa()->create(['nombre' => 'Temporada de Origen Válido']);
         $temporada = Temporada::factory()->activa()->create(['nombre' => 'Temporada de Salto Válido']);
         $origen = Categoria::factory()->create([
-            'temporada_id' => $temporada->id,
+            'temporada_id' => $temporadaOrigen->id,
             'jerarquia_salto' => 1,
         ]);
         $destino = Categoria::factory()->create([
@@ -224,7 +278,7 @@ class EquipoRegistrationTest extends TestCase
         ]);
         $grupoOrigen = Grupo::factory()->create([
             'categoria_id' => $origen->id,
-            'temporada_id' => $temporada->id,
+            'temporada_id' => $temporadaOrigen->id,
         ]);
         $grupoDestino = Grupo::factory()->create([
             'categoria_id' => $destino->id,
@@ -232,18 +286,88 @@ class EquipoRegistrationTest extends TestCase
         ]);
         $clubOrigen = $this->crearClub('Origen con Salto Válido');
         $clubDestino = $this->crearClub('Destino con Salto Válido');
-        $equipoOrigen = $this->crearEquipoParaGrupo($clubOrigen, $temporada, $grupoOrigen, 'Origen');
+        $equipoOrigen = $this->crearEquipoParaGrupo($clubOrigen, $temporadaOrigen, $grupoOrigen, 'Origen');
         $equipoDestino = $this->crearEquipoParaGrupo($clubDestino, $temporada, $grupoDestino, 'Destino');
         $personaId = $this->crearPersona();
         Jugador::create(['persona_id' => $personaId, 'equipo_id' => $equipoOrigen->id]);
 
-        $this->actingAs($this->crearDelegado($clubDestino))
+        $respuesta = $this->actingAs($this->crearDelegado($clubDestino))
             ->postJson(route('equipos.jugadores.store', $equipoDestino), ['persona_id' => $personaId])
             ->assertCreated()
             ->assertJsonPath('inscripcion.persona_id', $personaId)
             ->assertJsonPath('inscripcion.equipo_id', $equipoDestino->id);
 
         $this->assertSame(2, Jugador::query()->where('persona_id', $personaId)->count());
+        $this->assertDatabaseHas('auditoria_logs', [
+            'accion' => 'crear',
+            'tabla_afectada' => 'jugadores_equipos',
+            'registro_id' => $respuesta->json('inscripcion.id'),
+            'motivo' => 'Inscripción de jugador en equipo',
+        ]);
+    }
+
+    public function test_no_duplica_persona_en_el_mismo_equipo(): void
+    {
+        $temporada = Temporada::factory()->activa()->create();
+        $categoria = Categoria::factory()->create(['temporada_id' => $temporada->id]);
+        $grupo = Grupo::factory()->create(['categoria_id' => $categoria->id, 'temporada_id' => $temporada->id]);
+        $club = $this->crearClub('Club Duplicado Jugador');
+        $equipo = $this->crearEquipoParaGrupo($club, $temporada, $grupo, 'Equipo Duplicado Jugador');
+        $delegado = $this->crearDelegado($club);
+        $personaId = $this->crearPersona();
+
+        $this->actingAs($delegado)
+            ->postJson(route('equipos.jugadores.store', $equipo), ['persona_id' => $personaId])
+            ->assertCreated();
+        $this->postJson(route('equipos.jugadores.store', $equipo), ['persona_id' => $personaId])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.persona_id.0', 'El jugador ya está registrado en este equipo.');
+
+        $this->assertSame(1, Jugador::query()->where('equipo_id', $equipo->id)->where('persona_id', $personaId)->count());
+    }
+
+    public function test_no_duplica_dorsal_dentro_del_equipo(): void
+    {
+        $temporada = Temporada::factory()->activa()->create();
+        $categoria = Categoria::factory()->create(['temporada_id' => $temporada->id]);
+        $grupo = Grupo::factory()->create(['categoria_id' => $categoria->id, 'temporada_id' => $temporada->id]);
+        $club = $this->crearClub('Club Dorsales Únicos');
+        $equipo = $this->crearEquipoParaGrupo($club, $temporada, $grupo, 'Equipo Dorsales Únicos');
+        $delegado = $this->crearDelegado($club);
+        $personaInicial = $this->crearPersona();
+        $personaDuplicada = $this->crearPersona();
+
+        $this->actingAs($delegado)
+            ->postJson(route('equipos.jugadores.store', $equipo), ['persona_id' => $personaInicial, 'dorsal' => 9])
+            ->assertCreated();
+        $this->postJson(route('equipos.jugadores.store', $equipo), ['persona_id' => $personaDuplicada, 'dorsal' => 9])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.dorsal.0', 'El dorsal ya está asignado a otro jugador de este equipo.');
+
+        $this->assertSame(1, Jugador::query()->where('equipo_id', $equipo->id)->count());
+    }
+
+    public function test_no_inscribe_jugador_activo_en_otro_equipo_de_la_misma_temporada(): void
+    {
+        $temporada = Temporada::factory()->activa()->create();
+        $categoria = Categoria::factory()->create(['temporada_id' => $temporada->id]);
+        $grupo = Grupo::factory()->create(['categoria_id' => $categoria->id, 'temporada_id' => $temporada->id]);
+        $club = $this->crearClub('Club con Plantilla Activa');
+        $equipoOrigen = $this->crearEquipoParaGrupo($club, $temporada, $grupo, 'Equipo con Jugador');
+        $equipoDestino = $this->crearEquipoParaGrupo($club, $temporada, $grupo, 'Equipo Destino Jugador');
+        $personaId = $this->crearPersona();
+        Jugador::create([
+            'persona_id' => $personaId,
+            'equipo_id' => $equipoOrigen->id,
+            'estado_elegibilidad' => 'Activo',
+        ]);
+
+        $this->actingAs($this->crearDelegado($club))
+            ->postJson(route('equipos.jugadores.store', $equipoDestino), ['persona_id' => $personaId])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.persona_id.0', 'El jugador ya está activo en otro equipo de esta temporada.');
+
+        $this->assertSame(1, Jugador::query()->where('persona_id', $personaId)->count());
     }
 
     public function test_inscripcion_de_jugador_permite_avanzar_un_solo_nivel(): void
