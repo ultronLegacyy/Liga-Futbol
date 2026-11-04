@@ -12,6 +12,7 @@ class DirectivoClub extends Model
 
     protected $table = 'directivos_club';
 
+    /** @var list<string> */
     protected $fillable = [
         'club_id',
         'nombre',
@@ -19,6 +20,7 @@ class DirectivoClub extends Model
         'firma_digital_url',
     ];
 
+    /** @return BelongsTo<Club, $this> */
     public function club(): BelongsTo
     {
         return $this->belongsTo(Club::class, 'club_id');

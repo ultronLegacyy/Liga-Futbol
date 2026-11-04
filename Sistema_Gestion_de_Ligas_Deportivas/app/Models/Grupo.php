@@ -35,6 +35,6 @@ class Grupo extends Model
     /** @return HasMany<Equipo, $this> */
     public function equipos(): HasMany
     {
-        return $this->hasMany(Equipo::class);
+        return $this->hasMany(Equipo::class, 'grupo_id');
     }
 }

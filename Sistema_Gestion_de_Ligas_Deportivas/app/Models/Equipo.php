@@ -25,7 +25,8 @@ class Equipo extends Model
         'partidos_default_acumulados',
     ];
 
-    // Relacion muchos a uno con el club propietario del equipo
+    // Relación muchos a uno con el club propietario del equipo
+    /** @return BelongsTo<Club, $this> */
     public function club(): BelongsTo
     {
         return $this->belongsTo(Club::class, 'club_id');
@@ -36,7 +37,6 @@ class Equipo extends Model
     {
         return $this->belongsTo(Grupo::class, 'grupo_id');
     }
-
     /** @return HasMany<Jugador, $this> */
     public function jugadores(): HasMany
     {
