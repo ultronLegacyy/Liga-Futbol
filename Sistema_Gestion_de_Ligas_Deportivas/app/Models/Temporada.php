@@ -37,6 +37,12 @@ class Temporada extends Model
         return $this->hasMany(Grupo::class);
     }
 
+    /** @return HasMany<Equipo, $this> */
+    public function equipos(): HasMany
+    {
+        return $this->hasMany(Equipo::class);
+    }
+
     /** @return HasMany<TarjetonDigital, $this> */
     public function tarjetonesDigitales(): HasMany
     {
