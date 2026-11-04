@@ -104,6 +104,9 @@ Donde:
 | | `jugadores.eliminar` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
 | | `jugadores.transferir`| Sí | No | No | No | No | No | No | No | No | No | Pendiente (HU-009) | Pendiente (HU-009) | No |
 | | `jugadores.validar_edad`| Sí | No | Sí | No | Sí* | No | No | No | No | No | No | No | No |
+| **Personas (HU-013)** | `personas.ver` | Sí | No | Sí | No | No | No | No | No | No | No | No | Pendiente (HU-016) | No |
+| | `personas.crear` | Sí | No | Sí | No | No | No | No | No | No | No | No | Pendiente (HU-016) | No |
+| | `personas.editar` | Sí | No | Sí | No | No | No | No | No | No | No | No | Pendiente (HU-016) | No |
 | **Canchas e Instalac.**| `campos.ver` | Sí | Sí | Sí | No | Sí | Sí | Sí | Sí | Sí | Sí | Sí | Sí | Sí |
 | | `campos.crear` | Sí | No | No | No | No | Sí | No | No | No | No | No | No | No |
 | | `campos.editar` | Sí | No | No | No | No | Sí | No | No | No | No | No | No | No |
