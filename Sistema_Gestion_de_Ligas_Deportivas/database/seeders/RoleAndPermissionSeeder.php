@@ -91,6 +91,10 @@ class RoleAndPermissionSeeder extends Seeder
             'clubes.editar',
             'clubes.eliminar',
 
+            // Módulo de Tarjetón Digital de Afiliación
+            'tarjetones.ver',
+            'tarjetones.generar',
+
             // Modulo Equipos
             'equipos.ver',
             'equipos.crear',
@@ -104,6 +108,11 @@ class RoleAndPermissionSeeder extends Seeder
             'jugadores.eliminar',
             'jugadores.transferir',
             'jugadores.validar_edad',
+
+            // Modulo Personas: identidad unica y roles por temporada (HU-013, RF-03.2)
+            'personas.ver',
+            'personas.crear',
+            'personas.editar',
 
             // Modulo Canchas e Instalaciones
             'campos.ver',
@@ -206,6 +215,10 @@ class RoleAndPermissionSeeder extends Seeder
             'equipos.ver',
             'jugadores.ver',
             'jugadores.validar_edad',
+            // Actor de RF-03 en la matriz de trazabilidad de la ERS (HU-013)
+            'personas.ver',
+            'personas.crear',
+            'personas.editar',
             'campos.ver',
         ];
         $rolesCreados['Secretario']->syncPermissions($permisosSecretario);
@@ -334,6 +347,8 @@ class RoleAndPermissionSeeder extends Seeder
             'reglas_temporada.ver',
             'categorias.ver',
             'clubes.ver',
+            'tarjetones.ver',
+            'tarjetones.generar',
             'equipos.ver',
             'jugadores.ver',
             'campos.ver',
@@ -347,8 +362,12 @@ class RoleAndPermissionSeeder extends Seeder
             'reglas_temporada.ver',
             'categorias.ver',
             'clubes.ver',
+            'tarjetones.ver',
+            'tarjetones.generar',
             'equipos.ver',
+            'equipos.crear',
             'jugadores.ver',
+            'jugadores.crear',
             'campos.ver',
         ];
         $rolesCreados['Delegado del Club']->syncPermissions($permisosDelegadoClub);

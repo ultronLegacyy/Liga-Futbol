@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ArbitroController;
 use App\Http\Controllers\CanchaBloqueoController;
 use App\Http\Controllers\CanchaController;
 use App\Http\Controllers\CategoriaController;
@@ -7,9 +8,12 @@ use App\Http\Controllers\ClubController;
 use App\Http\Controllers\EquipoController;
 use App\Http\Controllers\ForcePasswordChangeController;
 use App\Http\Controllers\GrupoController;
+use App\Http\Controllers\JugadorController;
+use App\Http\Controllers\PersonaController;
 use App\Http\Controllers\RecuperacionContrasenaController;
 use App\Http\Controllers\ReglaTemporadaController;
 use App\Http\Controllers\TemporadaController;
+use App\Http\Controllers\TarjetonDigitalController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\ForcePasswordChange;
 use Illuminate\Support\Facades\Route;
@@ -60,6 +64,7 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/temporadas/{temporada}/convocatoria', [TemporadaController::class, 'convocatoria'])
             ->name('temporadas.convocatoria');
+
         Route::post('/temporadas/{temporada}/convocatoria', [TemporadaController::class, 'versionarConvocatoria'])
             ->name('temporadas.convocatoria.versionar');
 
@@ -69,16 +74,39 @@ Route::middleware(['auth'])->group(function () {
         // Disponibilidad y bloqueos temporales de canchas (HU-024, RF-05.2)
         Route::get('/canchas/{cancha}/bloqueos', [CanchaBloqueoController::class, 'index'])
             ->name('canchas.bloqueos.index');
+
         Route::post('/canchas/{cancha}/bloqueos', [CanchaBloqueoController::class, 'store'])
             ->name('canchas.bloqueos.store');
+
         Route::delete('/canchas/{cancha}/bloqueos/{bloqueo}', [CanchaBloqueoController::class, 'destroy'])
             ->name('canchas.bloqueos.destroy');
+
         Route::get('/canchas/{cancha}/disponibilidad', [CanchaBloqueoController::class, 'disponibilidad'])
             ->name('canchas.disponibilidad');
 
         // Categorías y grupos
         Route::resource('temporadas.categorias', CategoriaController::class)->shallow()->only(['index', 'create', 'store', 'show', 'edit', 'update']);
         Route::resource('categorias.grupos', GrupoController::class)->shallow()->only(['store', 'edit', 'update']);
+
+        // Formato de competencia y criterios de clasificación del grupo (HU-008, RF-02.3)
+        Route::get('/grupos/{grupo}/configuracion', [GrupoController::class, 'configuracion'])
+            ->name('grupos.configuracion');
+        Route::put('/grupos/{grupo}/configuracion', [GrupoController::class, 'guardarConfiguracion'])
+            ->name('grupos.configuracion.update');
+
+        // Padrón de personas y sus roles por temporada (HU-013, RF-03.2)
+        Route::resource('personas', PersonaController::class)->only(['index', 'create', 'store', 'show']);
+        Route::post('/personas/{persona}/roles', [PersonaController::class, 'asignarRol'])
+            ->name('personas.roles.store');
+
+        // Padrón de árbitros y su asignación a partidos programados (HU-026, RF-06.1)
+        Route::get('/arbitros/asignaciones', [ArbitroController::class, 'asignaciones'])
+            ->name('arbitros.asignaciones');
+        Route::resource('arbitros', ArbitroController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+        Route::get('/partidos/{partido}/arbitro', [ArbitroController::class, 'editarAsignacion'])
+            ->name('partidos.arbitro.edit');
+        Route::put('/partidos/{partido}/arbitro', [ArbitroController::class, 'asignar'])
+            ->name('partidos.arbitro.update');
 
         // Grupo de rutas de administracion de gobernanza y gestión de cuentas (S2-T13)
         Route::middleware(['role:Administrador General'])->prefix('admin')->name('admin.')->group(function () {
@@ -116,11 +144,26 @@ Route::middleware(['auth'])->group(function () {
         });
 
         // Rutas de gestion de clubes y equipos
+
+        // Registrar un club (HU-011)
+        Route::post('/clubes', [ClubController::class, 'store'])->name('clubes.store');
+
         Route::get('/clubes/{club}', [ClubController::class, 'show'])->name('clubes.show');
         Route::put('/clubes/{club}', [ClubController::class, 'update'])->name('clubes.update');
         Route::get('/clubes/{club}/equipos', [ClubController::class, 'equipos'])->name('clubes.equipos');
+        Route::post('/clubes/{club}/venta', [ClubController::class, 'vender'])->name('clubes.venta');
+
+        Route::get('/clubes/{club}/temporadas/{temporada}/tarjetones', [TarjetonDigitalController::class, 'index'])
+            ->name('clubes.temporadas.tarjetones.index');
+        Route::post('/clubes/{club}/temporadas/{temporada}/tarjetones', [TarjetonDigitalController::class, 'store'])
+            ->name('clubes.temporadas.tarjetones.store');
+        Route::get('/clubes/{club}/temporadas/{temporada}/tarjetones/{version}', [TarjetonDigitalController::class, 'show'])
+            ->whereNumber('version')
+            ->name('clubes.temporadas.tarjetones.show');
 
         Route::get('/equipos/{equipo}', [EquipoController::class, 'show'])->name('equipos.show');
+        Route::post('/equipos', [EquipoController::class, 'store'])->name('equipos.store');
+        Route::post('/equipos/{equipo}/jugadores', [JugadorController::class, 'store'])->name('equipos.jugadores.store');
         Route::put('/equipos/{equipo}', [EquipoController::class, 'update'])->name('equipos.update');
     });
 });

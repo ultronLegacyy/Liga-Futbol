@@ -441,6 +441,20 @@ class RecuperacionContrasenaTest extends TestCase
         $this->assertTrue(Hash::check(self::CLAVE_ANTERIOR, (string) $usuario->fresh()?->password));
     }
 
+    // Comprobar un token pendiente calcula argon2id: sin un tiempo fijo, la demora revela qué correos tienen cuenta
+    public function test_comprobar_un_enlace_siempre_tarda_el_tiempo_fijo(): void
+    {
+        $minimo = ((int) config('auth.timebox_duration', 200000)) / 1000000 * 0.95;
+
+        $inicio = microtime(true);
+        $this->get(route('password.reset', ['token' => 'falso', 'email' => 'nadie@liga.test']))->assertStatus(410);
+        $this->assertGreaterThanOrEqual($minimo, microtime(true) - $inicio);
+
+        $inicio = microtime(true);
+        $this->post(route('password.update'), ['token' => 'falso', 'email' => 'nadie@liga.test'])->assertStatus(410);
+        $this->assertGreaterThanOrEqual($minimo, microtime(true) - $inicio);
+    }
+
     private function crearUsuario(string $email = self::CORREO, bool $requiereCambio = false): User
     {
         $usuario = User::create([
