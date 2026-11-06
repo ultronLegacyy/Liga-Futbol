@@ -205,7 +205,19 @@ class RegistroCargoServiceTest extends TestCase
 
     public function test_rechaza_una_fecha_de_vencimiento_invalida(): void
     {
-        $this->assertRechazo(['vencimiento' => '2026-02-30'], 'vencimiento', 'La fecha de vencimiento no es válida.');
+        $this->assertRechazo(['vencimiento' => '2026-02-30'], 'vencimiento', 'La fecha de vencimiento debe tener el formato AAAA-MM-DD.');
+    }
+
+    // Con 'date', 01/12/2026 se guardaba como 12 de enero: solo se acepta AAAA-MM-DD
+    public function test_el_vencimiento_solo_se_acepta_con_formato_aaaa_mm_dd(): void
+    {
+        foreach (['01/12/2026', '2026-1-5'] as $fecha) {
+            $this->assertRechazo(['vencimiento' => $fecha], 'vencimiento', 'La fecha de vencimiento debe tener el formato AAAA-MM-DD.');
+        }
+
+        $cargo = $this->servicio->registrar($this->datos(['vencimiento' => '2026-12-01']));
+
+        $this->assertSame('2026-12-01', $cargo->fresh()?->vencimiento?->toDateString());
     }
 
     #[DataProvider('conceptosDeServicio')]

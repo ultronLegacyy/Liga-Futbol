@@ -34,7 +34,7 @@ class RegistroCargoService
         'monto.decimal' => 'El monto admite como máximo dos decimales.',
         'monto.max' => 'El monto no puede ser mayor que 99,999,999.99.',
         'vencimiento.required' => 'La fecha de vencimiento es obligatoria.',
-        'vencimiento.date' => 'La fecha de vencimiento no es válida.',
+        'vencimiento.date_format' => 'La fecha de vencimiento debe tener el formato AAAA-MM-DD.',
     ];
 
     /**
@@ -55,7 +55,8 @@ class RegistroCargoService
             'persona_id' => ['bail', 'nullable', 'integer', 'exists:personas,id'],
             // decimal(10,2): hasta 99,999,999.99 y dos decimales
             'monto' => ['bail', 'required', 'numeric', 'gt:0', 'decimal:0,2', 'max:99999999.99'],
-            'vencimiento' => ['bail', 'required', 'date'],
+            // Con 'date', 01/12/2026 se leería como mes/día (12 de enero): solo se acepta AAAA-MM-DD
+            'vencimiento' => ['bail', 'required', 'date_format:Y-m-d'],
         ], self::MENSAJES)->validate();
 
         $equipoId = isset($validos['equipo_id']) ? (int) $validos['equipo_id'] : null;
