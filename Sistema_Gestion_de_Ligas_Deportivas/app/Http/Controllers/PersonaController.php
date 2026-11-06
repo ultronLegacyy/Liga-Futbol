@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Persona;
 use App\Models\PersonaRol;
 use App\Models\Temporada;
+use App\Services\DuplicadosService;
 use App\Services\IdentidadPersonaService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,7 +17,8 @@ use Illuminate\View\View;
 class PersonaController extends Controller
 {
     public function __construct(
-        private readonly IdentidadPersonaService $identidad
+        private readonly IdentidadPersonaService $identidad,
+        private readonly DuplicadosService $duplicados
     ) {
     }
 
@@ -50,7 +52,8 @@ class PersonaController extends Controller
     }
 
     /**
-     * Registrar a una persona con un rol en una temporada (CA1).
+     * Registrar a una persona con un rol en una temporada (CA1). Si se parece a otra ya registrada,
+     * primero se alerta y solo se guarda cuando el usuario confirma esos mismos datos (HU-014, CA1).
      */
     public function store(Request $request): RedirectResponse
     {
@@ -58,15 +61,41 @@ class PersonaController extends Controller
 
         $datos = $request->validate($this->reglasPersona() + $this->reglasRol(), $this->mensajes());
 
+        $identidad = [
+            'nombre' => $datos['nombre'],
+            'apellidos' => $datos['apellidos'],
+            'fecha_nacimiento' => $datos['fecha_nacimiento'],
+            'curp' => $datos['curp'],
+        ];
+        $similares = $this->duplicados->personasSimilares($identidad);
+        $huella = $this->duplicados->huella($identidad);
+
+        if ($similares !== [] && $request->input('confirmar_duplicado') !== $huella) {
+            return redirect()->route('personas.create')
+                ->withInput()
+                ->with('posibles_duplicados', array_map(fn (array $similar): array => [
+                    'id' => $similar['persona']->id,
+                    'nombre' => $similar['persona']->apellidos.', '.$similar['persona']->nombre,
+                    'fecha_nacimiento' => $similar['persona']->fecha_nacimiento->format('d/m/Y'),
+                    'motivo' => $similar['motivo'],
+                ], $similares))
+                ->with('huella_duplicado', $huella);
+        }
+
         $rol = $this->identidad->asignarRol(
             $datos,
             $datos['rol'],
             Temporada::findOrFail($datos['temporada_id'])
         );
 
-        $mensaje = $rol->persona->wasRecentlyCreated
-            ? 'Persona registrada con su rol.'
-            : 'La persona ya estaba registrada: se reutilizó su identidad y se le asignó el rol.';
+        // Con la misma CURP y otros datos se reutiliza la identidad tal como estaba registrada (HU-013)
+        $mismaCurpConOtrosDatos = collect($similares)->contains(fn (array $similar): bool => $similar['persona']->id === $rol->persona_id);
+
+        $mensaje = match (true) {
+            $rol->persona->wasRecentlyCreated => 'Persona registrada con su rol.',
+            $mismaCurpConOtrosDatos => 'La persona ya estaba registrada: se reutilizó su identidad sin cambiar sus datos y se le asignó el rol.',
+            default => 'La persona ya estaba registrada: se reutilizó su identidad y se le asignó el rol.',
+        };
 
         return redirect()->route('personas.show', $rol->persona_id)->with('success', $mensaje);
     }
