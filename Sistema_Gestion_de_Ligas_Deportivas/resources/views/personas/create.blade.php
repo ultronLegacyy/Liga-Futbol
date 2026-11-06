@@ -16,8 +16,29 @@
         <x-alert type="error" message="No se registró la persona. Revisa los campos marcados." />
     @endif
 
+    {{-- Posibles duplicados (HU-014): se alerta antes de confirmar el registro --}}
+    @if (session('posibles_duplicados'))
+        <x-alert type="warning">
+            <p class="font-semibold">Posible duplicado: la persona no se ha registrado todavía.</p>
+            <p class="mt-1">Revisa si ya existe antes de confirmar.</p>
+            <ul class="mt-2 space-y-1 list-disc pl-5">
+                @foreach (session('posibles_duplicados') as $similar)
+                    <li>
+                        <a href="{{ route('personas.show', $similar['id']) }}" class="underline focus:outline-none focus:ring-2 focus:ring-current rounded">{{ $similar['nombre'] }}</a>
+                        ({{ $similar['fecha_nacimiento'] }}): {{ $similar['motivo'] }}
+                    </li>
+                @endforeach
+            </ul>
+            <p class="mt-2">Si es otra persona, o si quieres reutilizar la identidad con la misma CURP, confirma el registro. Si cambias algún dato, se volverá a revisar.</p>
+        </x-alert>
+    @endif
+
     <form method="POST" action="{{ route('personas.store') }}" novalidate class="space-y-5">
         @csrf
+
+        @if (session('huella_duplicado'))
+            <input type="hidden" name="confirmar_duplicado" value="{{ session('huella_duplicado') }}">
+        @endif
 
         <x-form.field name="curp" label="CURP" required help="18 caracteres, letras y números." :error="$errors->first('curp')">
             <input
@@ -81,7 +102,7 @@
 
         <div class="flex flex-wrap gap-3">
             <button type="submit" class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400 transition">
-                Registrar
+                {{ session('huella_duplicado') ? 'Confirmar registro' : 'Registrar' }}
             </button>
             <a href="{{ route('personas.index') }}" class="px-4 py-2 text-sm text-gray-300 rounded-lg border border-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-400">
                 Cancelar
