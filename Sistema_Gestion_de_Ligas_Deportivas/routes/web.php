@@ -3,6 +3,7 @@
 use App\Http\Controllers\ArbitroController;
 use App\Http\Controllers\CanchaBloqueoController;
 use App\Http\Controllers\CanchaController;
+use App\Http\Controllers\CargoFinancieroController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\EquipoController;
@@ -117,6 +118,9 @@ Route::middleware(['auth'])->group(function () {
             ->name('partidos.arbitro.edit');
         Route::put('/partidos/{partido}/arbitro', [ArbitroController::class, 'asignar'])
             ->name('partidos.arbitro.update');
+
+        // Cuotas de inscripción y cargos de arbitraje y cancha por temporada (HU-050, RF-13.1)
+        Route::resource('cargos', CargoFinancieroController::class)->only(['index', 'create', 'store', 'show']);
 
         // Grupo de rutas de administracion de gobernanza y gestión de cuentas (S2-T13)
         Route::middleware(['role:Administrador General'])->prefix('admin')->name('admin.')->group(function () {

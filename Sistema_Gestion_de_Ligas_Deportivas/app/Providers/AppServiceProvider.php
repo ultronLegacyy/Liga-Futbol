@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\Arbitro;
 use App\Models\BloqueoCancha;
 use App\Models\Cancha;
+use App\Models\CargoFinanciero;
 use App\Models\Categoria;
 use App\Models\Club;
 use App\Models\DirectivoClub;
@@ -19,6 +20,7 @@ use App\Models\User;
 use App\Policies\ArbitroPolicy;
 use App\Policies\BloqueoCanchaPolicy;
 use App\Policies\CanchaPolicy;
+use App\Policies\CargoFinancieroPolicy;
 use App\Policies\CategoriaPolicy;
 use App\Policies\ClubPolicy;
 use App\Policies\EquipoPolicy;
@@ -66,6 +68,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(TarjetonDigital::class, TarjetonDigitalPolicy::class);
         Gate::policy(Jornada::class, JornadaPolicy::class);
         Gate::policy(Partido::class, PartidoPolicy::class);
+        Gate::policy(CargoFinanciero::class, CargoFinancieroPolicy::class);
 
         Club::observe(ClubObserver::class);
         DirectivoClub::observe(DirectivoClubObserver::class);
