@@ -3,27 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreJugadorRequest;
+use App\Models\DocumentoPersona;
 use App\Models\Equipo;
-<<<<<<< HEAD
 use App\Models\Jugador;
-use App\Models\JugadorDocumento;
 use App\Models\User;
-use App\Services\VinculacionJugadorService;
-=======
-use App\Models\User;
->>>>>>> origin/feat/SCRUM-144-formulario-registro-fotografia
 use App\Services\RegistroJugadorService;
+use App\Services\VinculacionJugadorService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
-<<<<<<< HEAD
-use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Storage;
-use Symfony\Component\HttpFoundation\StreamedResponse;
-=======
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
->>>>>>> origin/feat/SCRUM-144-formulario-registro-fotografia
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class JugadorController extends Controller
 {
@@ -39,10 +32,10 @@ class JugadorController extends Controller
 
         $equipos = Equipo::query()
             ->with(['temporada', 'grupo.categoria'])
-            ->whereHas('temporada', fn (Builder $consulta): Builder => $consulta->where('estado', 'activa'))
+            ->whereHas('temporada', fn (Builder $query): Builder => $query->where('estado', 'activa'))
             ->when(
                 $usuario->hasRole('Delegado del Club') && $usuario->club_id !== null,
-                fn (Builder $consulta): Builder => $consulta->where('club_id', $usuario->club_id)
+                fn (Builder $query): Builder => $query->where('club_id', $usuario->club_id),
             )
             ->orderBy('nombre')
             ->get();
@@ -53,31 +46,32 @@ class JugadorController extends Controller
         return view('jugadores.create', compact('equipos', 'temporadas', 'categorias'));
     }
 
-    public function store(
-        StoreJugadorRequest $request,
-        RegistroJugadorService $registro,
-<<<<<<< HEAD
-    ): JsonResponse {
-        /** @var array{persona_id: int|string, dorsal?: int|string|null, documentos?: array<string, \Illuminate\Http\UploadedFile>} $datos */
-        $datos = $request->validated();
-        $jugador = $registro->registrar($equipo, $datos);
-        $jugador->load('equipo.grupo.categoria.temporada');
-=======
-    ): JsonResponse|RedirectResponse {
+    public function store(StoreJugadorRequest $request, RegistroJugadorService $registro): JsonResponse|RedirectResponse
+    {
         $equipoRuta = $request->route('equipo');
->>>>>>> origin/feat/SCRUM-144-formulario-registro-fotografia
-
         $equipoId = $equipoRuta instanceof Equipo
             ? $equipoRuta->getKey()
             : (is_numeric($equipoRuta) ? (int) $equipoRuta : $request->validated('equipo_id'));
         $equipo = $equipoRuta instanceof Equipo ? $equipoRuta : Equipo::query()->findOrFail($equipoId);
+        $usuario = $request->user();
+
+        if ($usuario instanceof User && $usuario->hasRole('Delegado del Club')) {
+            Gate::authorize('addPlayer', $equipo);
+        }
 
         /** @var array{persona_id?: int|string|null, dorsal?: int|string|null, nombre?: string, apellidos?: string, fecha_nacimiento?: string, curp?: string, documentos?: array<string, \Illuminate\Http\UploadedFile>, fotografia_base64?: string} $datos */
         $datos = $request->validated();
         $jugador = $registro->registrar($equipo, $datos);
+        $jugador->load(['equipo.grupo.categoria.temporada', 'persona.documentos']);
 
-        $respuesta = [
-            'mensaje' => 'Jugador inscrito exitosamente.',
+        $mensaje = 'Jugador inscrito exitosamente.';
+
+        if ($request->routeIs('jugadores.store') && ! $request->expectsJson()) {
+            return redirect()->route('jugadores.create')->with('success', $mensaje);
+        }
+
+        return response()->json([
+            'mensaje' => $mensaje,
             'inscripcion' => [
                 'id' => $jugador->id,
                 'persona_id' => $jugador->persona_id,
@@ -88,19 +82,11 @@ class JugadorController extends Controller
                 'temporada_id' => $jugador->equipo->temporada_id,
                 'temporada' => $jugador->equipo->grupo->temporada->nombre,
             ],
-        ];
-
-        if (! $request->expectsJson()) {
-            return redirect()->route('jugadores.create')->with('success', $respuesta['mensaje']);
-        }
-
-        return response()->json($respuesta, 201);
+        ], 201);
     }
 
-    public function vincular(
-        \App\Http\Requests\VincularJugadorRequest $request,
-        VinculacionJugadorService $vinculacion,
-    ): JsonResponse {
+    public function vincular(\App\Http\Requests\VincularJugadorRequest $request, VinculacionJugadorService $vinculacion): JsonResponse
+    {
         $usuario = $request->user();
         abort_unless($usuario instanceof User, 401);
         $vinculacion->vincular($usuario, (string) $request->validated('curp'));
@@ -113,7 +99,7 @@ class JugadorController extends Controller
     public function show(Jugador $jugador): JsonResponse
     {
         Gate::authorize('view', $jugador);
-        $jugador->load(['persona', 'equipo.grupo.categoria.temporada', 'documentos']);
+        $jugador->load(['persona.documentos', 'equipo.grupo.categoria.temporada']);
 
         return response()->json([
             'jugador' => [
@@ -122,7 +108,7 @@ class JugadorController extends Controller
                 'equipo' => $jugador->equipo->nombre,
                 'categoria' => $jugador->equipo->grupo->categoria->nombre,
                 'temporada' => $jugador->equipo->temporada_id,
-                'documentos' => $jugador->documentos->map(fn (JugadorDocumento $documento): array => [
+                'documentos' => $jugador->persona->documentos->map(fn (DocumentoPersona $documento): array => [
                     'id' => $documento->id,
                     'tipo' => $documento->tipo,
                     'descarga' => route('jugadores.documentos.show', [$jugador, $documento]),
@@ -131,18 +117,41 @@ class JugadorController extends Controller
         ]);
     }
 
-    public function documento(Jugador $jugador, JugadorDocumento $documento): StreamedResponse
+    public function documento(Jugador $jugador, DocumentoPersona $documento): StreamedResponse
     {
         Gate::authorize('view', $jugador);
-        abort_unless((int) $documento->jugador_id === (int) $jugador->getKey(), 404);
+        abort_unless((int) $documento->persona_id === (int) $jugador->persona_id, 404);
+        abort_unless($documento->disco === 'private', 404);
 
-        return Storage::disk($documento->disco)->download($documento->ruta_storage, $documento->tipo);
+        return Storage::disk('private')->download($documento->ruta_storage, $documento->tipo);
+    }
+
+    public function update(Request $request, Jugador $jugador): JsonResponse
+    {
+        Gate::authorize('update', $jugador);
+        $datos = $request->validate([
+            'dorsal' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:99'],
+        ]);
+
+        if ($datos !== []) {
+            $jugador->update($datos);
+        }
+
+        return response()->json(['mensaje' => 'Los datos del jugador fueron actualizados.']);
     }
 
     public function desvincular(Jugador $jugador, VinculacionJugadorService $vinculacion): JsonResponse
     {
         Gate::authorize('unlink', $jugador);
         $vinculacion->desvincular($jugador);
+
+        return response()->json(['mensaje' => 'La cuenta del jugador fue desvinculada.']);
+    }
+
+    public function desvincularCuenta(User $usuario, VinculacionJugadorService $vinculacion): JsonResponse
+    {
+        abort_unless(auth()->user()?->hasRole('Administrador General'), 403);
+        $vinculacion->desvincularCuenta($usuario);
 
         return response()->json(['mensaje' => 'La cuenta del jugador fue desvinculada.']);
     }

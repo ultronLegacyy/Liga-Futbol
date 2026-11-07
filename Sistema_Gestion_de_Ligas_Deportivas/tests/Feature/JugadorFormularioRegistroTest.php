@@ -91,6 +91,7 @@ class JugadorFormularioRegistroTest extends TestCase
         $persona = Persona::query()->where('curp', 'TEST010101HDFXXX01')->firstOrFail();
         $foto = $persona->documentos()->where('tipo', 'Foto')->firstOrFail();
         $this->assertSame('private', $foto->disco);
+        $this->assertSame('Foto', $foto->tipo);
         $this->assertSame('image/png', $foto->mime_type);
         Storage::disk('private')->assertExists($foto->ruta_storage);
     }

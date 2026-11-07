@@ -5,7 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Jugador extends Model
 {
@@ -27,9 +27,9 @@ class Jugador extends Model
         return $this->belongsTo(Equipo::class, 'equipo_id');
     }
 
-    /** @return HasMany<JugadorDocumento, $this> */
-    public function documentos(): HasMany
+    /** @return HasManyThrough<DocumentoPersona, Persona, $this> */
+    public function documentos(): HasManyThrough
     {
-        return $this->hasMany(JugadorDocumento::class, 'jugador_id');
+        return $this->hasManyThrough(DocumentoPersona::class, Persona::class, 'id', 'persona_id', 'persona_id', 'id');
     }
 }

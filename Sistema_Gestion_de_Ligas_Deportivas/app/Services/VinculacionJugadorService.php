@@ -22,7 +22,7 @@ class VinculacionJugadorService
 
             $persona = Persona::query()
                 ->whereRaw('UPPER(curp) = ?', [strtoupper($curp)])
-                ->whereHas('inscripciones')
+                ->whereHas('roles', fn ($query) => $query->where('rol', 'jugador'))
                 ->first();
 
             if ($persona === null) {
@@ -48,13 +48,24 @@ class VinculacionJugadorService
 
     public function desvincular(Jugador $jugador): void
     {
-        $personaId = $jugador->persona_id;
+        $this->desvincularPersona((int) $jugador->persona_id);
+    }
 
+    public function desvincularCuenta(User $usuario): void
+    {
+        if ($usuario->persona_id !== null) {
+            $this->desvincularPersona((int) $usuario->persona_id);
+        }
+    }
+
+    private function desvincularPersona(int $personaId): void
+    {
         $this->auditoria->conMotivo('Desvinculación administrativa de cuenta de jugador', function () use ($personaId): void {
             $usuarios = User::query()->where('persona_id', $personaId)->get();
 
             foreach ($usuarios as $usuario) {
-                $usuario->forceFill(['persona_id' => null])->save();
+                $usuario->forceFill(['persona_id' => null, 'rol' => 'Consultor'])->save();
+                $usuario->removeRole('Jugador');
                 $this->auditoria->registrar('jugador_desvinculado', $usuario, ['persona_id' => $personaId], ['persona_id' => null]);
             }
         });

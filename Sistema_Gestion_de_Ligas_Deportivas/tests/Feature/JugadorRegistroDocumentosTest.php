@@ -8,6 +8,7 @@ use App\Models\Equipo;
 use App\Models\Grupo;
 use App\Models\Jugador;
 use App\Models\Persona;
+use App\Models\PersonaRol;
 use App\Models\Temporada;
 use App\Models\User;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -58,9 +59,9 @@ class JugadorRegistroDocumentosTest extends TestCase
             $this->assertSame('private', $documento->disco);
             Storage::disk('private')->assertExists($documento->ruta_storage);
             $this->assertDatabaseHas('auditoria_logs', [
-                'tabla_afectada' => 'jugador_documentos',
+                'tabla_afectada' => 'documentos_persona',
                 'registro_id' => $documento->id,
-                'accion' => 'crear',
+                'accion' => 'documento_jugador_registrado',
             ]);
         }
 
@@ -83,7 +84,7 @@ class JugadorRegistroDocumentosTest extends TestCase
         ])->assertCreated();
 
         $documento = Jugador::query()->where('persona_id', $persona->id)->firstOrFail()->documentos()->firstOrFail();
-        $this->assertSame('Fotografia', $documento->tipo);
+        $this->assertSame('Foto', $documento->tipo);
         Storage::disk('private')->assertExists($documento->ruta_storage);
     }
 
@@ -96,7 +97,7 @@ class JugadorRegistroDocumentosTest extends TestCase
         $ajeno = $equipo->jugadores()->create(['persona_id' => $personaAjena->id]);
         $archivo = UploadedFile::fake()->create('ine.pdf', 20, 'application/pdf');
         $ruta = $archivo->store('jugadores/'.$propio->id, 'private');
-        $documento = $propio->documentos()->create([
+        $documento = $personaPropia->documentos()->create([
             'tipo' => 'INE', 'disco' => 'private', 'ruta_storage' => $ruta,
             'mime_type' => 'application/pdf', 'tamano_bytes' => 20 * 1024,
         ]);
@@ -106,7 +107,7 @@ class JugadorRegistroDocumentosTest extends TestCase
         $this->get(route('jugadores.documentos.show', [$propio, $documento]))->assertOk();
         $this->getJson(route('jugadores.show', $ajeno))->assertForbidden();
 
-        $documentoAjeno = $ajeno->documentos()->create([
+        $documentoAjeno = $personaAjena->documentos()->create([
             'tipo' => 'INE', 'disco' => 'private', 'ruta_storage' => $ruta,
             'mime_type' => 'application/pdf', 'tamano_bytes' => 100,
         ]);
@@ -121,7 +122,7 @@ class JugadorRegistroDocumentosTest extends TestCase
         $jugador = $equipo->jugadores()->create(['persona_id' => $persona->id]);
         $ruta = 'jugadores/'.$jugador->id.'/ine.pdf';
         Storage::disk('private')->put($ruta, 'contenido privado');
-        $documento = $jugador->documentos()->create([
+        $documento = $persona->documentos()->create([
             'tipo' => 'INE',
             'disco' => 'private',
             'ruta_storage' => $ruta,
@@ -152,6 +153,11 @@ class JugadorRegistroDocumentosTest extends TestCase
         [, , $equipo] = $this->crearEquipoDelegado();
         $persona = $this->crearPersona();
         $equipo->jugadores()->create(['persona_id' => $persona->id]);
+        PersonaRol::query()->create([
+            'persona_id' => $persona->id,
+            'rol' => 'jugador',
+            'temporada_id' => $equipo->temporada_id,
+        ]);
         $usuario = $this->crearCuentaJugador();
 
         $respuestaValida = $this->actingAs($usuario)->postJson(route('jugadores.vincular'), ['curp' => $persona->curp])

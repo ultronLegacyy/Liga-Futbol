@@ -18,18 +18,28 @@ class StoreJugadorRequest extends FormRequest
     {
         $user = $this->user();
 
-        return $user instanceof User
-            && ($user->can('jugadores.crear')
-                || ($user->hasRole('Delegado del Club') && $user->club_id !== null));
+        if (! $user instanceof User) {
+            return false;
+        }
+
+        if ($this->routeIs('jugadores.store')) {
+            return $user->can('jugadores.crear')
+                || ($user->hasRole('Delegado del Club') && $user->club_id !== null);
+        }
+
+        $equipo = $this->equipoSeleccionado();
+
+        return $equipo instanceof Equipo
+            && ($user->can('addPlayer', $equipo) || $user->can('jugadores.crear'));
     }
 
+    /** @return array<string, mixed> */
     public function rules(): array
     {
         $equipo = $this->equipoSeleccionado();
-
         $esFormulario = $this->routeIs('jugadores.store');
         $equipoId = $equipo?->getKey() ?? $this->input('equipo_id');
-        $archivosOpcionales = $esFormulario ? 'required' : 'sometimes';
+        $archivos = $esFormulario ? 'required' : 'sometimes';
 
         $reglas = [
             'persona_id' => [
@@ -65,14 +75,16 @@ class StoreJugadorRequest extends FormRequest
                 Rule::unique('jugadores_equipos', 'dorsal')->where('equipo_id', $equipoId),
             ],
             'documentos' => ['sometimes', 'array'],
-            'documentos.ine' => [$archivosOpcionales, 'file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
-            'documentos.curp' => [$archivosOpcionales, 'file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
+            'documentos.ine' => [$archivos, 'file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
+            'documentos.curp' => [$archivos, 'file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
             'documentos.fotografia' => [
                 'nullable',
                 $esFormulario ? 'required_without:fotografia_base64' : 'sometimes',
-                'image', 'mimes:jpg,jpeg,png', 'max:5120',
+                'image',
+                'mimes:jpg,jpeg,png',
+                'max:5120',
             ],
-            'documentos.comprobante' => [$archivosOpcionales, 'file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
+            'documentos.comprobante' => [$archivos, 'file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
             'fotografia_base64' => [
                 $esFormulario ? 'required_without:documentos.fotografia' : 'nullable',
                 'string',
@@ -82,13 +94,13 @@ class StoreJugadorRequest extends FormRequest
                         return;
                     }
 
-                    if (! preg_match('/^data:image\/(jpeg|png);base64,([A-Za-z0-9+\/=]+)$/', $value, $partes)) {
+                    if (! preg_match('/^data:image\/(jpeg|png);base64,([A-Za-z0-9+\/=]+)$/', $value, $matches)) {
                         $fail('La fotografía capturada debe ser una imagen JPG o PNG válida.');
 
                         return;
                     }
 
-                    $bytes = base64_decode($partes[2], true);
+                    $bytes = base64_decode($matches[2], true);
                     $mime = $bytes === false ? false : (new \finfo(FILEINFO_MIME_TYPE))->buffer($bytes);
 
                     if ($bytes === false || strlen($bytes) > 5 * 1024 * 1024 || ! in_array($mime, ['image/jpeg', 'image/png'], true)) {
@@ -96,12 +108,6 @@ class StoreJugadorRequest extends FormRequest
                     }
                 },
             ],
-            // Fotografía cubre archivo local o captura de cámara; el navegador envía ambos como imagen.
-            'documentos' => ['sometimes', 'array'],
-            'documentos.ine' => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
-            'documentos.curp' => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
-            'documentos.fotografia' => ['sometimes', 'image', 'mimes:jpg,jpeg,png', 'max:5120'],
-            'documentos.comprobante' => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
         ];
 
         if ($equipo instanceof Equipo) {
@@ -111,7 +117,7 @@ class StoreJugadorRequest extends FormRequest
         return $reglas;
     }
 
-    /** @return list<\Closure(Validator): void> */
+    /** @return list<Closure(Validator): void> */
     public function after(): array
     {
         return [function (Validator $validator): void {
@@ -122,8 +128,7 @@ class StoreJugadorRequest extends FormRequest
             }
 
             if ($this->routeIs('jugadores.store')) {
-                $categoriaId = $this->integer('categoria_id');
-                $categoria = Categoria::query()->find($categoriaId);
+                $categoria = Categoria::query()->find($this->integer('categoria_id'));
 
                 if ((int) $equipo->temporada_id !== $this->integer('temporada_id')
                     || $categoria === null
@@ -142,7 +147,7 @@ class StoreJugadorRequest extends FormRequest
                 ->where('persona_id', $this->integer('persona_id'))
                 ->where('estado_elegibilidad', 'Activo')
                 ->where('equipo_id', '!=', $equipo->getKey())
-                ->whereHas('equipo', fn (Builder $consulta): Builder => $consulta->where('temporada_id', $equipo->temporada_id))
+                ->whereHas('equipo', fn (Builder $query): Builder => $query->where('temporada_id', $equipo->temporada_id))
                 ->exists();
 
             if ($personaActivaEnOtroEquipo) {
@@ -162,9 +167,6 @@ class StoreJugadorRequest extends FormRequest
             'dorsal.min' => 'El dorsal debe ser al menos :min.',
             'dorsal.max' => 'El dorsal no debe ser mayor que :max.',
             'dorsal.unique' => 'El dorsal ya está asignado a otro jugador de este equipo.',
-<<<<<<< HEAD
-            'curp.regex' => 'La CURP solo puede contener letras y números.',
-=======
             'temporada_id.exists' => 'Selecciona una temporada activa.',
             'categoria_id.exists' => 'La categoría no pertenece a la temporada seleccionada.',
             'equipo_id.exists' => 'El equipo no pertenece a la temporada seleccionada.',
@@ -173,17 +175,16 @@ class StoreJugadorRequest extends FormRequest
             'curp.required_without' => 'La CURP del jugador es obligatoria.',
             'curp.regex' => 'La CURP solo puede contener letras y números.',
             'documentos.ine.required' => 'Debes adjuntar una identificación oficial (INE).',
-            'documentos.curp.required' => 'Debes adjuntar el documento de CURP.',
-            'documentos.fotografia.required_without' => 'Debes subir una fotografía o capturarla con la cámara.',
-            'documentos.comprobante.required' => 'Debes adjuntar el comprobante de domicilio.',
->>>>>>> origin/feat/SCRUM-144-formulario-registro-fotografia
             'documentos.ine.mimes' => 'La identificación oficial debe ser un archivo JPG, PNG o PDF.',
             'documentos.ine.max' => 'La identificación oficial no debe superar los 10 MB.',
+            'documentos.curp.required' => 'Debes adjuntar el documento de CURP.',
             'documentos.curp.mimes' => 'El documento de CURP debe ser un archivo JPG, PNG o PDF.',
             'documentos.curp.max' => 'El documento de CURP no debe superar los 10 MB.',
+            'documentos.fotografia.required_without' => 'Debes subir una fotografía o capturarla con la cámara.',
             'documentos.fotografia.image' => 'La fotografía debe ser una imagen válida.',
             'documentos.fotografia.mimes' => 'La fotografía debe estar en formato JPG o PNG.',
             'documentos.fotografia.max' => 'La fotografía no debe superar los 5 MB.',
+            'documentos.comprobante.required' => 'Debes adjuntar el comprobante de domicilio.',
             'documentos.comprobante.mimes' => 'El comprobante de domicilio debe ser un archivo JPG, PNG o PDF.',
             'documentos.comprobante.max' => 'El comprobante de domicilio no debe superar los 10 MB.',
         ];
@@ -191,13 +192,13 @@ class StoreJugadorRequest extends FormRequest
 
     private function equipoSeleccionado(): ?Equipo
     {
-        $equipo = $this->route('equipo');
+        $routeEquipo = $this->route('equipo');
 
-        if ($equipo instanceof Equipo) {
-            return $equipo;
+        if ($routeEquipo instanceof Equipo) {
+            return $routeEquipo;
         }
 
-        $equipoId = is_numeric($equipo) ? $equipo : $this->input('equipo_id');
+        $equipoId = is_numeric($routeEquipo) ? $routeEquipo : $this->input('equipo_id');
 
         return is_numeric($equipoId) ? Equipo::query()->find((int) $equipoId) : null;
     }

@@ -33,6 +33,19 @@ class JugadorPolicy
             : Response::deny('No cuenta con autorización para consultar los datos de este jugador.');
     }
 
+    public function update(User $user, Jugador $jugador): Response
+    {
+        $esElJugador = $user->persona_id !== null
+            && (int) $user->persona_id === (int) $jugador->persona_id;
+        $esDirectivoDelClub = $user->club_id !== null
+            && (int) $user->club_id === (int) $jugador->equipo->club_id
+            && $user->hasAnyRole(['Presidente del Club', 'Delegado del Club']);
+
+        return $esElJugador || $esDirectivoDelClub
+            ? Response::allow()
+            : Response::deny('No cuenta con autorización para editar los datos de este jugador.');
+    }
+
     public function unlink(User $user, Jugador $jugador): Response
     {
         return $user->hasRole('Administrador General')
