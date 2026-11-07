@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Jugador;
 use App\Models\Persona;
 use App\Models\User;
+use Illuminate\Database\UniqueConstraintViolationException;
 
 class VinculacionJugadorService
 {
@@ -28,8 +29,17 @@ class VinculacionJugadorService
                 return;
             }
 
-            // El índice unique de usuarios.persona_id resuelve de forma segura intentos concurrentes.
-            $usuario->forceFill(['persona_id' => $persona->getKey()])->save();
+            if (User::query()->where('persona_id', $persona->getKey())->exists()) {
+                return;
+            }
+
+            try {
+                $usuario->forceFill(['persona_id' => $persona->getKey()])->save();
+            } catch (UniqueConstraintViolationException) {
+                // Otra solicitud pudo vincular la persona después de la consulta anterior.
+                return;
+            }
+
             $this->auditoria->registrar('jugador_vinculado_curp', $usuario, null, [
                 'persona_id' => $persona->getKey(),
             ]);

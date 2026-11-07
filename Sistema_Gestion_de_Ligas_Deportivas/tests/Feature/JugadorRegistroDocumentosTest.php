@@ -113,6 +113,39 @@ class JugadorRegistroDocumentosTest extends TestCase
         $this->get(route('jugadores.documentos.show', [$ajeno, $documentoAjeno]))->assertForbidden();
     }
 
+    public function test_directivo_y_delegado_del_club_pueden_consultar_ficha_y_documentos_de_sus_jugadores(): void
+    {
+        [$club, $delegado, $equipo] = $this->crearEquipoDelegado();
+        $persona = $this->crearPersona();
+        $jugador = $equipo->jugadores()->create(['persona_id' => $persona->id]);
+        $ruta = 'jugadores/'.$jugador->id.'/ine.pdf';
+        Storage::disk('private')->put($ruta, 'contenido privado');
+        $documento = $jugador->documentos()->create([
+            'tipo' => 'INE',
+            'disco' => 'private',
+            'ruta_storage' => $ruta,
+            'mime_type' => 'application/pdf',
+            'tamano_bytes' => 17,
+        ]);
+
+        $this->actingAs($delegado)->getJson(route('jugadores.show', $jugador))->assertOk();
+        $this->get(route('jugadores.documentos.show', [$jugador, $documento]))->assertOk();
+
+        $presidente = User::query()->create([
+            'name' => 'Presidente del club',
+            'email' => str()->uuid().'@liga.test',
+            'password' => Hash::make('secreto123'),
+            'rol' => 'Directivo Club',
+            'estatus' => 'activo',
+            'club_id' => $club->id,
+        ]);
+        $presidente->assignRole('Presidente del Club');
+        $this->actingAs($presidente)->getJson(route('jugadores.show', $jugador))->assertOk();
+
+        [, $delegadoAjeno] = $this->crearEquipoDelegado();
+        $this->actingAs($delegadoAjeno)->getJson(route('jugadores.show', $jugador))->assertForbidden();
+    }
+
     public function test_vinculacion_por_curp_no_revela_si_el_registro_existe_y_se_audita(): void
     {
         [, , $equipo] = $this->crearEquipoDelegado();
@@ -131,6 +164,29 @@ class JugadorRegistroDocumentosTest extends TestCase
             'accion' => 'jugador_vinculado_curp',
             'tabla_afectada' => 'usuarios',
             'registro_id' => $usuario->id,
+        ]);
+    }
+
+    public function test_segundo_usuario_no_puede_vincular_una_curp_ya_asociada_y_la_respuesta_es_generica(): void
+    {
+        [, , $equipo] = $this->crearEquipoDelegado();
+        $persona = $this->crearPersona();
+        $equipo->jugadores()->create(['persona_id' => $persona->id]);
+        $cuentaVinculada = $this->crearCuentaJugador($persona);
+        $segundoUsuario = $this->crearCuentaJugador();
+
+        $respuestaVinculada = $this->actingAs($segundoUsuario)
+            ->postJson(route('jugadores.vincular'), ['curp' => $persona->curp])
+            ->assertOk();
+        $respuestaNoEncontrada = $this->postJson(route('jugadores.vincular'), ['curp' => 'ZZZZ000000HDFXXX00'])
+            ->assertOk();
+
+        $this->assertSame($respuestaNoEncontrada->json(), $respuestaVinculada->json());
+        $this->assertDatabaseHas('usuarios', ['id' => $cuentaVinculada->id, 'persona_id' => $persona->id]);
+        $this->assertDatabaseHas('usuarios', ['id' => $segundoUsuario->id, 'persona_id' => null]);
+        $this->assertDatabaseMissing('auditoria_logs', [
+            'accion' => 'jugador_vinculado_curp',
+            'registro_id' => $segundoUsuario->id,
         ]);
     }
 

@@ -20,7 +20,15 @@ class JugadorPolicy
 
     public function view(User $user, Jugador $jugador): Response
     {
-        return $user->persona_id !== null && (int) $user->persona_id === (int) $jugador->persona_id
+        $esElJugador = $user->persona_id !== null
+            && (int) $user->persona_id === (int) $jugador->persona_id;
+        $equipo = $jugador->equipo;
+        $esDirectivoDelClub = $equipo !== null
+            && $user->club_id !== null
+            && (int) $user->club_id === (int) $equipo->club_id
+            && $user->hasAnyRole(['Presidente del Club', 'Delegado del Club']);
+
+        return $esElJugador || $esDirectivoDelClub
             ? Response::allow()
             : Response::deny('No cuenta con autorización para consultar los datos de este jugador.');
     }
