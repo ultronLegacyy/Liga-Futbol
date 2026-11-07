@@ -9,7 +9,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-// Cuota o cargo a cobrar a un club, equipo o jugador en una temporada (HU-050, RF-13.1). Los pagos son de HU-051
+/**
+ * Cuota o cargo a cobrar a un club, equipo o jugador en una temporada (HU-050, RF-13.1). Los pagos son de HU-051.
+ *
+ * @property int $id
+ * @property string $monto
+ * @property \Illuminate\Support\Carbon $vencimiento
+ * @property string $estado
+ */
 class CargoFinanciero extends Model
 {
     /** @use HasFactory<CargoFinancieroFactory> */
@@ -87,5 +94,62 @@ class CargoFinanciero extends Model
     public function pagos(): HasMany
     {
         return $this->hasMany(Pago::class, 'cargo_id');
+    }
+
+    /**
+     * Suma de los pagos. Usa pagos_sum_monto si el listado lo cargó con withSum('pagos', 'monto'), para no repetir consultas.
+     */
+    public function montoPagado(): string
+    {
+        return self::formatoCentavos($this->centavosPagados());
+    }
+
+    // Lo que falta por pagar; nunca es negativo
+    public function saldo(): string
+    {
+        return self::formatoCentavos($this->centavosDeSaldo());
+    }
+
+    public function centavosDeSaldo(): int
+    {
+        return max(0, self::aCentavos($this->monto) - $this->centavosPagados());
+    }
+
+    /**
+     * Vencido se calcula al mostrar (HU-051): con saldo y el vencimiento ya pasado. En la base sigue Pendiente.
+     */
+    public function estadoMostrado(): string
+    {
+        $hoy = now('America/Mexico_City')->toDateString();
+
+        if ($this->estado !== 'Pagado' && $this->centavosDeSaldo() > 0 && $this->vencimiento->toDateString() < $hoy) {
+            return 'Vencido';
+        }
+
+        return $this->estado;
+    }
+
+    // Dinero en centavos enteros: decimal(10,2) cabe en un int y no se pierden decimales
+    public static function aCentavos(mixed $monto): int
+    {
+        return (int) round(((float) $monto) * 100);
+    }
+
+    public static function formatoCentavos(int $centavos): string
+    {
+        return number_format($centavos / 100, 2, '.', '');
+    }
+
+    private function centavosPagados(): int
+    {
+        if (array_key_exists('pagos_sum_monto', $this->attributes)) {
+            return self::aCentavos($this->attributes['pagos_sum_monto']);
+        }
+
+        if ($this->relationLoaded('pagos')) {
+            return (int) $this->pagos->sum(fn (Pago $pago): int => self::aCentavos($pago->monto));
+        }
+
+        return self::aCentavos($this->pagos()->sum('monto'));
     }
 }
