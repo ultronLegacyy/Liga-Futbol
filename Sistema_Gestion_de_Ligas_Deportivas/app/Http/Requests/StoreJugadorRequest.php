@@ -41,6 +41,12 @@ class StoreJugadorRequest extends FormRequest
                 'max:99',
                 Rule::unique('jugadores_equipos', 'dorsal')->where('equipo_id', $equipo->id),
             ],
+            // Fotografía cubre archivo local o captura de cámara; el navegador envía ambos como imagen.
+            'documentos' => ['sometimes', 'array'],
+            'documentos.ine' => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
+            'documentos.curp' => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
+            'documentos.fotografia' => ['sometimes', 'image', 'mimes:jpg,jpeg,png', 'max:5120'],
+            'documentos.comprobante' => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
         ];
     }
 
@@ -81,6 +87,16 @@ class StoreJugadorRequest extends FormRequest
             'dorsal.min' => 'El dorsal debe ser al menos :min.',
             'dorsal.max' => 'El dorsal no debe ser mayor que :max.',
             'dorsal.unique' => 'El dorsal ya está asignado a otro jugador de este equipo.',
+            'curp.regex' => 'La CURP solo puede contener letras y números.',
+            'documentos.ine.mimes' => 'La identificación oficial debe ser un archivo JPG, PNG o PDF.',
+            'documentos.ine.max' => 'La identificación oficial no debe superar los 10 MB.',
+            'documentos.curp.mimes' => 'El documento de CURP debe ser un archivo JPG, PNG o PDF.',
+            'documentos.curp.max' => 'El documento de CURP no debe superar los 10 MB.',
+            'documentos.fotografia.image' => 'La fotografía debe ser una imagen válida.',
+            'documentos.fotografia.mimes' => 'La fotografía debe estar en formato JPG o PNG.',
+            'documentos.fotografia.max' => 'La fotografía no debe superar los 5 MB.',
+            'documentos.comprobante.mimes' => 'El comprobante de domicilio debe ser un archivo JPG, PNG o PDF.',
+            'documentos.comprobante.max' => 'El comprobante de domicilio no debe superar los 10 MB.',
         ];
     }
 }

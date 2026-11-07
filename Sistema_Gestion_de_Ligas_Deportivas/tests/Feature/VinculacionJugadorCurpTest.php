@@ -37,7 +37,7 @@ class VinculacionJugadorCurpTest extends TestCase
         $respuesta = $this->actingAs($cuenta)->postJson(route('jugadores.vincular'), [
             'curp' => '  vinc900101hdfabc01 ',
         ])->assertOk()
-            ->assertJsonPath('mensaje', 'Si los datos corresponden a un jugador elegible, la cuenta quedará vinculada.');
+            ->assertJsonPath('mensaje', 'Si los datos corresponden a un registro elegible, la cuenta quedará vinculada.');
 
         $this->assertDatabaseHas('usuarios', ['id' => $cuenta->id, 'persona_id' => $persona->id]);
         $registro = AuditoriaLog::query()
