@@ -124,6 +124,8 @@
                     id="fecha_partido"
                     name="fecha_partido"
                     required
+                    min="{{ \Carbon\Carbon::parse($jornada->fecha_inicio)->format('Y-m-d') }}"
+                    max="{{ \Carbon\Carbon::parse($jornada->fecha_fin)->format('Y-m-d') }}"
                     value="{{ old('fecha_partido', \Carbon\Carbon::parse($jornada->fecha_inicio)->format('Y-m-d')) }}"
                     class="{{ $campo }} {{ $errors->has('fecha_partido') ? 'border-red-500' : 'border-gray-600' }}"
                     @if ($errors->has('fecha_partido')) aria-invalid="true" aria-describedby="fecha_partido-error" @endif

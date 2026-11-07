@@ -145,14 +145,16 @@ class ProgramacionJornadaService
     {
         $this->validarTemporadaGrupo($jornada->grupo);
 
-        if ($equipoId !== null) {
-            $this->validarEquipoDescanso($jornada->grupo, $equipoId, $jornada);
-        }
-
         return DB::transaction(function () use ($jornada, $equipoId): Jornada {
-            $jornada->update(['equipo_descanso_id' => $equipoId]);
+            $jornadaBloqueada = Jornada::query()->whereKey($jornada->id)->lockForUpdate()->firstOrFail();
 
-            return $jornada;
+            if ($equipoId !== null) {
+                $this->validarEquipoDescanso($jornadaBloqueada->grupo, $equipoId, $jornadaBloqueada);
+            }
+
+            $jornadaBloqueada->update(['equipo_descanso_id' => $equipoId]);
+
+            return $jornadaBloqueada;
         });
     }
 
@@ -185,35 +187,6 @@ class ProgramacionJornadaService
             ]);
         }
 
-        // HU-028: un equipo que descansa en la jornada no puede ser programado a jugar
-        if ($jornada->equipo_descanso_id !== null && in_array($jornada->equipo_descanso_id, [$localId, $visitanteId], true)) {
-            $descansando = ($localId === $jornada->equipo_descanso_id) ? $local->nombre : $visitante->nombre;
-            throw ValidationException::withMessages([
-                'equipo_local_id' => "El equipo {$descansando} está en descanso en esta jornada y no puede ser programado.",
-            ]);
-        }
-
-        // HU-027: un equipo no puede jugar dos veces en la misma jornada
-        $localOcupado = $jornada->partidos()
-            ->where(fn ($q) => $q->where('equipo_local_id', $localId)->orWhere('equipo_visitante_id', $localId))
-            ->exists();
-
-        if ($localOcupado) {
-            throw ValidationException::withMessages([
-                'equipo_local_id' => "El equipo {$local->nombre} ya tiene un partido programado en esta jornada.",
-            ]);
-        }
-
-        $visitanteOcupado = $jornada->partidos()
-            ->where(fn ($q) => $q->where('equipo_local_id', $visitanteId)->orWhere('equipo_visitante_id', $visitanteId))
-            ->exists();
-
-        if ($visitanteOcupado) {
-            throw ValidationException::withMessages([
-                'equipo_visitante_id' => "El equipo {$visitante->nombre} ya tiene un partido programado en esta jornada.",
-            ]);
-        }
-
         // HU-027 CA2: Bloqueo si el equipo tiene sanción vigente que le impide jugar
         if ($this->equipoTieneSancionVigente($local)) {
             throw ValidationException::withMessages([
@@ -240,13 +213,56 @@ class ProgramacionJornadaService
             }
         }
 
+        // HU-027: Validar que la fecha del partido esté comprendida dentro del margen de la jornada
+        if ($fecha !== null) {
+            $inicioJornada = Carbon::parse($jornada->fecha_inicio)->toDateString();
+            $finJornada = Carbon::parse($jornada->fecha_fin)->toDateString();
+            if ($fecha < $inicioJornada || $fecha > $finJornada) {
+                throw ValidationException::withMessages([
+                    'fecha_partido' => "La fecha del partido debe estar comprendida dentro del período de la jornada ({$inicioJornada} a {$finJornada}).",
+                ]);
+            }
+        }
+
         $cancha = $canchaId !== null ? Cancha::query()->findOrFail($canchaId) : null;
         $arbitro = $arbitroId !== null ? Arbitro::query()->findOrFail($arbitroId) : null;
 
         $temporada = $jornada->grupo->temporada;
 
         try {
-            return DB::transaction(function () use ($jornada, $localId, $visitanteId, $cancha, $arbitro, $fecha, $hora, $temporada, $datos): Partido {
+            return DB::transaction(function () use ($jornada, $local, $visitante, $localId, $visitanteId, $cancha, $arbitro, $fecha, $hora, $temporada, $datos): Partido {
+                // Bloquear la fila de la jornada con lockForUpdate() al inicio para serializar la programación concurrente (RNF-33)
+                $jornadaBloqueada = Jornada::query()->whereKey($jornada->id)->lockForUpdate()->firstOrFail();
+
+                // HU-028: un equipo que descansa en la jornada no puede ser programado a jugar
+                if ($jornadaBloqueada->equipo_descanso_id !== null && in_array($jornadaBloqueada->equipo_descanso_id, [$localId, $visitanteId], true)) {
+                    $descansando = ($localId === $jornadaBloqueada->equipo_descanso_id) ? $local->nombre : $visitante->nombre;
+                    throw ValidationException::withMessages([
+                        'equipo_local_id' => "El equipo {$descansando} está en descanso en esta jornada y no puede ser programado.",
+                    ]);
+                }
+
+                // HU-027: un equipo no puede jugar dos veces en la misma jornada (evaluado atómicamente bajo el lock)
+                $localOcupado = $jornadaBloqueada->partidos()
+                    ->where(fn ($q) => $q->where('equipo_local_id', $localId)->orWhere('equipo_visitante_id', $localId))
+                    ->exists();
+
+                if ($localOcupado) {
+                    throw ValidationException::withMessages([
+                        'equipo_local_id' => "El equipo {$local->nombre} ya tiene un partido programado en esta jornada.",
+                    ]);
+                }
+
+                $visitanteOcupado = $jornadaBloqueada->partidos()
+                    ->where(fn ($q) => $q->where('equipo_local_id', $visitanteId)->orWhere('equipo_visitante_id', $visitanteId))
+                    ->exists();
+
+                if ($visitanteOcupado) {
+                    throw ValidationException::withMessages([
+                        'equipo_visitante_id' => "El equipo {$visitante->nombre} ya tiene un partido programado en esta jornada.",
+                    ]);
+                }
+
                 if ($cancha !== null && $fecha !== null && $hora !== null) {
                     $inicio = Carbon::parse($fecha)->setTimeFromTimeString($hora);
                     $fin = $inicio->copy()->addMinutes($this->duracionPartidoMinutos());
@@ -285,7 +301,7 @@ class ProgramacionJornadaService
                 $estado = $datos['estado'] ?? (($cancha !== null && $fecha !== null && $hora !== null) ? 'programado' : 'borrador');
 
                 return Partido::create([
-                    'jornada_id' => $jornada->id,
+                    'jornada_id' => $jornadaBloqueada->id,
                     'equipo_local_id' => $localId,
                     'equipo_visitante_id' => $visitanteId,
                     'cancha_id' => $cancha?->id,
@@ -332,35 +348,6 @@ class ProgramacionJornadaService
             ]);
         }
 
-        if ($jornada->equipo_descanso_id !== null && in_array($jornada->equipo_descanso_id, [$localId, $visitanteId], true)) {
-            $descansando = ($localId === $jornada->equipo_descanso_id) ? $local->nombre : $visitante->nombre;
-            throw ValidationException::withMessages([
-                'equipo_local_id' => "El equipo {$descansando} está en descanso en esta jornada y no puede ser programado.",
-            ]);
-        }
-
-        $localOcupado = $jornada->partidos()
-            ->whereKeyNot($partido->id)
-            ->where(fn ($q) => $q->where('equipo_local_id', $localId)->orWhere('equipo_visitante_id', $localId))
-            ->exists();
-
-        if ($localOcupado) {
-            throw ValidationException::withMessages([
-                'equipo_local_id' => "El equipo {$local->nombre} ya tiene un partido programado en esta jornada.",
-            ]);
-        }
-
-        $visitanteOcupado = $jornada->partidos()
-            ->whereKeyNot($partido->id)
-            ->where(fn ($q) => $q->where('equipo_local_id', $visitanteId)->orWhere('equipo_visitante_id', $visitanteId))
-            ->exists();
-
-        if ($visitanteOcupado) {
-            throw ValidationException::withMessages([
-                'equipo_visitante_id' => "El equipo {$visitante->nombre} ya tiene un partido programado en esta jornada.",
-            ]);
-        }
-
         $canchaId = array_key_exists('cancha_id', $datos)
             ? (! empty($datos['cancha_id']) ? (int) $datos['cancha_id'] : null)
             : $partido->cancha_id;
@@ -385,12 +372,55 @@ class ProgramacionJornadaService
             }
         }
 
+        // HU-027: Validar que la fecha del partido esté comprendida dentro del margen de la jornada
+        if ($fecha !== null) {
+            $inicioJornada = Carbon::parse($jornada->fecha_inicio)->toDateString();
+            $finJornada = Carbon::parse($jornada->fecha_fin)->toDateString();
+            if ($fecha < $inicioJornada || $fecha > $finJornada) {
+                throw ValidationException::withMessages([
+                    'fecha_partido' => "La fecha del partido debe estar comprendida dentro del período de la jornada ({$inicioJornada} a {$finJornada}).",
+                ]);
+            }
+        }
+
         $cancha = $canchaId !== null ? Cancha::query()->findOrFail($canchaId) : null;
         $arbitro = $arbitroId !== null ? Arbitro::query()->findOrFail($arbitroId) : null;
         $temporada = $jornada->grupo->temporada;
 
         try {
-            return DB::transaction(function () use ($partido, $localId, $visitanteId, $cancha, $arbitro, $fecha, $hora, $temporada, $datos): Partido {
+            return DB::transaction(function () use ($partido, $jornada, $local, $visitante, $localId, $visitanteId, $cancha, $arbitro, $fecha, $hora, $temporada, $datos): Partido {
+                // Bloquear la jornada con lockForUpdate() al inicio para serializar modificaciones concurrentes (RNF-33)
+                $jornadaBloqueada = Jornada::query()->whereKey($jornada->id)->lockForUpdate()->firstOrFail();
+
+                if ($jornadaBloqueada->equipo_descanso_id !== null && in_array($jornadaBloqueada->equipo_descanso_id, [$localId, $visitanteId], true)) {
+                    $descansando = ($localId === $jornadaBloqueada->equipo_descanso_id) ? $local->nombre : $visitante->nombre;
+                    throw ValidationException::withMessages([
+                        'equipo_local_id' => "El equipo {$descansando} está en descanso en esta jornada y no puede ser programado.",
+                    ]);
+                }
+
+                $localOcupado = $jornadaBloqueada->partidos()
+                    ->whereKeyNot($partido->id)
+                    ->where(fn ($q) => $q->where('equipo_local_id', $localId)->orWhere('equipo_visitante_id', $localId))
+                    ->exists();
+
+                if ($localOcupado) {
+                    throw ValidationException::withMessages([
+                        'equipo_local_id' => "El equipo {$local->nombre} ya tiene un partido programado en esta jornada.",
+                    ]);
+                }
+
+                $visitanteOcupado = $jornadaBloqueada->partidos()
+                    ->whereKeyNot($partido->id)
+                    ->where(fn ($q) => $q->where('equipo_local_id', $visitanteId)->orWhere('equipo_visitante_id', $visitanteId))
+                    ->exists();
+
+                if ($visitanteOcupado) {
+                    throw ValidationException::withMessages([
+                        'equipo_visitante_id' => "El equipo {$visitante->nombre} ya tiene un partido programado en esta jornada.",
+                    ]);
+                }
+
                 if ($cancha !== null && $fecha !== null && $hora !== null) {
                     $inicio = Carbon::parse($fecha)->setTimeFromTimeString($hora);
                     $fin = $inicio->copy()->addMinutes($this->duracionPartidoMinutos());

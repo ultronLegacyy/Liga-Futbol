@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\Partido;
+use Carbon\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -22,7 +23,22 @@ class UpdatePartidoRequest extends FormRequest
     public function rules(): array
     {
         $partido = $this->route('partido');
-        $grupoId = $partido instanceof Partido ? $partido->jornada->grupo_id : null;
+        $jornada = $partido instanceof Partido ? $partido->jornada : null;
+        $grupoId = $jornada?->grupo_id;
+        $fechaInicio = $jornada && $jornada->fecha_inicio
+            ? Carbon::parse($jornada->fecha_inicio)->toDateString()
+            : null;
+        $fechaFin = $jornada && $jornada->fecha_fin
+            ? Carbon::parse($jornada->fecha_fin)->toDateString()
+            : null;
+
+        $fechaRules = ['nullable', 'date'];
+        if ($fechaInicio !== null) {
+            $fechaRules[] = 'after_or_equal:'.$fechaInicio;
+        }
+        if ($fechaFin !== null) {
+            $fechaRules[] = 'before_or_equal:'.$fechaFin;
+        }
 
         return [
             'equipo_local_id' => [
@@ -41,7 +57,7 @@ class UpdatePartidoRequest extends FormRequest
             ],
             'cancha_id' => ['nullable', 'integer', Rule::exists('canchas', 'id')],
             'arbitro_id' => ['nullable', 'integer', Rule::exists('arbitros', 'id')],
-            'fecha_partido' => ['nullable', 'date'],
+            'fecha_partido' => $fechaRules,
             'hora_partido' => ['nullable', 'date_format:H:i,H:i:s'],
             'estado' => ['nullable', 'string', Rule::in(['borrador', 'programado', 'confirmado', 'en juego', 'finalizado', 'suspendido'])],
         ];
@@ -62,6 +78,8 @@ class UpdatePartidoRequest extends FormRequest
             'cancha_id.exists' => 'La cancha seleccionada no es válida.',
             'arbitro_id.exists' => 'El árbitro seleccionado no es válido.',
             'fecha_partido.date' => 'La fecha del partido debe ser una fecha válida.',
+            'fecha_partido.after_or_equal' => 'La fecha del partido no puede ser anterior al inicio de la jornada.',
+            'fecha_partido.before_or_equal' => 'La fecha del partido no puede ser posterior al fin de la jornada.',
             'hora_partido.date_format' => 'La hora del partido debe tener el formato HH:MM.',
             'estado.in' => 'El estado del partido no es válido.',
         ];

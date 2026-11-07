@@ -12,9 +12,12 @@ use App\Models\Jornada;
 use App\Models\Partido;
 use App\Models\Temporada;
 use App\Models\User;
+use App\Services\ProgramacionJornadaService;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 /**
@@ -434,6 +437,186 @@ class PartidosProgramacionTest extends TestCase
             ->assertSee('Halcones FC')
             ->assertSee('Pumas FC')
             ->assertSee('Cancha Central');
+    }
+
+    public function test_programacion_falla_si_fecha_partido_es_anterior_o_posterior_a_la_jornada(): void
+    {
+        // Fecha anterior al inicio de la jornada (jornada es del 2026-11-20 al 2026-11-22)
+        $payloadAnterior = [
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha->id,
+            'arbitro_id' => $this->arbitro->id,
+            'fecha_partido' => '2026-11-19',
+            'hora_partido' => '10:00',
+        ];
+
+        $this->actingAs($this->programador)
+            ->post(route('jornadas.partidos.store', $this->jornada), $payloadAnterior)
+            ->assertSessionHasErrors(['fecha_partido']);
+
+        $this->assertDatabaseMissing('partidos', [
+            'jornada_id' => $this->jornada->id,
+            'fecha_partido' => '2026-11-19',
+        ]);
+
+        // Fecha posterior al fin de la jornada (ej. 2027-05-05)
+        $payloadPosterior = [
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha->id,
+            'arbitro_id' => $this->arbitro->id,
+            'fecha_partido' => '2027-05-05',
+            'hora_partido' => '10:00',
+        ];
+
+        $this->actingAs($this->programador)
+            ->post(route('jornadas.partidos.store', $this->jornada), $payloadPosterior)
+            ->assertSessionHasErrors(['fecha_partido']);
+
+        $this->assertDatabaseMissing('partidos', [
+            'jornada_id' => $this->jornada->id,
+            'fecha_partido' => '2027-05-05',
+        ]);
+    }
+
+    public function test_reprogramacion_falla_si_fecha_partido_queda_fuera_de_la_jornada(): void
+    {
+        $partido = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha->id,
+            'arbitro_id' => $this->arbitro->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => 'programado',
+        ]);
+
+        // Reprogramar con fecha posterior fuera del margen (2027-05-05)
+        $this->actingAs($this->programador)
+            ->put(route('partidos.update', $partido), [
+                'fecha_partido' => '2027-05-05',
+                'hora_partido' => '10:00',
+            ])
+            ->assertSessionHasErrors(['fecha_partido']);
+
+        $this->assertDatabaseHas('partidos', [
+            'id' => $partido->id,
+            'fecha_partido' => '2026-11-20',
+        ]);
+
+        // Reprogramar con fecha anterior al margen (2026-11-15)
+        $this->actingAs($this->programador)
+            ->put(route('partidos.update', $partido), [
+                'fecha_partido' => '2026-11-15',
+                'hora_partido' => '10:00',
+            ])
+            ->assertSessionHasErrors(['fecha_partido']);
+
+        $this->assertDatabaseHas('partidos', [
+            'id' => $partido->id,
+            'fecha_partido' => '2026-11-20',
+        ]);
+    }
+
+    public function test_servicio_valida_rango_de_fechas_al_programar_y_reprogramar(): void
+    {
+        $servicio = app(ProgramacionJornadaService::class);
+
+        // Servicio lanza ValidationException si fecha_partido es posterior al fin de la jornada
+        $this->expectException(ValidationException::class);
+        $servicio->programarPartido($this->jornada, [
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha->id,
+            'arbitro_id' => $this->arbitro->id,
+            'fecha_partido' => '2027-05-05',
+            'hora_partido' => '10:00',
+        ]);
+    }
+
+    public function test_servicio_valida_rango_de_fechas_al_actualizar_partido(): void
+    {
+        $servicio = app(ProgramacionJornadaService::class);
+
+        $partido = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha->id,
+            'arbitro_id' => $this->arbitro->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => 'programado',
+        ]);
+
+        $this->expectException(ValidationException::class);
+        $servicio->actualizarPartido($partido, [
+            'fecha_partido' => '2027-05-05',
+        ]);
+    }
+
+    public function test_programacion_bloquea_jornada_con_lock_for_update_en_transaccion(): void
+    {
+        DB::enableQueryLog();
+
+        $payload = [
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha->id,
+            'arbitro_id' => $this->arbitro->id,
+            'fecha_partido' => '2026-11-21',
+            'hora_partido' => '12:00',
+        ];
+
+        $this->actingAs($this->programador)
+            ->post(route('jornadas.partidos.store', $this->jornada), $payload)
+            ->assertRedirect(route('jornadas.show', $this->jornada));
+
+        $queries = DB::getQueryLog();
+        DB::disableQueryLog();
+
+        $encontroLockJornada = collect($queries)->contains(function (array $query): bool {
+            $sql = strtolower($query['query']);
+
+            return str_contains($sql, 'jornadas') && str_contains($sql, 'for update');
+        });
+
+        $this->assertTrue($encontroLockJornada, 'La transacción de programarPartido debe ejecutar lockForUpdate() sobre la jornada.');
+    }
+
+    public function test_actualizar_partido_bloquea_jornada_con_lock_for_update_en_transaccion(): void
+    {
+        $partido = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha->id,
+            'arbitro_id' => $this->arbitro->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => 'programado',
+        ]);
+
+        DB::enableQueryLog();
+
+        $this->actingAs($this->programador)
+            ->put(route('partidos.update', $partido), [
+                'hora_partido' => '16:00',
+            ])
+            ->assertRedirect(route('jornadas.show', $this->jornada));
+
+        $queries = DB::getQueryLog();
+        DB::disableQueryLog();
+
+        $encontroLockJornada = collect($queries)->contains(function (array $query): bool {
+            $sql = strtolower($query['query']);
+
+            return str_contains($sql, 'jornadas') && str_contains($sql, 'for update');
+        });
+
+        $this->assertTrue($encontroLockJornada, 'La transacción de actualizarPartido debe ejecutar lockForUpdate() sobre la jornada.');
     }
 
     private function crearEquipo(string $nombre, ?Grupo $grupo = null): Equipo
