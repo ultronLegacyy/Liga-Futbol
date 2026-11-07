@@ -150,7 +150,8 @@ class RegistroPagoServiceTest extends TestCase
         return [
             'cero' => ['0', 'El monto del pago debe ser mayor que cero.'],
             'negativo' => ['-50.00', 'El monto del pago debe ser mayor que cero.'],
-            'tres decimales' => ['10.555', 'El monto del pago admite como máximo dos decimales.'],
+            'tres decimales' => ['10.555', 'El monto del pago debe ser un número con dos decimales como máximo, por ejemplo 150.50.'],
+            'notación científica' => ['1e2', 'El monto del pago debe ser un número con dos decimales como máximo, por ejemplo 150.50.'],
             'vacío' => ['', 'El monto del pago es obligatorio.'],
         ];
     }
@@ -244,6 +245,20 @@ class RegistroPagoServiceTest extends TestCase
         $resultado = [$cargo->montoPagado(), $cargo->saldo(), $cargo->estadoMostrado()];
 
         $this->assertSame(['250.00', '750.00', 'Pendiente'], $resultado);
+        $this->assertSame([], DB::getQueryLog());
+    }
+
+    // Con la relación pagos ya cargada, se suma en memoria y tampoco se consulta
+    public function test_con_la_relacion_pagos_cargada_no_se_consultan_los_pagos(): void
+    {
+        $this->pagar('250.00');
+        $this->pagar('125.50');
+        $cargo = CargoFinanciero::query()->with('pagos')->findOrFail($this->cargo->id);
+
+        DB::enableQueryLog();
+        $resultado = [$cargo->montoPagado(), $cargo->saldo()];
+
+        $this->assertSame(['375.50', '624.50'], $resultado);
         $this->assertSame([], DB::getQueryLog());
     }
 

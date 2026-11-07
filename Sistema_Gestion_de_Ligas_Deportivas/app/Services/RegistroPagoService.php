@@ -20,7 +20,7 @@ class RegistroPagoService
         'monto.required' => 'El monto del pago es obligatorio.',
         'monto.numeric' => 'El monto del pago debe ser un número.',
         'monto.gt' => 'El monto del pago debe ser mayor que cero.',
-        'monto.decimal' => 'El monto del pago admite como máximo dos decimales.',
+        'monto.decimal' => 'El monto del pago debe ser un número con dos decimales como máximo, por ejemplo 150.50.',
         'monto.max' => 'El monto del pago no puede ser mayor que 99,999,999.99.',
         'metodo_pago.required' => 'El método de pago es obligatorio.',
         'metodo_pago.string' => 'El método de pago no es válido.',
