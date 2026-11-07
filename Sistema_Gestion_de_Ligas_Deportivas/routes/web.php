@@ -168,6 +168,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/equipos/{equipo}', [EquipoController::class, 'show'])->name('equipos.show');
         Route::post('/equipos', [EquipoController::class, 'store'])->name('equipos.store');
         Route::post('/equipos/{equipo}/jugadores', [JugadorController::class, 'store'])->name('equipos.jugadores.store');
+        Route::post('/jugadores/{jugador}/baja', [JugadorController::class, 'darDeBaja'])->name('jugadores.baja');
+        Route::post('/jugadores/{jugador}/renovar', [JugadorController::class, 'renovar'])->name('jugadores.renovar');
         Route::put('/equipos/{equipo}', [EquipoController::class, 'update'])->name('equipos.update');
     });
 });
