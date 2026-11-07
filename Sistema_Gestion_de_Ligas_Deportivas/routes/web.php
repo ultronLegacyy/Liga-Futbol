@@ -142,6 +142,13 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/equipos/{equipo}', [EquipoController::class, 'show'])->name('equipos.show');
         Route::post('/equipos', [EquipoController::class, 'store'])->name('equipos.store');
         Route::post('/equipos/{equipo}/jugadores', [JugadorController::class, 'store'])->name('equipos.jugadores.store');
+        Route::post('/jugadores/vincular', [JugadorController::class, 'vincular'])
+            ->middleware('throttle:jugador-vinculacion')->name('jugadores.vincular');
+        Route::get('/jugadores/{jugador}', [JugadorController::class, 'show'])->name('jugadores.show');
+        Route::get('/jugadores/{jugador}/documentos/{documento}', [JugadorController::class, 'documento'])
+            ->name('jugadores.documentos.show');
+        Route::delete('/jugadores/{jugador}/vinculo', [JugadorController::class, 'desvincular'])
+            ->name('jugadores.vinculo.destroy');
         Route::put('/equipos/{equipo}', [EquipoController::class, 'update'])->name('equipos.update');
     });
 });

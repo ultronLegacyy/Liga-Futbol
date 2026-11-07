@@ -41,6 +41,12 @@ class StoreJugadorRequest extends FormRequest
                 'max:99',
                 Rule::unique('jugadores_equipos', 'dorsal')->where('equipo_id', $equipo->id),
             ],
+            // Fotografía cubre archivo local o captura de cámara; el navegador envía ambos como imagen.
+            'documentos' => ['sometimes', 'array'],
+            'documentos.ine' => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
+            'documentos.curp' => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
+            'documentos.fotografia' => ['sometimes', 'image', 'mimes:jpg,jpeg,png', 'max:5120'],
+            'documentos.comprobante' => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
         ];
     }
 
