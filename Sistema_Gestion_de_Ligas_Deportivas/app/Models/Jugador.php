@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Jugador extends Model
 {
@@ -24,5 +25,11 @@ class Jugador extends Model
     public function equipo(): BelongsTo
     {
         return $this->belongsTo(Equipo::class, 'equipo_id');
+    }
+
+    /** @return HasMany<JugadorDocumento, $this> */
+    public function documentos(): HasMany
+    {
+        return $this->hasMany(JugadorDocumento::class, 'jugador_id');
     }
 }

@@ -15,6 +15,7 @@ use App\Models\Persona;
 use App\Models\Temporada;
 use App\Models\TarjetonDigital;
 use App\Models\User;
+use App\Models\Jugador;
 use App\Policies\ArbitroPolicy;
 use App\Policies\BloqueoCanchaPolicy;
 use App\Policies\CanchaPolicy;
@@ -27,11 +28,15 @@ use App\Policies\PersonaPolicy;
 use App\Policies\TemporadaPolicy;
 use App\Policies\TarjetonDigitalPolicy;
 use App\Policies\UserPolicy;
+use App\Policies\JugadorPolicy;
 use App\Services\AuditService;
 use App\Observers\ClubObserver;
 use App\Observers\DirectivoClubObserver;
 use App\Observers\EquipoObserver;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -62,7 +67,11 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Persona::class, PersonaPolicy::class);
         Gate::policy(Arbitro::class, ArbitroPolicy::class);
         Gate::policy(TarjetonDigital::class, TarjetonDigitalPolicy::class);
+        Gate::policy(Jugador::class, JugadorPolicy::class);
         Gate::policy(CargoFinanciero::class, CargoFinancieroPolicy::class);
+
+        RateLimiter::for('jugador-vinculacion', fn (Request $request): Limit => Limit::perMinute(5)
+            ->by(($request->user()?->getAuthIdentifier() ?? 'anonimo').'|'.$request->ip()));
 
         Club::observe(ClubObserver::class);
         DirectivoClub::observe(DirectivoClubObserver::class);
