@@ -134,6 +134,8 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/usuarios/{usuario}/estado', [UserController::class, 'estado'])->name('usuarios.estado');
             Route::put('/usuarios/{usuario}', [UserController::class, 'update'])->name('usuarios.update');
             Route::patch('/usuarios/{usuario}/toggle-status', [UserController::class, 'toggleStatus'])->name('usuarios.toggleStatus');
+            Route::delete('/jugadores/{usuario}/vinculo', [JugadorController::class, 'desvincular'])
+                ->name('jugadores.vinculo.destroy');
         });
 
         // Grupo de rutas operativas protegidas por permiso
@@ -168,6 +170,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/equipos/{equipo}', [EquipoController::class, 'show'])->name('equipos.show');
         Route::post('/equipos', [EquipoController::class, 'store'])->name('equipos.store');
         Route::post('/equipos/{equipo}/jugadores', [JugadorController::class, 'store'])->name('equipos.jugadores.store');
+        Route::post('/jugadores/vincular', [JugadorController::class, 'vincular'])
+            ->middleware('throttle:jugador-vinculacion')->name('jugadores.vincular');
         Route::put('/equipos/{equipo}', [EquipoController::class, 'update'])->name('equipos.update');
     });
 });

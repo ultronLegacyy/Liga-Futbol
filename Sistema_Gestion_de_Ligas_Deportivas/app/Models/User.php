@@ -77,6 +77,12 @@ class User extends Authenticatable
         return $this->belongsTo(Club::class, 'club_id');
     }
 
+    /** @return BelongsTo<Persona, $this> */
+    public function persona(): BelongsTo
+    {
+        return $this->belongsTo(Persona::class, 'persona_id');
+    }
+
     /**
      * Clubes de los que es propietario legal (SCRUM-25).
      */

@@ -11,6 +11,7 @@ use App\Models\Club;
 use App\Models\DirectivoClub;
 use App\Models\Equipo;
 use App\Models\Grupo;
+use App\Models\Jugador;
 use App\Models\Persona;
 use App\Models\Temporada;
 use App\Models\TarjetonDigital;
@@ -23,6 +24,7 @@ use App\Policies\CategoriaPolicy;
 use App\Policies\ClubPolicy;
 use App\Policies\EquipoPolicy;
 use App\Policies\GrupoPolicy;
+use App\Policies\JugadorPolicy;
 use App\Policies\PersonaPolicy;
 use App\Policies\TemporadaPolicy;
 use App\Policies\TarjetonDigitalPolicy;
@@ -32,6 +34,9 @@ use App\Observers\ClubObserver;
 use App\Observers\DirectivoClubObserver;
 use App\Observers\EquipoObserver;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -59,10 +64,16 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(BloqueoCancha::class, BloqueoCanchaPolicy::class);
         Gate::policy(Categoria::class, CategoriaPolicy::class);
         Gate::policy(Grupo::class, GrupoPolicy::class);
+        Gate::policy(Jugador::class, JugadorPolicy::class);
         Gate::policy(Persona::class, PersonaPolicy::class);
         Gate::policy(Arbitro::class, ArbitroPolicy::class);
         Gate::policy(TarjetonDigital::class, TarjetonDigitalPolicy::class);
         Gate::policy(CargoFinanciero::class, CargoFinancieroPolicy::class);
+
+        RateLimiter::for('jugador-vinculacion', fn (Request $request): array => [
+            Limit::perMinute(5)->by('ip:'.$request->ip()),
+            Limit::perMinute(5)->by('usuario:'.(string) ($request->user()?->getAuthIdentifier() ?? 'anonimo')),
+        ]);
 
         Club::observe(ClubObserver::class);
         DirectivoClub::observe(DirectivoClubObserver::class);
