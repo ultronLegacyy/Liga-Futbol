@@ -1,0 +1,188 @@
+@extends('layouts.admin')
+
+@section('title', 'Jornada '.$jornada->numero_jornada.' - '.$grupo->nombre.' - SGLD')
+@section('header', 'Programación de Partidos')
+
+@section('content')
+<div class="space-y-6">
+    {{-- Encabezado principal --}}
+    <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 sm:p-6">
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+            <div>
+                <div class="flex items-center gap-3">
+                    <h2 class="text-2xl font-bold text-white">Jornada {{ $jornada->numero_jornada }}</h2>
+                    <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                        {{ $grupo->nombre }}
+                    </span>
+                </div>
+                <p class="text-sm text-gray-400 mt-1">
+                    {{ $grupo->categoria->nombre }} · {{ $grupo->temporada->nombre }} · Rama {{ $grupo->categoria->rama ?? 'N/A' }}
+                </p>
+                <p class="text-xs text-gray-500 mt-1">
+                    Periodo: {{ \Carbon\Carbon::parse($jornada->fecha_inicio)->format('d/m/Y') }} al {{ \Carbon\Carbon::parse($jornada->fecha_fin)->format('d/m/Y') }}
+                </p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+                <a href="{{ route('grupos.jornadas.index', $grupo) }}" class="text-gray-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-400 rounded text-sm px-3 py-2">
+                    Volver a jornadas
+                </a>
+                @can('update', $jornada)
+                    <a href="{{ route('jornadas.edit', $jornada) }}" class="px-3 py-2 bg-yellow-600/80 hover:bg-yellow-600 text-white text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 transition">
+                        Editar Jornada
+                    </a>
+                @endcan
+            </div>
+        </div>
+
+        @if (session('success'))
+            <div class="mt-4">
+                <x-alert type="success" :message="session('success')" />
+            </div>
+        @endif
+
+        @if (session('error'))
+            <div class="mt-4">
+                <x-alert type="error" :message="session('error')" />
+            </div>
+        @endif
+    </div>
+
+    {{-- Tarjeta de descanso de la jornada (HU-028 / RF-06.2 / SCRUM-159) --}}
+    <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 sm:p-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <h3 class="text-lg font-semibold text-white flex items-center gap-2">
+                    <span>Equipo en descanso</span>
+                    @if ($grupo->tieneEquiposImpares())
+                        <x-badge variant="warning">Grupo impar ({{ $equipos->count() }} equipos)</x-badge>
+                    @endif
+                </h3>
+                <p class="text-xs text-gray-400 mt-1">
+                    En grupos impares, cada jornada un equipo descansa y no debe tener partidos programados (RF-06.2).
+                </p>
+                <div class="mt-2">
+                    @if ($jornada->equipoDescanso)
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm text-gray-300">Descansa esta jornada:</span>
+                            <span class="px-3 py-1 rounded-md text-sm font-bold bg-green-500/20 text-green-300 border border-green-500/40">
+                                {{ $jornada->equipoDescanso->nombre }}
+                            </span>
+                        </div>
+                    @else
+                        <span class="inline-flex items-center px-3 py-1 rounded-md text-sm bg-gray-700/60 text-gray-300 border border-gray-600">
+                            Ningún equipo descansa en esta jornada
+                        </span>
+                    @endif
+                </div>
+            </div>
+
+            @can('update', $jornada)
+                <form action="{{ route('jornadas.descanso.update', $jornada) }}" method="POST" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    @csrf
+                    @method('PATCH')
+                    <label for="descanso_equipo_id" class="sr-only">Seleccionar equipo en descanso</label>
+                    <select
+                        name="equipo_descanso_id"
+                        id="descanso_equipo_id"
+                        class="rounded-lg bg-gray-900 border border-gray-600 text-white text-sm p-2.5 focus:outline-none focus:ring-2 focus:ring-green-400"
+                    >
+                        <option value="">-- Sin descanso --</option>
+                        @foreach ($equipos as $equipo)
+                            <option value="{{ $equipo->id }}" @selected($jornada->equipo_descanso_id == $equipo->id)>
+                                {{ $equipo->nombre }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <button type="submit" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 transition whitespace-nowrap">
+                        Actualizar descanso
+                    </button>
+                </form>
+            @endcan
+        </div>
+    </div>
+
+    {{-- Listado de partidos (IU-16 / SCRUM-156) --}}
+    <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 sm:p-6 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+            <div>
+                <h3 class="text-lg font-bold text-white">Partidos programados (IU-16)</h3>
+                <p class="text-xs text-gray-400">Asignación manual de local, visitante, cancha, fecha, hora y árbitro.</p>
+            </div>
+
+            @can('create', [App\Models\Partido::class, $jornada])
+                <a href="{{ route('jornadas.partidos.create', $jornada) }}" class="px-4 py-2 bg-green-600 text-white font-medium text-sm rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400 transition">
+                    + Programar partido
+                </a>
+            @endcan
+        </div>
+
+        <x-table caption="Partidos programados de la jornada">
+            <thead class="bg-gray-700/50 text-gray-200 uppercase text-xs">
+                <tr>
+                    <th scope="col" class="px-4 py-3 text-left">Partido</th>
+                    <th scope="col" class="px-4 py-3 text-left">Fecha y Hora</th>
+                    <th scope="col" class="px-4 py-3 text-left">Cancha</th>
+                    <th scope="col" class="px-4 py-3 text-left">Árbitro</th>
+                    <th scope="col" class="px-4 py-3 text-center">Estado</th>
+                    <th scope="col" class="px-4 py-3 text-right">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-700">
+                @forelse ($jornada->partidos as $partido)
+                    <tr>
+                        <td class="px-4 py-3 font-semibold text-white">
+                            <div class="flex items-center gap-2">
+                                <span class="text-green-400">{{ $partido->local->nombre ?? 'Local' }}</span>
+                                <span class="text-xs text-gray-400">vs</span>
+                                <span class="text-blue-400">{{ $partido->visitante->nombre ?? 'Visitante' }}</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-300 whitespace-nowrap">
+                            <div>{{ \Carbon\Carbon::parse($partido->fecha_partido)->format('d/m/Y') }}</div>
+                            <div class="text-xs text-gray-400">{{ \Carbon\Carbon::parse($partido->hora_partido)->format('H:i') }} hrs</div>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-300">
+                            <div>{{ $partido->cancha->nombre }}</div>
+                            <div class="text-xs text-gray-500">{{ $partido->cancha->direccion_ubicacion ?? 'Sin dirección' }}</div>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-300">
+                            {{ $partido->arbitro->persona->nombre_completo ?? 'Árbitro #'.$partido->arbitro_id }}
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <x-badge variant="info">{{ $partido->estado }}</x-badge>
+                        </td>
+                        <td class="px-4 py-3 text-right space-x-3 whitespace-nowrap text-sm">
+                            <a href="{{ route('partidos.show', $partido) }}" class="text-blue-400 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-400 rounded">
+                                Ver
+                            </a>
+
+                            @can('update', $partido)
+                                <a href="{{ route('partidos.edit', $partido) }}" class="text-yellow-400 hover:underline focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded">
+                                    Editar
+                                </a>
+                            @endcan
+
+                            @can('delete', $partido)
+                                <form action="{{ route('partidos.destroy', $partido) }}" method="POST" class="inline" onsubmit="return confirm('¿Deseas cancelar/eliminar este partido programado?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="text-red-400 hover:underline focus:outline-none focus:ring-2 focus:ring-red-400 rounded">
+                                        Eliminar
+                                    </button>
+                                </form>
+                            @endcan
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="6" class="px-4 py-8 text-center text-gray-400">
+                            No hay partidos programados en esta jornada todavía.
+                        </td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </x-table>
+    </div>
+</div>
+@endsection

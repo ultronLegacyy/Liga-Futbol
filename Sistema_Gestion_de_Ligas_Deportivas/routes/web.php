@@ -8,7 +8,9 @@ use App\Http\Controllers\ClubController;
 use App\Http\Controllers\EquipoController;
 use App\Http\Controllers\ForcePasswordChangeController;
 use App\Http\Controllers\GrupoController;
+use App\Http\Controllers\JornadaController;
 use App\Http\Controllers\JugadorController;
+use App\Http\Controllers\PartidoController;
 use App\Http\Controllers\PersonaController;
 use App\Http\Controllers\RecuperacionContrasenaController;
 use App\Http\Controllers\ReglaTemporadaController;
@@ -93,6 +95,14 @@ Route::middleware(['auth'])->group(function () {
             ->name('grupos.configuracion');
         Route::put('/grupos/{grupo}/configuracion', [GrupoController::class, 'guardarConfiguracion'])
             ->name('grupos.configuracion.update');
+
+        // Programación de jornadas y descansos por grupo (HU-027, HU-028, RF-06.1, RF-06.2)
+        Route::resource('grupos.jornadas', JornadaController::class)->shallow()->only(['index', 'create', 'store', 'show', 'edit', 'update', 'destroy']);
+        Route::match(['put', 'patch'], '/jornadas/{jornada}/descanso', [JornadaController::class, 'actualizarDescanso'])
+            ->name('jornadas.descanso.update');
+
+        // Alta manual y reprogramación de partidos en jornadas (HU-027, RF-06.1)
+        Route::resource('jornadas.partidos', PartidoController::class)->shallow()->only(['create', 'store', 'show', 'edit', 'update', 'destroy']);
 
         // Padrón de personas y sus roles por temporada (HU-013, RF-03.2)
         Route::resource('personas', PersonaController::class)->only(['index', 'create', 'store', 'show']);
