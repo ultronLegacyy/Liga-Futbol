@@ -30,7 +30,11 @@ return [
 
     'disks' => [
 
+<<<<<<< HEAD
         // Documentos confidenciales de jugadores: accesibles únicamente desde la aplicación.
+=======
+        // Archivos personales servidos exclusivamente desde rutas autorizadas de la aplicación.
+>>>>>>> origin/feat/SCRUM-144-formulario-registro-fotografia
         'private' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
