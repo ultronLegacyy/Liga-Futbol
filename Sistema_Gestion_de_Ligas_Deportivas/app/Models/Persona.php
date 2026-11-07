@@ -57,6 +57,12 @@ class Persona extends Model
         return $this->hasMany(Jugador::class, 'persona_id');
     }
 
+    /** @return HasOne<User, $this> */
+    public function usuario(): HasOne
+    {
+        return $this->hasOne(User::class, 'persona_id');
+    }
+
     // Registro en el padrón de árbitros, si es árbitro colegiado (HU-026)
     /** @return HasOne<Arbitro, $this> */
     public function arbitro(): HasOne
