@@ -1,13 +1,16 @@
 <?php
 
+use App\Http\Controllers\ArbitroController;
 use App\Http\Controllers\CanchaBloqueoController;
 use App\Http\Controllers\CanchaController;
+use App\Http\Controllers\CargoFinancieroController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\EquipoController;
 use App\Http\Controllers\ForcePasswordChangeController;
 use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\JugadorController;
+use App\Http\Controllers\PersonaController;
 use App\Http\Controllers\RecuperacionContrasenaController;
 use App\Http\Controllers\ReglaTemporadaController;
 use App\Http\Controllers\TemporadaController;
@@ -85,6 +88,29 @@ Route::middleware(['auth'])->group(function () {
         // Categorías y grupos
         Route::resource('temporadas.categorias', CategoriaController::class)->shallow()->only(['index', 'create', 'store', 'show', 'edit', 'update']);
         Route::resource('categorias.grupos', GrupoController::class)->shallow()->only(['store', 'edit', 'update']);
+
+        // Formato de competencia y criterios de clasificación del grupo (HU-008, RF-02.3)
+        Route::get('/grupos/{grupo}/configuracion', [GrupoController::class, 'configuracion'])
+            ->name('grupos.configuracion');
+        Route::put('/grupos/{grupo}/configuracion', [GrupoController::class, 'guardarConfiguracion'])
+            ->name('grupos.configuracion.update');
+
+        // Padrón de personas y sus roles por temporada (HU-013, RF-03.2)
+        Route::resource('personas', PersonaController::class)->only(['index', 'create', 'store', 'show']);
+        Route::post('/personas/{persona}/roles', [PersonaController::class, 'asignarRol'])
+            ->name('personas.roles.store');
+
+        // Padrón de árbitros y su asignación a partidos programados (HU-026, RF-06.1)
+        Route::get('/arbitros/asignaciones', [ArbitroController::class, 'asignaciones'])
+            ->name('arbitros.asignaciones');
+        Route::resource('arbitros', ArbitroController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+        Route::get('/partidos/{partido}/arbitro', [ArbitroController::class, 'editarAsignacion'])
+            ->name('partidos.arbitro.edit');
+        Route::put('/partidos/{partido}/arbitro', [ArbitroController::class, 'asignar'])
+            ->name('partidos.arbitro.update');
+
+        // Cuotas de inscripción y cargos de arbitraje y cancha por temporada (HU-050, RF-13.1)
+        Route::resource('cargos', CargoFinancieroController::class)->only(['index', 'create', 'store', 'show']);
 
         // Grupo de rutas de administracion de gobernanza y gestión de cuentas (S2-T13)
         Route::middleware(['role:Administrador General'])->prefix('admin')->name('admin.')->group(function () {

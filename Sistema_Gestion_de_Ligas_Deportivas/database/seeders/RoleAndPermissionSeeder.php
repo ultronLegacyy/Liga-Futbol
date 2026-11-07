@@ -10,32 +10,40 @@ use Spatie\Permission\PermissionRegistrar;
 
 class RoleAndPermissionSeeder extends Seeder
 {
-    // Sembrado de roles de gobernanza y catálogo de permisos según la matriz RBAC.
+    // Catalogo de roles de la seccion 2.3 de la ERS. Los del Sprint 1 que no estan en la ERS pasaron a sus equivalentes (migracion 2026_10_23_120000)
+    public const ROLES = [
+        // Administracion del sistema
+        'Administrador General',
+
+        // Consejo Directivo y gobernanza (HU-071)
+        'Presidente',
+        'Secretario',
+        'Tesorero',
+        'Comision de la Rama Infantil',
+
+        // Operacion deportiva y disciplina (HU-072)
+        'Programador de Partidos',
+        'Capturista',
+        'Tribunal de Penas',
+        'Comisión Arbitral',
+        'Árbitro en Campo',
+
+        // Clubes y jugadores (HU-073)
+        'Presidente del Club',
+        'Delegado del Club',
+        'Jugador',
+    ];
+
+    // Sembrado y configuracion de roles de gobernanza y catalogo de permisos segun ERS Seccion 2.3 y Acuerdo PA-17 (HU-071)
     public function run(): void
     {
-        // Limpiar la caché de permisos de Spatie.
+        // Limpieza de memoria cache de permisos de Spatie
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        // 1. Definición de roles del sistema.
-        $roles = [
-            // Administración del sistema.
-            'Administrador General',
-
-            // Consejo Directivo y Gobernanza.
-            'Presidente',
-            'Secretario',
-            'Tesorero',
-            'Comision de la Rama Infantil',
-
-            // Roles compatibles de Sprint 1.
-            'Comision Disciplinaria',
-            'Directivo de Club',
-            'Arbitro',
-            'Consulta Publica',
-        ];
+        // 1. Los 13 roles con cuenta de la seccion 2.3 de la ERS (HU-080, CA1); el Publico General no tiene cuenta
+        $roles = self::ROLES;
 
         $rolesCreados = [];
-
         foreach ($roles as $nombreRol) {
             $rolesCreados[$nombreRol] = Role::firstOrCreate([
                 'name' => $nombreRol,
@@ -43,53 +51,57 @@ class RoleAndPermissionSeeder extends Seeder
             ]);
         }
 
-        // 2. Catálogo completo de permisos.
+        // 2. Catalogo completo de permisos atomicos estructurados bajo la convencion modulo.accion
         $catalogoPermisos = [
-            // Gobernanza general.
+            // Modulo Gobernanza General
             'gobernanza.panel',
 
-            // Gestión de ligas.
+            // Modulo Gestion de Ligas
             'ligas.ver',
             'ligas.crear',
             'ligas.editar',
             'ligas.eliminar',
 
-            // Temporadas deportivas.
+            // Modulo Temporadas Deportivas
             'temporadas.ver',
             'temporadas.crear',
             'temporadas.editar',
             'temporadas.eliminar',
             'temporadas.cerrar',
 
-            // Convocatorias oficiales.
+            // Modulo Convocatorias Oficiales
             'convocatorias.ver',
             'convocatorias.crear',
             'convocatorias.editar',
             'convocatorias.eliminar',
 
-            // Reglas de temporada.
+            // Modulo Reglas de Temporada (Homologado con HU-006 / PR #28)
             'reglas_temporada.ver',
             'reglas_temporada.editar',
 
-            // Categorías y grupos.
+            // Modulo Categorias y Grupos
             'categorias.ver',
             'categorias.crear',
             'categorias.editar',
             'categorias.eliminar',
 
-            // Clubes y sedes.
+            // Modulo Clubes y Sedes
             'clubes.ver',
             'clubes.crear',
             'clubes.editar',
             'clubes.eliminar',
 
-            // Equipos.
+            // Módulo de Tarjetón Digital de Afiliación
+            'tarjetones.ver',
+            'tarjetones.generar',
+
+            // Modulo Equipos
             'equipos.ver',
             'equipos.crear',
             'equipos.editar',
             'equipos.eliminar',
 
-            // Jugadores y padrón.
+            // Modulo Jugadores y Padron
             'jugadores.ver',
             'jugadores.crear',
             'jugadores.editar',
@@ -97,60 +109,65 @@ class RoleAndPermissionSeeder extends Seeder
             'jugadores.transferir',
             'jugadores.validar_edad',
 
-            // Canchas e instalaciones.
+            // Modulo Personas: identidad unica y roles por temporada (HU-013, RF-03.2)
+            'personas.ver',
+            'personas.crear',
+            'personas.editar',
+
+            // Modulo Canchas e Instalaciones
             'campos.ver',
             'campos.crear',
             'campos.editar',
             'campos.eliminar',
             'campos.bloquear',
 
-            // Cuentas de usuario.
+            // Modulo Cuentas de Usuario (Exclusivo Administrador General - HU-080 / HU-071 CA4)
             'usuarios.ver',
             'usuarios.crear',
             'usuarios.editar',
             'usuarios.eliminar',
             'usuarios.asignar_rol',
 
-            // Administración de roles y permisos.
+            // Modulo Administracion de Roles y Permisos
             'roles.ver',
             'roles.crear',
             'roles.editar',
             'roles.eliminar',
             'roles.asignar_permiso',
 
-            // Auditoría.
+            // Modulo Bitacora de Auditoria Inmutable
             'auditoria.ver',
 
-            // Arbitraje y padrón de colegios.
+            // Modulo Arbitraje y Padron de Colegios
             'arbitros.ver',
             'arbitros.crear',
             'arbitros.editar',
             'arbitros.asignar',
 
-            // Programación de partidos y calendario.
+            // Modulo Programacion de Partidos y Calendario
             'partidos.ver',
             'partidos.programar',
             'partidos.reprogramar',
 
-            // Cédulas y captura de resultados.
+            // Modulo Cedulas y Captura de Resultados
             'cedulas.ver',
             'cedulas.capturar',
             'cedulas.firmar',
             'resultados.validar',
 
-            // Régimen disciplinario y tribunal de penas.
+            // Modulo Regimen Disciplinario y Tribunal de Penas
             'disciplina.ver',
             'disciplina.expedientes',
             'disciplina.sancionar',
 
-            // Finanzas, tesorería y cobros.
+            // Modulo Finanzas, Tesoreria y Cobros
             'finanzas.ver',
             'finanzas.cargos',
             'finanzas.pagos_validar',
             'finanzas.reportes',
         ];
 
-        // Crear los permisos de manera persistente.
+        // Creacion persistente de cada permiso en la base de datos
         foreach ($catalogoPermisos as $nombrePermiso) {
             Permission::firstOrCreate([
                 'name' => $nombrePermiso,
@@ -158,20 +175,12 @@ class RoleAndPermissionSeeder extends Seeder
             ]);
         }
 
-        // 3. Administrador General: todos los permisos del catálogo,
-        // excepto cedulas.firmar, según la matriz RBAC.
-        $permisosAdmin = array_values(array_filter(
-            $catalogoPermisos,
-            fn (string $permiso): bool => $permiso !== 'cedulas.firmar'
-        ));
+        // 3. Asignacion consolidada de permisos al Administrador General (salvo cedulas.firmar segun matriz)
+        $permisosAdmin = array_values(array_filter($catalogoPermisos, fn (string $permiso): bool => $permiso !== 'cedulas.firmar'));
+        $rolesCreados['Administrador General']->syncPermissions($permisosAdmin);
 
-        $rolesCreados['Administrador General']->syncPermissions(
-            $permisosAdmin
-        );
-
-        // 4. Roles de gobernanza.
-
-        // Presidente: supervisión institucional, temporadas y reglas.
+        // 4. Asignacion granular para los 4 roles de Gobernanza (S2-T10 / HU-071)
+        // Rol Presidente: maxima autoridad institucional, supervision de torneos y finanzas ejecutivas (sin gestion de cuentas ni canchas operativas)
         $permisosPresidente = [
             'gobernanza.panel',
             'ligas.ver',
@@ -190,13 +199,9 @@ class RoleAndPermissionSeeder extends Seeder
             'campos.ver',
             'finanzas.reportes',
         ];
+        $rolesCreados['Presidente']->syncPermissions($permisosPresidente);
 
-        $rolesCreados['Presidente']->syncPermissions(
-            $permisosPresidente
-        );
-
-        // Secretario: consulta de reglas y supervisión documental.
-        // No tiene permiso para editar reglas ni registrar clubes o equipos.
+        // Rol Secretario: fe publica, convocatorias, padron y supervision documental etaria (sin registro de clubes ni equipos, facultad de Delegado de Club)
         $permisosSecretario = [
             'gobernanza.panel',
             'ligas.ver',
@@ -210,14 +215,15 @@ class RoleAndPermissionSeeder extends Seeder
             'equipos.ver',
             'jugadores.ver',
             'jugadores.validar_edad',
+            // Actor de RF-03 en la matriz de trazabilidad de la ERS (HU-013)
+            'personas.ver',
+            'personas.crear',
+            'personas.editar',
             'campos.ver',
         ];
+        $rolesCreados['Secretario']->syncPermissions($permisosSecretario);
 
-        $rolesCreados['Secretario']->syncPermissions(
-            $permisosSecretario
-        );
-
-        // Tesorero: funciones exclusivamente financieras.
+        // Rol Tesorero: administracion financiera, cargos, pagos y reportes (aislamiento total de disciplina y competicion)
         $permisosTesorero = [
             'gobernanza.panel',
             'finanzas.ver',
@@ -225,12 +231,9 @@ class RoleAndPermissionSeeder extends Seeder
             'finanzas.pagos_validar',
             'finanzas.reportes',
         ];
+        $rolesCreados['Tesorero']->syncPermissions($permisosTesorero);
 
-        $rolesCreados['Tesorero']->syncPermissions(
-            $permisosTesorero
-        );
-
-        // Comisión de la Rama Infantil.
+        // Rol Comision de la Rama Infantil: categorias menores, control estricto de edad y acreditacion infantil (PA-17)
         $permisosComisionInfantil = [
             'gobernanza.panel',
             'temporadas.ver',
@@ -243,109 +246,217 @@ class RoleAndPermissionSeeder extends Seeder
             'jugadores.validar_edad',
             'campos.ver',
         ];
+        $rolesCreados['Comision de la Rama Infantil']->syncPermissions($permisosComisionInfantil);
 
-        $rolesCreados['Comision de la Rama Infantil']->syncPermissions(
-            $permisosComisionInfantil
-        );
+        // 5. Asignacion granular para los 5 roles Operativos Deportivos (HU-072 / SCRUM-15 / S2-T16)
+        // Rol Programador de Partidos: logistica de campos, bloqueos, programacion de jornadas y validacion de resultados
+        $permisosProgramador = [
+            'temporadas.ver',
+            'convocatorias.ver',
+            'reglas_temporada.ver',
+            'categorias.ver',
+            'clubes.ver',
+            'equipos.ver',
+            'jugadores.ver',
+            'campos.ver',
+            'campos.crear',
+            'campos.editar',
+            'campos.bloquear',
+            'arbitros.ver',
+            'arbitros.asignar',
+            'partidos.ver',
+            'partidos.programar',
+            'partidos.reprogramar',
+            'cedulas.ver',
+            'resultados.validar',
+        ];
+        $rolesCreados['Programador de Partidos']->syncPermissions($permisosProgramador);
 
-        // 5. Roles compatibles de Sprint 1.
+        // Rol Capturista: captura de cedulas fisicas y resultados en sede de la liga (sin facultades sancionatorias ni de programacion)
+        $permisosCapturista = [
+            'temporadas.ver',
+            'convocatorias.ver',
+            'reglas_temporada.ver',
+            'categorias.ver',
+            'clubes.ver',
+            'equipos.ver',
+            'jugadores.ver',
+            'campos.ver',
+            'partidos.ver',
+            'cedulas.ver',
+            'cedulas.capturar',
+        ];
+        $rolesCreados['Capturista']->syncPermissions($permisosCapturista);
 
-        // Comisión Disciplinaria.
-        $rolesCreados['Comision Disciplinaria']->syncPermissions([
-            'disciplina.ver',
-            'disciplina.expedientes',
-            'disciplina.sancionar',
-        ]);
-
-        // Directivo de Club.
-        $rolesCreados['Directivo de Club']->syncPermissions([
+        // Rol Arbitro en Campo: validacion en terreno, captura y firma de cedula digital (sin dictaminar sanciones)
+        $permisosArbitroCampo = [
             'temporadas.ver',
             'convocatorias.ver',
             'categorias.ver',
-            'clubes.ver',
+            'equipos.ver',
+            'jugadores.ver',
             'campos.ver',
-        ]);
+            'arbitros.ver',
+            'partidos.ver',
+            'cedulas.ver',
+            'cedulas.capturar',
+            'cedulas.firmar',
+            'disciplina.ver',
+        ];
+        $rolesCreados['Árbitro en Campo']->syncPermissions($permisosArbitroCampo);
 
-        // Árbitro.
-        $rolesCreados['Arbitro']->syncPermissions([
-            'temporadas.ver',
-            'campos.ver',
-        ]);
-
-        // Consulta Pública.
-        $rolesCreados['Consulta Publica']->syncPermissions([
+        // Rol Comision Arbitral: administracion del padron de arbitros y colegios, y asignacion de ternas arbitrales
+        $permisosComisionArbitral = [
             'temporadas.ver',
             'convocatorias.ver',
-        ]);
+            'categorias.ver',
+            'equipos.ver',
+            'jugadores.ver',
+            'campos.ver',
+            'arbitros.ver',
+            'arbitros.crear',
+            'arbitros.editar',
+            'arbitros.asignar',
+            'partidos.ver',
+            'cedulas.ver',
+        ];
+        $rolesCreados['Comisión Arbitral']->syncPermissions($permisosComisionArbitral);
 
-        // 6. Asignación de roles a usuarios iniciales si existen.
+        // Rol Tribunal de Penas: organo sancionador autonomo, resolucion de incidentes, expedientes y sanciones oficiales
+        $permisosTribunalPenas = [
+            'temporadas.ver',
+            'convocatorias.ver',
+            'categorias.ver',
+            'equipos.ver',
+            'jugadores.ver',
+            'campos.ver',
+            'arbitros.ver',
+            'partidos.ver',
+            'cedulas.ver',
+            'disciplina.ver',
+            'disciplina.expedientes',
+            'disciplina.sancionar',
+        ];
+        $rolesCreados['Tribunal de Penas']->syncPermissions($permisosTribunalPenas);
 
-        $adminUser = User::where(
-            'email',
-            'admin@ligafutbol.com'
-        )->first();
+        // 6. Asignacion granular para roles de Clubes y Jugadores (HU-073 / SCRUM-16 / S2-T21)
+        // Rol Presidente del Club (Directivo de Club): representacion institucional, tarjeton digital, administracion de club y consulta deportiva
+        $permisosPresidenteClub = [
+            'temporadas.ver',
+            'convocatorias.ver',
+            'reglas_temporada.ver',
+            'categorias.ver',
+            'clubes.ver',
+            'tarjetones.ver',
+            'tarjetones.generar',
+            'equipos.ver',
+            'jugadores.ver',
+            'campos.ver',
+        ];
+        $rolesCreados['Presidente del Club']->syncPermissions($permisosPresidenteClub);
 
+        // Rol Delegado del Club (Titular / Suplente): enlace operativo, altas de jugadores, registro de equipos y consulta deportiva
+        $permisosDelegadoClub = [
+            'temporadas.ver',
+            'convocatorias.ver',
+            'reglas_temporada.ver',
+            'categorias.ver',
+            'clubes.ver',
+            'tarjetones.ver',
+            'tarjetones.generar',
+            'equipos.ver',
+            'equipos.crear',
+            'jugadores.ver',
+            'jugadores.crear',
+            'campos.ver',
+        ];
+        $rolesCreados['Delegado del Club']->syncPermissions($permisosDelegadoClub);
+
+        // Rol Jugador: consulta exclusiva de perfil deportivo, credencial digital, partidos y estado disciplinario
+        $permisosJugador = [
+            'temporadas.ver',
+            'convocatorias.ver',
+            'categorias.ver',
+            'equipos.ver',
+            'jugadores.ver',
+            'campos.ver',
+        ];
+        $rolesCreados['Jugador']->syncPermissions($permisosJugador);
+
+        // 7. Asignacion automatica de roles a los usuarios iniciales del sistema si existen
+        $adminUser = User::where('email', 'admin@ligafutbol.com')->first();
         if ($adminUser && ! $adminUser->hasRole('Administrador General')) {
             $adminUser->assignRole('Administrador General');
         }
 
-        $presidenteUser = User::where(
-            'email',
-            'presidente@ligafutbol.com'
-        )->first();
-
+        $presidenteUser = User::where('email', 'presidente@ligafutbol.com')->first();
         if ($presidenteUser && ! $presidenteUser->hasRole('Presidente')) {
             $presidenteUser->assignRole('Presidente');
         }
 
-        $secretarioUser = User::where(
-            'email',
-            'secretario@ligafutbol.com'
-        )->first();
-
+        $secretarioUser = User::where('email', 'secretario@ligafutbol.com')->first();
         if ($secretarioUser && ! $secretarioUser->hasRole('Secretario')) {
             $secretarioUser->assignRole('Secretario');
         }
 
-        $tesoreroUser = User::where(
-            'email',
-            'tesoreria@ligafutbol.com'
-        )->first();
-
+        $tesoreroUser = User::where('email', 'tesoreria@ligafutbol.com')->first();
         if ($tesoreroUser && ! $tesoreroUser->hasRole('Tesorero')) {
             $tesoreroUser->assignRole('Tesorero');
         }
 
-        $comisionInfantilUser = User::where(
-            'email',
-            'infantil@ligafutbol.com'
-        )->first();
-
-        if (
-            $comisionInfantilUser
-            && ! $comisionInfantilUser->hasRole('Comision de la Rama Infantil')
-        ) {
-            $comisionInfantilUser->assignRole(
-                'Comision de la Rama Infantil'
-            );
+        $comisionInfantilUser = User::where('email', 'infantil@ligafutbol.com')->first();
+        if ($comisionInfantilUser && ! $comisionInfantilUser->hasRole('Comision de la Rama Infantil')) {
+            $comisionInfantilUser->assignRole('Comision de la Rama Infantil');
         }
 
-        $directivoUser = User::where(
-            'email',
-            'directivo@moreliafc.com'
-        )->first();
-
-        if ($directivoUser && ! $directivoUser->hasRole('Directivo de Club')) {
-            $directivoUser->assignRole('Directivo de Club');
+        $directivoUser = User::where('email', 'directivo@moreliafc.com')->first();
+        if ($directivoUser && ! $directivoUser->hasRole('Presidente del Club')) {
+            $directivoUser->assignRole('Presidente del Club');
         }
 
-        $arbitroUser = User::where(
-            'email',
-            'arbitro@ligafutbol.com'
-        )->first();
+        $presidenteClubUser = User::where('email', 'presidente.club@ligafutbol.com')->first();
+        if ($presidenteClubUser && ! $presidenteClubUser->hasRole('Presidente del Club')) {
+            $presidenteClubUser->assignRole('Presidente del Club');
+        }
 
-        if ($arbitroUser && ! $arbitroUser->hasRole('Arbitro')) {
-            $arbitroUser->assignRole('Arbitro');
+        $delegadoMoreliaUser = User::where('email', 'delegado@moreliafc.com')->first();
+        if ($delegadoMoreliaUser && ! $delegadoMoreliaUser->hasRole('Delegado del Club')) {
+            $delegadoMoreliaUser->assignRole('Delegado del Club');
+        }
+
+        $delegadoClubUser = User::where('email', 'delegado.club@ligafutbol.com')->first();
+        if ($delegadoClubUser && ! $delegadoClubUser->hasRole('Delegado del Club')) {
+            $delegadoClubUser->assignRole('Delegado del Club');
+        }
+
+        $jugadorUser = User::where('email', 'jugador@ligafutbol.com')->first();
+        if ($jugadorUser && ! $jugadorUser->hasRole('Jugador')) {
+            $jugadorUser->assignRole('Jugador');
+        }
+
+        $arbitroUser = User::where('email', 'arbitro@ligafutbol.com')->first();
+        if ($arbitroUser && ! $arbitroUser->hasRole('Árbitro en Campo')) {
+            $arbitroUser->assignRole('Árbitro en Campo');
+        }
+
+        $programadorUser = User::where('email', 'programador@ligafutbol.com')->first();
+        if ($programadorUser && ! $programadorUser->hasRole('Programador de Partidos')) {
+            $programadorUser->assignRole('Programador de Partidos');
+        }
+
+        $capturistaUser = User::where('email', 'capturista@ligafutbol.com')->first();
+        if ($capturistaUser && ! $capturistaUser->hasRole('Capturista')) {
+            $capturistaUser->assignRole('Capturista');
+        }
+
+        $comisionArbitralUser = User::where('email', 'comision.arbitral@ligafutbol.com')->first();
+        if ($comisionArbitralUser && ! $comisionArbitralUser->hasRole('Comisión Arbitral')) {
+            $comisionArbitralUser->assignRole('Comisión Arbitral');
+        }
+
+        $tribunalUser = User::where('email', 'tribunal@ligafutbol.com')->first();
+        if ($tribunalUser && ! $tribunalUser->hasRole('Tribunal de Penas')) {
+            $tribunalUser->assignRole('Tribunal de Penas');
         }
     }
 }

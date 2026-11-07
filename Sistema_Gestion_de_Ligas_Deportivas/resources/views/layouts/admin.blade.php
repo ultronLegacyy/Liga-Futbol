@@ -32,6 +32,21 @@
                     Canchas
                 </a>
             @endcan
+            @can('viewAny', App\Models\Persona::class)
+                <a href="{{ route('personas.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white">
+                    Personas
+                </a>
+            @endcan
+            @can('viewAny', App\Models\Arbitro::class)
+                <a href="{{ route('arbitros.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white">
+                    Árbitros
+                </a>
+            @endcan
+            @can('viewAny', App\Models\CargoFinanciero::class)
+                <a href="{{ route('cargos.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white">
+                    Cuotas y cargos
+                </a>
+            @endcan
         </nav>
 
         <div class="p-4 border-t border-gray-700">

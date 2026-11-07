@@ -65,4 +65,11 @@ class Club extends Model
     {
         return $this->hasMany(HistorialVentaClub::class, 'club_id');
     }
+
+    // Cuotas y cargos financieros (HU-050)
+    /** @return HasMany<CargoFinanciero, $this> */
+    public function cargos(): HasMany
+    {
+        return $this->hasMany(CargoFinanciero::class);
+    }
 }
