@@ -10,23 +10,25 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class JugadorController extends Controller
 {
     public function create(Request $request): View
     {
-        Gate::authorize('create', Equipo::class);
-
         $usuario = $request->user();
         abort_unless($usuario instanceof User, 401);
+        abort_unless(
+            $usuario->can('jugadores.crear')
+                || ($usuario->hasRole('Delegado del Club') && $usuario->club_id !== null),
+            403,
+        );
 
         $equipos = Equipo::query()
             ->with(['temporada', 'grupo.categoria'])
             ->whereHas('temporada', fn (Builder $consulta): Builder => $consulta->where('estado', 'activa'))
             ->when(
-                ! $usuario->hasRole('Administrador General'),
+                $usuario->hasRole('Delegado del Club') && $usuario->club_id !== null,
                 fn (Builder $consulta): Builder => $consulta->where('club_id', $usuario->club_id)
             )
             ->orderBy('nombre')

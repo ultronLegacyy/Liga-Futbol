@@ -44,12 +44,15 @@ class RegistroJugadorService
                     throw new InvalidArgumentException('Los datos personales del jugador son obligatorios.');
                 }
 
-                $persona = Persona::query()->create([
-                    'nombre' => $datos['nombre'],
-                    'apellidos' => $datos['apellidos'],
-                    'fecha_nacimiento' => $datos['fecha_nacimiento'],
-                    'curp' => strtoupper($datos['curp']),
-                ]);
+                $curp = strtoupper(trim($datos['curp']));
+                $persona = Persona::query()->firstOrCreate(
+                    ['curp' => $curp],
+                    [
+                        'nombre' => $datos['nombre'],
+                        'apellidos' => $datos['apellidos'],
+                        'fecha_nacimiento' => $datos['fecha_nacimiento'],
+                    ],
+                );
             }
 
             $inscripcionAnterior = Jugador::query()

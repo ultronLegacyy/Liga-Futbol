@@ -8,7 +8,9 @@ use Illuminate\Support\Facades\Schema;
 return new class () extends Migration {
     public function up(): void
     {
-        DB::statement("ALTER TABLE documentos_persona MODIFY tipo ENUM('INE', 'CURP', 'Foto', 'Comprobante') NOT NULL");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE documentos_persona MODIFY tipo ENUM('INE', 'CURP', 'Foto', 'Comprobante') NOT NULL");
+        }
 
         Schema::table('documentos_persona', function (Blueprint $table): void {
             $table->string('disco', 32)->default('private')->after('ruta_storage');
@@ -25,6 +27,8 @@ return new class () extends Migration {
             $table->dropColumn(['disco', 'mime_type', 'tamano_bytes']);
         });
 
-        DB::statement("ALTER TABLE documentos_persona MODIFY tipo ENUM('INE', 'CURP', 'Foto') NOT NULL");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE documentos_persona MODIFY tipo ENUM('INE', 'CURP', 'Foto') NOT NULL");
+        }
     }
 };

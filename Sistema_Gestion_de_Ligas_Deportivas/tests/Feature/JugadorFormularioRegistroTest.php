@@ -13,8 +13,12 @@ use App\Models\User;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -118,6 +122,120 @@ class JugadorFormularioRegistroTest extends TestCase
         ])->assertRedirect(route('jugadores.create'))->assertSessionHasErrors(['equipo_id']);
 
         $this->assertDatabaseMissing('personas', ['curp' => 'TEST010101HDFXXX01']);
+    }
+
+    public function test_equipo_ausente_o_invalido_devuelve_errores_de_validacion_y_no_403(): void
+    {
+        [$delegado, $equipo, $temporada, $categoria] = $this->crearContexto();
+        $datos = $this->datosFormulario($equipo, $temporada, $categoria, ['fotografia' => $this->imagenPng('foto.png')]);
+
+        $sinEquipo = $datos;
+        unset($sinEquipo['equipo_id']);
+        $this->actingAs($delegado)
+            ->from(route('jugadores.create'))
+            ->post(route('jugadores.store'), $sinEquipo)
+            ->assertRedirect(route('jugadores.create'))
+            ->assertSessionHasErrors('equipo_id');
+
+        $equipoInvalido = $datos;
+        $equipoInvalido['equipo_id'] = 999999;
+        $this->actingAs($delegado)
+            ->from(route('jugadores.create'))
+            ->post(route('jugadores.store'), $equipoInvalido)
+            ->assertRedirect(route('jugadores.create'))
+            ->assertSessionHasErrors('equipo_id');
+
+        $jsonSinEquipo = $this->actingAs($delegado)
+            ->postJson(route('jugadores.store'), $sinEquipo);
+        $jsonSinEquipo->assertUnprocessable()->assertJsonValidationErrors('equipo_id');
+
+        $jsonEquipoInvalido = $this->actingAs($delegado)
+            ->postJson(route('jugadores.store'), $equipoInvalido);
+        $jsonEquipoInvalido->assertUnprocessable()->assertJsonValidationErrors('equipo_id');
+    }
+
+    public function test_migracion_revierte_columnas_de_documentos_persona_en_sqlite(): void
+    {
+        $conexionOriginal = DB::getDefaultConnection();
+        config(['database.connections.documentos_rollback_test' => [
+            'driver' => 'sqlite',
+            'database' => ':memory:',
+            'prefix' => '',
+            'foreign_key_constraints' => true,
+        ]]);
+        DB::purge('documentos_rollback_test');
+        DB::setDefaultConnection('documentos_rollback_test');
+
+        try {
+            Schema::create('personas', function (Blueprint $table): void {
+                $table->id();
+            });
+            Schema::create('documentos_persona', function (Blueprint $table): void {
+                $table->id();
+                $table->unsignedBigInteger('persona_id');
+                $table->string('tipo');
+                $table->string('ruta_storage');
+                $table->string('disco')->default('private');
+                $table->string('mime_type')->default('application/octet-stream');
+                $table->unsignedBigInteger('tamano_bytes')->default(0);
+                $table->timestamps();
+            });
+            DB::table('documentos_persona')->insert([
+                'persona_id' => 1,
+                'tipo' => 'Comprobante',
+                'ruta_storage' => 'personas/1/comprobante.pdf',
+                'disco' => 'private',
+                'mime_type' => 'application/pdf',
+                'tamano_bytes' => 100,
+            ]);
+
+            $migracion = require database_path('migrations/2026_11_07_120000_expandir_documentos_persona_para_registro_jugador.php');
+            $migracion->down();
+
+            $this->assertFalse(Schema::hasColumn('documentos_persona', 'disco'));
+            $this->assertFalse(Schema::hasColumn('documentos_persona', 'mime_type'));
+            $this->assertFalse(Schema::hasColumn('documentos_persona', 'tamano_bytes'));
+            $this->assertDatabaseCount('documentos_persona', 0);
+        } finally {
+            DB::setDefaultConnection($conexionOriginal);
+            DB::purge('documentos_rollback_test');
+        }
+    }
+
+    public function test_permiso_atomico_jugadores_crear_autoriza_el_formulario(): void
+    {
+        Permission::query()->firstOrCreate(['name' => 'jugadores.crear', 'guard_name' => 'web']);
+        $usuario = User::query()->create([
+            'name' => 'Usuario padrón',
+            'email' => str()->uuid().'@liga.test',
+            'password' => Hash::make('secreto123'),
+            'rol' => 'Administrador General',
+            'estatus' => 'activo',
+        ]);
+        $usuario->givePermissionTo('jugadores.crear');
+
+        $this->actingAs($usuario)->get(route('jugadores.create'))->assertOk();
+    }
+
+    public function test_reinscripcion_por_curp_reutiliza_la_persona_existente(): void
+    {
+        [$delegado, $equipo, $temporada, $categoria] = $this->crearContexto();
+        $persona = Persona::factory()->create([
+            'nombre' => 'Nombre previo',
+            'apellidos' => 'Apellido previo',
+            'curp' => 'TEST010101HDFXXX01',
+        ]);
+        $datos = $this->datosFormulario($equipo, $temporada, $categoria, ['fotografia' => $this->imagenPng('foto.png')]);
+
+        $this->actingAs($delegado)->post(route('jugadores.store'), $datos)
+            ->assertRedirect(route('jugadores.create'))
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseCount('personas', 1);
+        $this->assertDatabaseHas('jugadores_equipos', [
+            'persona_id' => $persona->id,
+            'equipo_id' => $equipo->id,
+        ]);
     }
 
     /** @return array{User, Equipo, Temporada, Categoria} */

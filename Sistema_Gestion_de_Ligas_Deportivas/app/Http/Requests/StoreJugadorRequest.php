@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Models\Categoria;
 use App\Models\Equipo;
 use App\Models\Jugador;
+use App\Models\User;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Http\FormRequest;
@@ -15,10 +16,11 @@ class StoreJugadorRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        $equipo = $this->equipoSeleccionado();
+        $user = $this->user();
 
-        return $equipo instanceof Equipo
-            && ($this->user()?->can('addPlayer', $equipo) ?? false);
+        return $user instanceof User
+            && ($user->can('jugadores.crear')
+                || ($user->hasRole('Delegado del Club') && $user->club_id !== null));
     }
 
     public function rules(): array
@@ -54,7 +56,6 @@ class StoreJugadorRequest extends FormRequest
                 'string',
                 'size:18',
                 'regex:/^[A-Z0-9]+$/i',
-                Rule::unique('personas', 'curp'),
             ],
             'dorsal' => [
                 'nullable',
@@ -161,11 +162,20 @@ class StoreJugadorRequest extends FormRequest
             'nombre.required_without' => 'El nombre del jugador es obligatorio.',
             'apellidos.required_without' => 'Los apellidos del jugador son obligatorios.',
             'curp.required_without' => 'La CURP del jugador es obligatoria.',
-            'curp.unique' => 'Ya existe una persona registrada con esa CURP.',
+            'curp.regex' => 'La CURP solo puede contener letras y números.',
             'documentos.ine.required' => 'Debes adjuntar una identificación oficial (INE).',
             'documentos.curp.required' => 'Debes adjuntar el documento de CURP.',
             'documentos.fotografia.required_without' => 'Debes subir una fotografía o capturarla con la cámara.',
             'documentos.comprobante.required' => 'Debes adjuntar el comprobante de domicilio.',
+            'documentos.ine.mimes' => 'La identificación oficial debe ser un archivo JPG, PNG o PDF.',
+            'documentos.ine.max' => 'La identificación oficial no debe superar los 10 MB.',
+            'documentos.curp.mimes' => 'El documento de CURP debe ser un archivo JPG, PNG o PDF.',
+            'documentos.curp.max' => 'El documento de CURP no debe superar los 10 MB.',
+            'documentos.fotografia.image' => 'La fotografía debe ser una imagen válida.',
+            'documentos.fotografia.mimes' => 'La fotografía debe estar en formato JPG o PNG.',
+            'documentos.fotografia.max' => 'La fotografía no debe superar los 5 MB.',
+            'documentos.comprobante.mimes' => 'El comprobante de domicilio debe ser un archivo JPG, PNG o PDF.',
+            'documentos.comprobante.max' => 'El comprobante de domicilio no debe superar los 10 MB.',
         ];
     }
 
