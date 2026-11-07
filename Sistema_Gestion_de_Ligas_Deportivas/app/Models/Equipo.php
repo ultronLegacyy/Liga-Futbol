@@ -37,6 +37,12 @@ class Equipo extends Model
     {
         return $this->belongsTo(Grupo::class, 'grupo_id');
     }
+
+    /** @return BelongsTo<Temporada, $this> */
+    public function temporada(): BelongsTo
+    {
+        return $this->belongsTo(Temporada::class, 'temporada_id');
+    }
     /** @return HasMany<Jugador, $this> */
     public function jugadores(): HasMany
     {

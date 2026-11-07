@@ -167,6 +167,8 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/equipos/{equipo}', [EquipoController::class, 'show'])->name('equipos.show');
         Route::post('/equipos', [EquipoController::class, 'store'])->name('equipos.store');
+        Route::get('/jugadores/create', [JugadorController::class, 'create'])->name('jugadores.create');
+        Route::post('/jugadores', [JugadorController::class, 'store'])->name('jugadores.store');
         Route::post('/equipos/{equipo}/jugadores', [JugadorController::class, 'store'])->name('equipos.jugadores.store');
         Route::put('/equipos/{equipo}', [EquipoController::class, 'update'])->name('equipos.update');
     });

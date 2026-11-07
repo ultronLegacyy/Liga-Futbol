@@ -30,6 +30,15 @@ return [
 
     'disks' => [
 
+        // Archivos personales servidos exclusivamente desde rutas autorizadas de la aplicación.
+        'private' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private'),
+            'serve' => false,
+            'throw' => false,
+            'report' => false,
+        ],
+
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
