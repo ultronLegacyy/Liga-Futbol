@@ -820,6 +820,7 @@ class DatabaseSeeder extends Seeder
             'club_id' => $clubMoreliaId,
             'equipo_id' => $equipo1Id,
             'persona_id' => null,
+            'temporada_id' => $temporadaId,
             'concepto' => 'Inscripcion',
             'monto' => 3500.00,
             'vencimiento' => '2026-10-31',

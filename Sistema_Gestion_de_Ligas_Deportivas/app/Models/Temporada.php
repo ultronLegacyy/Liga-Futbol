@@ -48,4 +48,11 @@ class Temporada extends Model
     {
         return $this->hasMany(TarjetonDigital::class);
     }
+
+    // Cuotas y cargos financieros (HU-050)
+    /** @return HasMany<CargoFinanciero, $this> */
+    public function cargos(): HasMany
+    {
+        return $this->hasMany(CargoFinanciero::class);
+    }
 }
