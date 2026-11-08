@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
-// Cuotas de inscripción y cargos de arbitraje y cancha por temporada (HU-050, RF-13.1); los pagos son de HU-051
+// Cuotas de inscripción y cargos de arbitraje y cancha por temporada (HU-050, RF-13.1); los pagos se registran en PagoController (HU-051)
 class CargoFinancieroController extends Controller
 {
     // Casos de registro: qué concepto generan y si piden equipo o persona ('no', 'opcional' u 'obligatorio')
@@ -137,7 +137,14 @@ class CargoFinancieroController extends Controller
     {
         Gate::authorize('view', $cargo);
 
-        $cargo->load(['club:id,nombre', 'equipo:id,nombre', 'persona:id,nombre,apellidos', 'temporada:id,nombre,estado']);
+        $cargo->load([
+            'club:id,nombre',
+            'equipo:id,nombre',
+            'persona:id,nombre,apellidos',
+            'temporada:id,nombre,estado',
+            // Con los pagos cargados, el saldo se suma en memoria (HU-051)
+            'pagos' => fn ($consulta) => $consulta->with('validadoPor:id,name')->orderBy('created_at')->orderBy('id'),
+        ]);
 
         return view('cargos.show', compact('cargo'));
     }
