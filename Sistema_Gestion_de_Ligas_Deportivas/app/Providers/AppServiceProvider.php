@@ -11,6 +11,8 @@ use App\Models\Club;
 use App\Models\DirectivoClub;
 use App\Models\Equipo;
 use App\Models\Grupo;
+use App\Models\Jornada;
+use App\Models\Partido;
 use App\Models\Persona;
 use App\Models\Temporada;
 use App\Models\TarjetonDigital;
@@ -23,6 +25,8 @@ use App\Policies\CategoriaPolicy;
 use App\Policies\ClubPolicy;
 use App\Policies\EquipoPolicy;
 use App\Policies\GrupoPolicy;
+use App\Policies\JornadaPolicy;
+use App\Policies\PartidoPolicy;
 use App\Policies\PersonaPolicy;
 use App\Policies\TemporadaPolicy;
 use App\Policies\TarjetonDigitalPolicy;
@@ -62,6 +66,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Persona::class, PersonaPolicy::class);
         Gate::policy(Arbitro::class, ArbitroPolicy::class);
         Gate::policy(TarjetonDigital::class, TarjetonDigitalPolicy::class);
+        Gate::policy(Jornada::class, JornadaPolicy::class);
+        Gate::policy(Partido::class, PartidoPolicy::class);
         Gate::policy(CargoFinanciero::class, CargoFinancieroPolicy::class);
 
         Club::observe(ClubObserver::class);
