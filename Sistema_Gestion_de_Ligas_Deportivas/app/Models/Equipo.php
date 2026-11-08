@@ -37,6 +37,14 @@ class Equipo extends Model
     {
         return $this->belongsTo(Grupo::class, 'grupo_id');
     }
+
+    // Temporada en la que participa el equipo, para su historial (HU-015)
+    /** @return BelongsTo<Temporada, $this> */
+    public function temporada(): BelongsTo
+    {
+        return $this->belongsTo(Temporada::class, 'temporada_id');
+    }
+
     /** @return HasMany<Jugador, $this> */
     public function jugadores(): HasMany
     {

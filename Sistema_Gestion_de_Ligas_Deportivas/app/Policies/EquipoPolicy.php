@@ -53,6 +53,25 @@ class EquipoPolicy
         return Response::deny('No posee privilegios para visualizar este equipo.');
     }
 
+    // Consultar el listado de historiales de equipos (HU-015): cualquier rol con permiso de ver equipos
+    public function viewAnyHistorial(User $usuario): Response
+    {
+        return $usuario->can('equipos.ver')
+            ? Response::allow()
+            : Response::deny('No cuenta con privilegios para consultar el historial de equipos.');
+    }
+
+    // Consultar el historial de un equipo (HU-015); los directivos de club solo el de su club (RNF-29)
+    public function viewHistorial(User $usuario, Equipo $equipo): Response
+    {
+        if ($usuario->hasAnyRole(['Presidente del Club', 'Delegado del Club'])
+            && ($usuario->club_id === null || (int) $usuario->club_id !== (int) $equipo->club_id)) {
+            return Response::deny('Acceso denegado: no cuenta con autorizacion para consultar equipos de otros clubes.');
+        }
+
+        return $this->viewAnyHistorial($usuario);
+    }
+
     // Mitigacion de ID Tampering: modificacion restringida al club propietario
     public function update(User $usuario, Equipo $equipo): Response
     {

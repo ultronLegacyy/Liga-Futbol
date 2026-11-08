@@ -66,15 +66,19 @@ class Persona extends Model
 
     /**
      * Roles agrupados por temporada, para consultar qué papel tiene en cada una (HU-013, CA2).
+     * También es su historial (HU-015, CA2): de la temporada más reciente a la más antigua.
      *
      * @return \Illuminate\Support\Collection<int, \Illuminate\Database\Eloquent\Collection<int, PersonaRol>>
      */
     public function rolesPorTemporada()
     {
         return $this->roles()
-            ->with('temporada:id,nombre,estado')
-            ->orderBy('temporada_id')
-            ->orderBy('rol')
+            ->select('persona_roles.*')
+            ->join('temporadas', 'temporadas.id', '=', 'persona_roles.temporada_id')
+            ->with('temporada:id,nombre,fecha_inicio,fecha_fin,estado')
+            ->orderByDesc('temporadas.fecha_inicio')
+            ->orderByDesc('temporadas.id')
+            ->orderBy('persona_roles.rol')
             ->get()
             ->groupBy('temporada_id');
     }
