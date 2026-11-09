@@ -27,18 +27,20 @@
         </thead>
 
         <tbody class="divide-y divide-gray-700">
-            @foreach ($participaciones as $participacion)
+            @forelse ($participaciones as $participacion)
+                {{-- La temporada sale del grupo, que siempre la tiene --}}
+                @php($temporada = $participacion->grupo->temporada)
                 <tr>
                     <td class="px-4 py-3 font-semibold text-white">
-                        {{ $participacion->temporada->nombre }}
-                        @if ($participacion->temporada->estado === 'cerrada')
+                        {{ $temporada->nombre }}
+                        @if ($temporada->estado === 'cerrada')
                             <span class="ml-2 px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 border border-gray-600">Cerrada</span>
                         @endif
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap">
-                        {{ \Illuminate\Support\Carbon::parse($participacion->temporada->fecha_inicio)->format('d/m/Y') }}
+                        {{ \Illuminate\Support\Carbon::parse($temporada->fecha_inicio)->format('d/m/Y') }}
                         –
-                        {{ \Illuminate\Support\Carbon::parse($participacion->temporada->fecha_fin)->format('d/m/Y') }}
+                        {{ \Illuminate\Support\Carbon::parse($temporada->fecha_fin)->format('d/m/Y') }}
                     </td>
                     <td class="px-4 py-3">
                         {{ $participacion->grupo->categoria->nombre }}
@@ -48,7 +50,13 @@
                     </td>
                     <td class="px-4 py-3">{{ $participacion->grupo->nombre }}</td>
                 </tr>
-            @endforeach
+            @empty
+                <tr>
+                    <td colspan="4" class="px-4 py-6 text-center text-gray-400">
+                        Este equipo aún no tiene participaciones registradas.
+                    </td>
+                </tr>
+            @endforelse
         </tbody>
     </x-table>
 </div>

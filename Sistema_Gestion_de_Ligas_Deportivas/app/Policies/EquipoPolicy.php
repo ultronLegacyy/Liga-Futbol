@@ -8,6 +8,9 @@ use Illuminate\Auth\Access\Response;
 
 class EquipoPolicy
 {
+    // Roles que solo consultan la información de su propio club en el historial (RNF-29, HU-015)
+    public const ROLES_SOLO_SU_CLUB = ['Presidente del Club', 'Delegado del Club', 'Jugador'];
+
     // Evaluacion previa para conceder acceso irrestricto al Administrador General
     public function before(User $usuario, string $habilidad): ?bool
     {
@@ -61,10 +64,10 @@ class EquipoPolicy
             : Response::deny('No cuenta con privilegios para consultar el historial de equipos.');
     }
 
-    // Consultar el historial de un equipo (HU-015); los directivos de club solo el de su club (RNF-29)
+    // Consultar el historial de un equipo (HU-015); los roles de club solo el de su club, y sin club ninguno (RNF-29)
     public function viewHistorial(User $usuario, Equipo $equipo): Response
     {
-        if ($usuario->hasAnyRole(['Presidente del Club', 'Delegado del Club'])
+        if ($usuario->hasAnyRole(self::ROLES_SOLO_SU_CLUB)
             && ($usuario->club_id === null || (int) $usuario->club_id !== (int) $equipo->club_id)) {
             return Response::deny('Acceso denegado: no cuenta con autorizacion para consultar equipos de otros clubes.');
         }

@@ -99,6 +99,45 @@ class HistorialTemporadasTest extends TestCase
             ->assertDontSee('Pumas');
     }
 
+    // RNF-29: el Jugador también solo consulta su club, y sin club no ve ninguno (revisión del PR #63)
+    public function test_un_jugador_solo_ve_los_equipos_de_su_club(): void
+    {
+        $otroClub = Club::create(['nombre' => 'Otro club ficticio']);
+        $equipoAjeno = $this->equipo($this->actual, 'Categoría ajena', 'Grupo ajeno', 'Pumas', $otroClub);
+        $jugador = $this->crearUsuario('jugador_historial@liga.com', 'Jugador', $this->club->id);
+        $jugadorSinClub = $this->crearUsuario('jugador_sin_club_historial@liga.com', 'Jugador');
+
+        $this->actingAs($jugador)->get(route('equipos.historial.show', $this->equipoActual))->assertOk();
+        $this->actingAs($jugador)->get(route('equipos.historial.show', $equipoAjeno))->assertForbidden();
+        $this->actingAs($jugador)->get(route('equipos.historial.index'))
+            ->assertOk()
+            ->assertSee('Halcones')
+            ->assertDontSee('Pumas');
+
+        $this->actingAs($jugadorSinClub)->get(route('equipos.historial.show', $this->equipoActual))->assertForbidden();
+        $this->actingAs($jugadorSinClub)->get(route('equipos.historial.index'))
+            ->assertOk()
+            ->assertSee('No hay equipos registrados.')
+            ->assertDontSee('Halcones');
+    }
+
+    // Un equipo sin temporada_id (registros anteriores a esa columna) toma la temporada de su grupo, y el conteo coincide con el detalle
+    public function test_un_equipo_sin_temporada_propia_usa_la_de_su_grupo(): void
+    {
+        $previa = Temporada::factory()->cerrada()->create(['nombre' => 'Temporada 2024-2025 de prueba', 'fecha_inicio' => '2024-08-01', 'fecha_fin' => '2025-06-30']);
+        $equipoAntiguo = $this->equipo($previa, 'Infantil B', 'Grupo Oriente', 'Halcones');
+        $equipoAntiguo->forceFill(['temporada_id' => null])->save();
+
+        $this->actingAs($this->secretario)
+            ->get(route('equipos.historial.show', $this->equipoActual))
+            ->assertOk()
+            ->assertSeeInOrder(['Temporada 2026-2027 de prueba', 'Temporada 2025-2026 de prueba', 'Temporada 2024-2025 de prueba', 'Infantil B', 'Grupo Oriente']);
+
+        $this->actingAs($this->secretario)
+            ->get(route('equipos.historial.index'))
+            ->assertSeeInOrder(['Halcones', 'Club Historial Ficticio', '3']);
+    }
+
     // Un rol sin permiso de ver equipos no consulta el historial
     public function test_un_rol_sin_permiso_no_consulta_el_historial(): void
     {
@@ -145,8 +184,8 @@ class HistorialTemporadasTest extends TestCase
             'email' => $email,
             'password' => Hash::make('secreto123'),
             'estatus' => 'activo',
-            // La columna rol usa «Directivo Club» para los roles de club, como en TarjetonDigitalTest
-            'rol' => $clubId === null ? $rol : 'Directivo Club',
+            // La columna rol usa «Directivo Club» para los directivos de club, como en TarjetonDigitalTest
+            'rol' => in_array($rol, ['Presidente del Club', 'Delegado del Club'], true) ? 'Directivo Club' : $rol,
             'club_id' => $clubId,
         ]);
 
