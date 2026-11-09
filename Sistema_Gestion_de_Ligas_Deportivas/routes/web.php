@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdeudoClubController;
 use App\Http\Controllers\ArbitroController;
 use App\Http\Controllers\CanchaBloqueoController;
 use App\Http\Controllers\CanchaController;
@@ -11,6 +12,7 @@ use App\Http\Controllers\ForcePasswordChangeController;
 use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\JornadaController;
 use App\Http\Controllers\JugadorController;
+use App\Http\Controllers\PagoController;
 use App\Http\Controllers\PartidoController;
 use App\Http\Controllers\PersonaController;
 use App\Http\Controllers\RecuperacionContrasenaController;
@@ -119,8 +121,18 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/partidos/{partido}/arbitro', [ArbitroController::class, 'asignar'])
             ->name('partidos.arbitro.update');
 
+        // Adeudos por club y temporada: quién está al corriente (HU-051, RF-13.2)
+        Route::get('/adeudos', [AdeudoClubController::class, 'index'])
+            ->name('adeudos.index');
+
         // Cuotas de inscripción y cargos de arbitraje y cancha por temporada (HU-050, RF-13.1)
         Route::resource('cargos', CargoFinancieroController::class)->only(['index', 'create', 'store', 'show']);
+
+        // Pagos de los cargos y sus comprobantes, en el disco privado (HU-051, RF-13.2)
+        Route::post('/cargos/{cargo}/pagos', [PagoController::class, 'store'])
+            ->name('cargos.pagos.store');
+        Route::get('/pagos/{pago}/comprobante', [PagoController::class, 'comprobante'])
+            ->name('pagos.comprobante');
 
         // Grupo de rutas de administracion de gobernanza y gestión de cuentas (S2-T13)
         Route::middleware(['role:Administrador General'])->prefix('admin')->name('admin.')->group(function () {

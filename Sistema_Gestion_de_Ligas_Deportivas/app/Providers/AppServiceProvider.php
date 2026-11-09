@@ -13,6 +13,7 @@ use App\Models\Equipo;
 use App\Models\Grupo;
 use App\Models\Jornada;
 use App\Models\Jugador;
+use App\Models\Pago;
 use App\Models\Partido;
 use App\Models\Persona;
 use App\Models\TarjetonDigital;
@@ -31,6 +32,7 @@ use App\Policies\EquipoPolicy;
 use App\Policies\GrupoPolicy;
 use App\Policies\JornadaPolicy;
 use App\Policies\JugadorPolicy;
+use App\Policies\PagoPolicy;
 use App\Policies\PartidoPolicy;
 use App\Policies\PersonaPolicy;
 use App\Policies\TarjetonDigitalPolicy;
@@ -75,6 +77,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Jugador::class, JugadorPolicy::class);
         Gate::policy(Partido::class, PartidoPolicy::class);
         Gate::policy(CargoFinanciero::class, CargoFinancieroPolicy::class);
+        Gate::policy(Pago::class, PagoPolicy::class);
 
         RateLimiter::for('jugador-vinculacion', fn (Request $request): Limit => Limit::perMinute(5)
             ->by(($request->user()?->getAuthIdentifier() ?? 'anonimo').'|'.$request->ip()));
