@@ -9,10 +9,10 @@ El sistema respalda la base de datos y los documentos privados (convocatorias, c
 
 | Tarea | Horario (hora de México) | Qué hace |
 | --- | --- | --- |
-| `respaldo:crear --completo` | Domingo, 02:00 | La base completa y **todos** los documentos. |
-| `respaldo:crear` | Lunes a sábado, 02:00 | La base completa y solo los documentos **creados o modificados** desde el último completo. |
-| `respaldo:depurar` | Diario, 03:30 | Borra los respaldos de más de 30 días. Conserva el último completo y los completos de los que depende algún diario vigente. |
-| `respaldo:probar` | Día 1 de cada mes, 04:00 | Restaura el último respaldo aparte y comprueba RPO ≤ 24 h y RTO ≤ 4 h. |
+| `respaldo:crear --completo` | Domingo, 03:00 | La base completa y **todos** los documentos. |
+| `respaldo:crear` | Lunes a sábado, 03:00 | La base completa y solo los documentos **creados o modificados** desde el último completo. |
+| `respaldo:depurar` | Diario, 04:00 | Borra los respaldos de más de 30 días. Conserva el último completo y los completos de los que depende algún diario vigente. |
+| `respaldo:probar` | Día 1 de cada mes, 05:00 | Restaura el último respaldo aparte y comprueba RPO ≤ 24 h y RTO ≤ 4 h. |
 
 Las tareas necesitan el cron del programador en el servidor (HU-010):
 
@@ -22,7 +22,7 @@ Las tareas necesitan el cron del programador en el servidor (HU-010):
 
 La salida de cada tarea queda en `storage/logs/respaldos.log`. Los errores también quedan en el log de la aplicación.
 
-Cada respaldo es una carpeta con su tipo y su fecha, por ejemplo `diario-20261109-020000`. Tiene estas partes:
+Cada respaldo es una carpeta con su tipo y su fecha, por ejemplo `diario-20261109-030000`. Tiene estas partes:
 
 - `base.sql.gz.cifrado`: el volcado de la base;
 - `documentos.gz.cifrado`: los documentos;
@@ -73,7 +73,7 @@ Variables del `.env`. Las que están vacías toman el valor por defecto:
 
    ```bash
    php artisan respaldo:restaurar                          # el más reciente
-   php artisan respaldo:restaurar diario-20261109-020000   # uno en particular
+   php artisan respaldo:restaurar diario-20261109-030000   # uno en particular
    ```
 
    El comando trae el respaldo y el completo del que depende, verifica el SHA-256 de cada parte y lo descifra. Después importa la base en `RESPALDO_BASE_RESTAURACION` y deja los documentos en `storage/app/restauracion`: primero los del completo y después los del diario.
@@ -93,7 +93,7 @@ Si el SHA-256 no coincide, el respaldo se alteró o se dañó: el comando no toc
 `php artisan respaldo:probar` muestra el respaldo probado, una tabla de medidas y las filas de las tablas principales:
 
 ```
-Respaldo probado: diario-20261130-020000 (37 documentos).
+Respaldo probado: diario-20261130-030000 (37 documentos).
 | RPO (antigüedad del respaldo) | 2 h     | ≤ 24 h | Cumple |
 | RTO (tiempo de restauración)  | 1.4 min | ≤ 4 h  | Cumple |
 | usuarios | 14 |

@@ -118,10 +118,10 @@ class RespaldosTest extends TestCase
             ]);
 
         $this->assertSame([
-            'respaldo:crear --completo' => ['0 2 * * 0', 'America/Mexico_City', true],
-            'respaldo:crear' => ['0 2 * * 1,2,3,4,5,6', 'America/Mexico_City', true],
-            'respaldo:depurar' => ['30 3 * * *', 'America/Mexico_City', true],
-            'respaldo:probar' => ['0 4 1 * *', 'America/Mexico_City', true],
+            'respaldo:crear --completo' => ['0 3 * * 0', 'America/Mexico_City', true],
+            'respaldo:crear' => ['0 3 * * 1,2,3,4,5,6', 'America/Mexico_City', true],
+            'respaldo:depurar' => ['0 4 * * *', 'America/Mexico_City', true],
+            'respaldo:probar' => ['0 5 1 * *', 'America/Mexico_City', true],
         ], $eventos->all());
     }
 
