@@ -11,7 +11,9 @@ use App\Models\Club;
 use App\Models\DirectivoClub;
 use App\Models\Equipo;
 use App\Models\Grupo;
+use App\Models\Jornada;
 use App\Models\Jugador;
+use App\Models\Partido;
 use App\Models\Persona;
 use App\Models\TarjetonDigital;
 use App\Models\Temporada;
@@ -27,7 +29,9 @@ use App\Policies\CategoriaPolicy;
 use App\Policies\ClubPolicy;
 use App\Policies\EquipoPolicy;
 use App\Policies\GrupoPolicy;
+use App\Policies\JornadaPolicy;
 use App\Policies\JugadorPolicy;
+use App\Policies\PartidoPolicy;
 use App\Policies\PersonaPolicy;
 use App\Policies\TarjetonDigitalPolicy;
 use App\Policies\TemporadaPolicy;
@@ -64,10 +68,12 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(BloqueoCancha::class, BloqueoCanchaPolicy::class);
         Gate::policy(Categoria::class, CategoriaPolicy::class);
         Gate::policy(Grupo::class, GrupoPolicy::class);
+        Gate::policy(Jornada::class, JornadaPolicy::class);
         Gate::policy(Persona::class, PersonaPolicy::class);
         Gate::policy(Arbitro::class, ArbitroPolicy::class);
         Gate::policy(TarjetonDigital::class, TarjetonDigitalPolicy::class);
         Gate::policy(Jugador::class, JugadorPolicy::class);
+        Gate::policy(Partido::class, PartidoPolicy::class);
         Gate::policy(CargoFinanciero::class, CargoFinancieroPolicy::class);
 
         RateLimiter::for('jugador-vinculacion', fn (Request $request): Limit => Limit::perMinute(5)
