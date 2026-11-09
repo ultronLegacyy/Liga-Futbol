@@ -26,6 +26,9 @@
                 Volver a la categoría
             </a>
             @can('create', [App\Models\Jornada::class, $grupo])
+                <a href="{{ route('grupos.generar-rol', $grupo) }}" class="px-4 py-2 bg-indigo-600 text-white font-medium text-sm rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition">
+                    Generar rol automático
+                </a>
                 <a href="{{ route('grupos.jornadas.create', $grupo) }}" class="px-4 py-2 bg-green-600 text-white font-medium text-sm rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400 transition">
                     + Nueva jornada
                 </a>
