@@ -26,7 +26,7 @@
         <x-alert type="success" :message="session('success')" />
     @endif
 
-    <form method="GET" action="{{ route('cargos.index') }}" class="grid gap-4 sm:grid-cols-4 items-end mb-6" aria-label="Filtrar cargos">
+    <form method="GET" action="{{ route('cargos.index') }}" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5 items-end mb-6" aria-label="Filtrar cargos">
         <x-form.field name="filtro_temporada" label="Temporada">
             <select id="filtro_temporada" name="temporada_id" class="{{ $campo }}">
                 <option value="">Todas</option>
@@ -54,6 +54,15 @@
             </select>
         </x-form.field>
 
+        <x-form.field name="filtro_estado" label="Estado">
+            <select id="filtro_estado" name="estado" class="{{ $campo }}">
+                <option value="">Todos</option>
+                @foreach (App\Models\CargoFinanciero::ESTADOS as $valor => $etiqueta)
+                    <option value="{{ $valor }}" @selected($filtros['estado'] === $valor)>{{ $etiqueta }}</option>
+                @endforeach
+            </select>
+        </x-form.field>
+
         <div class="flex gap-3">
             <button type="submit" class="px-4 py-2.5 bg-gray-700 text-white text-sm font-medium rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-400">Filtrar</button>
             <a href="{{ route('cargos.index') }}" class="px-4 py-2.5 text-sm text-gray-300 rounded-lg border border-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-400">Limpiar</a>
@@ -69,6 +78,8 @@
                 <th scope="col" class="px-4 py-3">Jugador</th>
                 <th scope="col" class="px-4 py-3">Concepto</th>
                 <th scope="col" class="px-4 py-3 text-right">Monto</th>
+                <th scope="col" class="px-4 py-3 text-right">Pagado</th>
+                <th scope="col" class="px-4 py-3 text-right">Saldo</th>
                 <th scope="col" class="px-4 py-3">Vencimiento</th>
                 <th scope="col" class="px-4 py-3">Estado</th>
                 <th scope="col" class="px-4 py-3 text-right">Acciones</th>
@@ -77,6 +88,7 @@
 
         <tbody class="divide-y divide-gray-700">
             @forelse ($cargos as $cargo)
+                @php($estadoMostrado = $cargo->estadoMostrado())
                 <tr>
                     <td class="px-4 py-3">{{ $cargo->temporada?->nombre ?? 'Sin temporada' }}</td>
                     <td class="px-4 py-3 font-semibold text-white">{{ $cargo->club->nombre }}</td>
@@ -84,8 +96,10 @@
                     <td class="px-4 py-3">{{ $cargo->persona ? $cargo->persona->apellidos.', '.$cargo->persona->nombre : '—' }}</td>
                     <td class="px-4 py-3">{{ App\Models\CargoFinanciero::CONCEPTOS[$cargo->concepto] ?? $cargo->concepto }}</td>
                     <td class="px-4 py-3 text-right whitespace-nowrap">${{ number_format((float) $cargo->monto, 2) }}</td>
+                    <td class="px-4 py-3 text-right whitespace-nowrap">${{ number_format((float) $cargo->montoPagado(), 2) }}</td>
+                    <td class="px-4 py-3 text-right whitespace-nowrap font-semibold text-white">${{ number_format((float) $cargo->saldo(), 2) }}</td>
                     <td class="px-4 py-3 whitespace-nowrap">{{ $cargo->vencimiento->format('d/m/Y') }}</td>
-                    <td class="px-4 py-3">{{ App\Models\CargoFinanciero::ESTADOS[$cargo->estado] ?? $cargo->estado }}</td>
+                    <td class="px-4 py-3 font-semibold {{ $estadoMostrado === 'Vencido' ? 'text-red-400' : ($estadoMostrado === 'Pagado' ? 'text-green-400' : 'text-amber-400') }}">{{ App\Models\CargoFinanciero::ESTADOS[$estadoMostrado] ?? $estadoMostrado }}</td>
                     <td class="px-4 py-3 text-right whitespace-nowrap">
                         <a href="{{ route('cargos.show', $cargo) }}" class="text-blue-400 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-400 rounded">
                             Ver<span class="sr-only"> cargo {{ $cargo->id }}</span>
@@ -94,7 +108,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="9" class="px-4 py-6 text-center text-gray-400">No hay cargos con esos filtros.</td>
+                    <td colspan="11" class="px-4 py-6 text-center text-gray-400">No hay cargos con esos filtros.</td>
                 </tr>
             @endforelse
         </tbody>

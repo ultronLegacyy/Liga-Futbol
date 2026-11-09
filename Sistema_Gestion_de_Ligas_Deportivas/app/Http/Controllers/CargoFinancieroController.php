@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
-// Cuotas de inscripción y cargos de arbitraje y cancha por temporada (HU-050, RF-13.1); los pagos son de HU-051
+// Cuotas de inscripción y cargos de arbitraje y cancha por temporada (HU-050, RF-13.1); los pagos se registran en PagoController (HU-051)
 class CargoFinancieroController extends Controller
 {
     // Casos de registro: qué concepto generan y si piden equipo o persona ('no', 'opcional' u 'obligatorio')
@@ -41,14 +41,19 @@ class CargoFinancieroController extends Controller
             'temporada_id' => $request->integer('temporada_id') ?: null,
             'club_id' => $request->integer('club_id') ?: null,
             'concepto' => array_key_exists((string) $request->query('concepto'), CargoFinanciero::CONCEPTOS) ? (string) $request->query('concepto') : null,
+            // Estado mostrado: Vencido se calcula igual que en estadoMostrado() (HU-051)
+            'estado' => array_key_exists((string) $request->query('estado'), CargoFinanciero::ESTADOS) ? (string) $request->query('estado') : null,
         ];
 
         $cargos = CargoFinanciero::query()
             // Sin la CURP: de la persona solo se muestra el nombre
             ->with(['club:id,nombre', 'equipo:id,nombre', 'persona:id,nombre,apellidos', 'temporada:id,nombre'])
+            // Lo pagado de cada cargo en la misma consulta, sin una consulta de pagos por fila
+            ->withSum('pagos', 'monto')
             ->when($filtros['temporada_id'], fn ($consulta, $id) => $consulta->where('temporada_id', $id))
             ->when($filtros['club_id'], fn ($consulta, $id) => $consulta->where('club_id', $id))
             ->when($filtros['concepto'], fn ($consulta, $concepto) => $consulta->where('concepto', $concepto))
+            ->when($filtros['estado'], fn ($consulta, $estado) => $consulta->conEstadoMostrado($estado))
             ->orderByDesc('id')
             ->paginate(25)
             ->withQueryString();
@@ -137,7 +142,14 @@ class CargoFinancieroController extends Controller
     {
         Gate::authorize('view', $cargo);
 
-        $cargo->load(['club:id,nombre', 'equipo:id,nombre', 'persona:id,nombre,apellidos', 'temporada:id,nombre,estado']);
+        $cargo->load([
+            'club:id,nombre',
+            'equipo:id,nombre',
+            'persona:id,nombre,apellidos',
+            'temporada:id,nombre,estado',
+            // Con los pagos cargados, el saldo se suma en memoria (HU-051)
+            'pagos' => fn ($consulta) => $consulta->with('validadoPor:id,name')->orderBy('created_at')->orderBy('id'),
+        ]);
 
         return view('cargos.show', compact('cargo'));
     }

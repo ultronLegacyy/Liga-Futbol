@@ -64,4 +64,15 @@ class Grupo extends Model
     {
         return $this->hasMany(Equipo::class, 'grupo_id');
     }
+
+    /** @return HasMany<Jornada, $this> */
+    public function jornadas(): HasMany
+    {
+        return $this->hasMany(Jornada::class, 'grupo_id');
+    }
+
+    public function tieneEquiposImpares(): bool
+    {
+        return $this->equipos()->count() % 2 !== 0;
+    }
 }
