@@ -27,6 +27,12 @@
             <a href="{{ route('admin.usuarios.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white">
                 Usuarios
             </a>
+            {{-- Permisos de cada rol en solo lectura (HU-081) --}}
+            @role('Administrador General')
+                <a href="{{ route('admin.roles.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white">
+                    Roles y permisos
+                </a>
+            @endrole
             @can('viewAny', App\Models\Temporada::class)
                 <a href="{{ route('temporadas.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white">
                     Temporadas

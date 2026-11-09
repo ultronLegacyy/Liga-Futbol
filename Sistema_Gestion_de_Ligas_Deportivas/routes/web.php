@@ -17,6 +17,7 @@ use App\Http\Controllers\PartidoController;
 use App\Http\Controllers\PersonaController;
 use App\Http\Controllers\RecuperacionContrasenaController;
 use App\Http\Controllers\ReglaTemporadaController;
+use App\Http\Controllers\RolPermisoController;
 use App\Http\Controllers\TemporadaController;
 use App\Http\Controllers\TarjetonDigitalController;
 use App\Http\Controllers\UserController;
@@ -156,6 +157,14 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/usuarios/{usuario}/estado', [UserController::class, 'estado'])->name('usuarios.estado');
             Route::put('/usuarios/{usuario}', [UserController::class, 'update'])->name('usuarios.update');
             Route::patch('/usuarios/{usuario}/toggle-status', [UserController::class, 'toggleStatus'])->name('usuarios.toggleStatus');
+
+            // Permisos de cada rol en solo lectura (HU-081, RF-12.1); cualquier cambio se rechaza (CA3)
+            Route::get('/roles', [RolPermisoController::class, 'index'])->name('roles.index');
+            Route::get('/roles/{rol}', [RolPermisoController::class, 'show'])->whereNumber('rol')->name('roles.show');
+            Route::match(['post', 'put', 'patch', 'delete'], '/roles/{rol?}', [RolPermisoController::class, 'rechazarCambio'])
+                ->name('roles.cambio');
+            Route::match(['post', 'put', 'patch', 'delete'], '/roles/{rol}/permisos/{permiso?}', [RolPermisoController::class, 'rechazarCambio'])
+                ->name('roles.permisos.cambio');
         });
 
         // Grupo de rutas operativas protegidas por permiso
