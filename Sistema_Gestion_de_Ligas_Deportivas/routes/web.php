@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdeudoClubController;
 use App\Http\Controllers\ArbitroController;
 use App\Http\Controllers\CanchaBloqueoController;
 use App\Http\Controllers\CanchaController;
@@ -118,6 +119,10 @@ Route::middleware(['auth'])->group(function () {
             ->name('partidos.arbitro.edit');
         Route::put('/partidos/{partido}/arbitro', [ArbitroController::class, 'asignar'])
             ->name('partidos.arbitro.update');
+
+        // Adeudos por club y temporada: quién está al corriente (HU-051, RF-13.2)
+        Route::get('/adeudos', [AdeudoClubController::class, 'index'])
+            ->name('adeudos.index');
 
         // Cuotas de inscripción y cargos de arbitraje y cancha por temporada (HU-050, RF-13.1)
         Route::resource('cargos', CargoFinancieroController::class)->only(['index', 'create', 'store', 'show']);

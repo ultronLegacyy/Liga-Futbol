@@ -51,6 +51,9 @@
                 <a href="{{ route('cargos.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white">
                     Cuotas y cargos
                 </a>
+                <a href="{{ route('adeudos.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white">
+                    Adeudos por club
+                </a>
             @endcan
         </nav>
 
