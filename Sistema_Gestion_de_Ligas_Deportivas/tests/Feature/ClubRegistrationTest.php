@@ -2,12 +2,21 @@
 
 namespace Tests\Feature;
 
+use App\Models\Categoria;
 use App\Models\Club;
+use App\Models\Grupo;
+use App\Models\HistorialVentaClub;
+use App\Models\Persona;
+use App\Models\Temporada;
 use App\Models\User;
+use App\Services\VentaClubService;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
+use Spatie\Permission\Models\Role;
+use RuntimeException;
 use Tests\TestCase;
 
 class ClubRegistrationTest extends TestCase
@@ -215,7 +224,178 @@ class ClubRegistrationTest extends TestCase
         );
     }
 
-    public function test_venta_traspasa_propiedad_registra_historial_y_reinicia_la_plantilla_deportiva(): void
+    public function test_venta_sin_inscripciones_conserva_el_flujo_comercial(): void
+    {
+        $club = Club::findOrFail($this->directivo->club_id);
+        $club->update(['propietario_usuario_id' => $this->directivo->id]);
+        $nuevoPropietario = User::query()->create([
+            'name' => 'Nuevo propietario sin plantilla',
+            'email' => str()->uuid().'@liga.test',
+            'password' => Hash::make('secreto123'),
+            'estatus' => 'activo',
+            'rol' => 'Consultor',
+        ]);
+
+        $venta = app(VentaClubService::class)->vender($club, (int) $nuevoPropietario->id, '2026-11-01');
+
+        $this->assertDatabaseHas('clubes', [
+            'id' => $club->id,
+            'propietario_usuario_id' => $nuevoPropietario->id,
+        ]);
+        $this->assertDatabaseHas('historial_ventas_club', [
+            'id' => $venta->id,
+            'club_id' => $club->id,
+        ]);
+    }
+    public function test_venta_desvincula_delegados_sin_revocar_su_rol_o_permisos(): void
+    {
+        $club = Club::findOrFail($this->directivo->club_id);
+        $club->update(['propietario_usuario_id' => $this->directivo->id]);
+        $delegado = User::query()->create([
+            'name' => 'Delegado previo a venta',
+            'email' => str()->uuid().'@liga.test',
+            'password' => Hash::make('secreto123'),
+            'estatus' => 'activo',
+            'rol' => 'Directivo Club',
+            'club_id' => $club->id,
+        ]);
+        $delegado->assignRole(Role::query()->firstOrCreate(['name' => 'Delegado del Club', 'guard_name' => 'web']));
+        $clubOtro = Club::query()->create(['nombre' => 'Club no vendido '.str()->uuid(), 'estado' => 'activo']);
+        $delegadoOtroClub = User::query()->create([
+            'name' => 'Delegado de otro club',
+            'email' => str()->uuid().'@liga.test',
+            'password' => Hash::make('secreto123'),
+            'estatus' => 'activo',
+            'rol' => 'Directivo Club',
+            'club_id' => $clubOtro->id,
+        ]);
+        $delegadoOtroClub->assignRole(Role::query()->firstOrCreate(['name' => 'Delegado del Club', 'guard_name' => 'web']));
+        $directivaVendidaId = DB::table('directivos_club')->insertGetId([
+            'club_id' => $club->id,
+            'nombre' => 'Directiva existente del club vendido',
+            'cargo' => 'Secretario',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $directivaOtroClubId = DB::table('directivos_club')->insertGetId([
+            'club_id' => $clubOtro->id,
+            'nombre' => 'Directiva de otro club',
+            'cargo' => 'Secretario',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $temporada = Temporada::factory()->activa()->create();
+        $categoria = Categoria::factory()->create(['temporada_id' => $temporada->id]);
+        $grupo = Grupo::factory()->create(['temporada_id' => $temporada->id, 'categoria_id' => $categoria->id]);
+        $equipo = $club->equipos()->create([
+            'temporada_id' => $temporada->id,
+            'grupo_id' => $grupo->id,
+            'nombre' => 'Equipo tras venta',
+        ]);
+        $nuevoPropietario = User::query()->create([
+            'name' => 'Comprador del club',
+            'email' => str()->uuid().'@liga.test',
+            'password' => Hash::make('secreto123'),
+            'estatus' => 'activo',
+            'rol' => 'Consultor',
+        ]);
+
+        app(VentaClubService::class)->vender($club, (int) $nuevoPropietario->id, '2026-11-01');
+
+        $this->assertNull($delegado->fresh()->club_id);
+        $this->assertTrue($delegado->fresh()->hasRole('Delegado del Club'));
+        $this->assertTrue($delegado->fresh()->can('jugadores.crear'));
+        $delegado->refresh();
+        $this->assertDatabaseHas('usuarios', ['id' => $delegado->id, 'club_id' => null]);
+        $this->assertDatabaseHas('directivos_club', ['id' => $directivaVendidaId, 'club_id' => $club->id]);
+        $this->assertDatabaseHas('directivos_club', ['id' => $directivaOtroClubId, 'club_id' => $clubOtro->id]);
+        $this->assertDatabaseHas('usuarios', ['id' => $delegadoOtroClub->id, 'club_id' => $clubOtro->id]);
+
+        $persona = Persona::factory()->create();
+        $this->actingAs($delegado)
+            ->getJson(route('clubes.show', $club))
+            ->assertForbidden();
+        $this->actingAs($delegado)
+            ->get(route('jugadores.create'))
+            ->assertForbidden();
+        $this->actingAs($delegado)
+            ->postJson(route('equipos.jugadores.store', $equipo), ['persona_id' => $persona->id])
+            ->assertForbidden();
+        $this->assertDatabaseMissing('jugadores_equipos', ['persona_id' => $persona->id, 'equipo_id' => $equipo->id]);
+
+        $jugadorGestion = $equipo->jugadores()->create([
+            'persona_id' => Persona::factory()->create()->id,
+        ]);
+        $this->actingAs($delegado)
+            ->get(route('jugadores.gestion', $jugadorGestion))
+            ->assertForbidden();
+
+        $nuevoDelegado = User::query()->create([
+            'name' => 'Delegado asignado por el nuevo propietario',
+            'email' => str()->uuid().'@liga.test',
+            'password' => Hash::make('secreto123'),
+            'estatus' => 'activo',
+            'rol' => 'Directivo Club',
+        ]);
+        $nuevoDelegado->assignRole(Role::query()->firstOrCreate(['name' => 'Delegado del Club', 'guard_name' => 'web']));
+
+        $this->actingAs($nuevoPropietario)
+            ->postJson(route('clubes.delegados.store', $club), ['usuario_id' => $nuevoDelegado->id])
+            ->assertCreated()
+            ->assertJsonPath('delegado.club_id', $club->id);
+        $this->assertDatabaseHas('usuarios', ['id' => $nuevoDelegado->id, 'club_id' => $club->id]);
+        $this->actingAs($delegado)
+            ->postJson(route('clubes.delegados.store', $club), ['usuario_id' => $delegado->id])
+            ->assertForbidden();
+
+        $this->actingAs($nuevoPropietario)
+            ->postJson(route('clubes.delegados.store', $club), ['usuario_id' => $delegadoOtroClub->id])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('usuario_id');
+        $this->assertDatabaseHas('usuarios', ['id' => $delegadoOtroClub->id, 'club_id' => $clubOtro->id]);
+    }
+    public function test_venta_fallida_revierte_la_desadscripcion_de_delegados(): void
+    {
+        $club = Club::query()->findOrFail($this->directivo->club_id);
+        $club->update(['propietario_usuario_id' => $this->directivo->id]);
+        $delegado = User::query()->create([
+            'name' => 'Delegado venta rollback',
+            'email' => str()->uuid().'@liga.test',
+            'password' => Hash::make('secreto123'),
+            'estatus' => 'activo',
+            'rol' => 'Directivo Club',
+            'club_id' => $club->id,
+        ]);
+        $delegado->assignRole(Role::query()->firstOrCreate(['name' => 'Delegado del Club', 'guard_name' => 'web']));
+        $nuevoPropietario = User::query()->create([
+            'name' => 'Comprador venta rollback',
+            'email' => str()->uuid().'@liga.test',
+            'password' => Hash::make('secreto123'),
+            'estatus' => 'activo',
+            'rol' => 'Consultor',
+        ]);
+
+        Event::listen('eloquent.creating: '.HistorialVentaClub::class, static function (): never {
+            throw new RuntimeException('Fallo inducido al guardar historial de venta.');
+        });
+
+        try {
+            app(VentaClubService::class)->vender($club, (int) $nuevoPropietario->id, '2026-11-01');
+            $this->fail('La venta debe fallar durante el registro de su historial.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Fallo inducido al guardar historial de venta.', $exception->getMessage());
+        }
+
+        $this->assertDatabaseHas('clubes', [
+            'id' => $club->id,
+            'propietario_usuario_id' => $this->directivo->id,
+        ]);
+        $this->assertDatabaseHas('usuarios', ['id' => $delegado->id, 'club_id' => $club->id]);
+        $this->assertDatabaseCount('historial_ventas_club', 0);
+    }
+
+    public function test_venta_con_inscripciones_y_documentos_se_rechaza_y_conserva_la_plantilla(): void
     {
         $club = Club::findOrFail($this->directivo->club_id);
         $club->update(['propietario_usuario_id' => $this->directivo->id]);
@@ -274,7 +454,17 @@ class ClubRegistrationTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
-        DB::table('jugadores_equipos')->insert([
+        DB::table('documentos_persona')->insert([
+            'persona_id' => $personaId,
+            'tipo' => 'INE',
+            'disco' => 'private',
+            'ruta_storage' => 'personas/'.$personaId.'/ine.pdf',
+            'mime_type' => 'application/pdf',
+            'tamano_bytes' => 128,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $jugadorId = DB::table('jugadores_equipos')->insertGetId([
             'persona_id' => $personaId,
             'equipo_id' => $equipoId,
             'dorsal' => 10,
@@ -282,34 +472,24 @@ class ClubRegistrationTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
-
         $respuesta = $this->actingAs($this->directivo)->postJson("/clubes/{$club->id}/venta", [
             'propietario_usuario_id' => $nuevoPropietario->id,
             'carta_venta_pdf' => 'ventas/carta-venta.pdf',
             'fecha_venta' => '2026-11-01',
         ]);
 
-        $respuesta->assertCreated();
+        $respuesta->assertUnprocessable()->assertJsonValidationErrors(['club']);
         $this->assertDatabaseHas('clubes', [
             'id' => $club->id,
-            'propietario_usuario_id' => $nuevoPropietario->id,
+            'propietario_usuario_id' => $this->directivo->id,
         ]);
-        $this->assertDatabaseHas('historial_ventas_club', [
-            'club_id' => $club->id,
-            'propietario_anterior_usuario_id' => $this->directivo->id,
-            'propietario_nuevo_usuario_id' => $nuevoPropietario->id,
-            'propietario_anterior' => $this->directivo->name,
-            'propietario_nuevo' => $nuevoPropietario->name,
-            'carta_venta_pdf' => 'ventas/carta-venta.pdf',
-            'fecha_venta' => '2026-11-01',
-        ]);
-        $this->assertDatabaseHas('equipos', [
-            'id' => $equipoId,
-            'partidos_default_acumulados' => 0,
-        ]);
-        $this->assertDatabaseMissing('jugadores_equipos', [
+        $this->assertDatabaseCount('historial_ventas_club', 0);
+        $this->assertDatabaseHas('equipos', ['id' => $equipoId, 'partidos_default_acumulados' => 9]);
+        $this->assertDatabaseHas('jugadores_equipos', ['persona_id' => $personaId, 'equipo_id' => $equipoId]);
+        $this->assertDatabaseHas('documentos_persona', [
             'persona_id' => $personaId,
-            'equipo_id' => $equipoId,
+            'tipo' => 'INE',
+            'ruta_storage' => 'personas/'.$personaId.'/ine.pdf',
         ]);
     }
 

@@ -13,9 +13,11 @@ use App\Services\ReglaSaltoCategoriaService;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use PHPUnit\Framework\Attributes\DataProvider;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class EquipoRegistrationTest extends TestCase
@@ -100,7 +102,7 @@ class EquipoRegistrationTest extends TestCase
 
     public function test_programador_no_recibe_permiso_para_crear_jugadores(): void
     {
-        $rolProgramador = \Spatie\Permission\Models\Role::findByName('Programador de Partidos');
+        $rolProgramador = Role::findByName('Programador de Partidos');
 
         $this->assertFalse($rolProgramador->hasPermissionTo('jugadores.crear'));
     }
@@ -229,6 +231,15 @@ class EquipoRegistrationTest extends TestCase
         }
     }
 
+    public function test_inscripcion_rechaza_salto_de_dos_niveles_hacia_abajo(): void
+    {
+        $temporada = Temporada::factory()->activa()->create();
+        $origen = Categoria::factory()->create(['temporada_id' => $temporada->id, 'jerarquia_salto' => 3]);
+        $destino = Categoria::factory()->create(['temporada_id' => $temporada->id, 'jerarquia_salto' => 1]);
+
+        $this->expectException(ValidationException::class);
+        app(ReglaSaltoCategoriaService::class)->validar($origen, $destino);
+    }
     public function test_inscripcion_de_jugador_rechaza_destino_dos_niveles_arriba(): void
     {
         $temporadaOrigen = Temporada::factory()->activa()->create(['nombre' => 'Temporada de Origen']);
@@ -347,6 +358,102 @@ class EquipoRegistrationTest extends TestCase
         $this->assertSame(1, Jugador::query()->where('equipo_id', $equipo->id)->count());
     }
 
+    #[DataProvider('temporadasNoActivas')]
+    public function test_no_inscribe_jugador_en_temporada_borrador_o_cerrada(string $estadoTemporada): void
+    {
+        $club = $this->crearClub('Club temporada '.$estadoTemporada);
+        $delegado = $this->crearDelegado($club);
+        $temporada = Temporada::factory()->create(['estado' => $estadoTemporada]);
+        $equipo = $this->crearEquipoEnTemporada($club, $temporada, 'Equipo temporada '.$estadoTemporada);
+        $personaId = $this->crearPersona();
+
+        $this->actingAs($delegado)
+            ->postJson(route('equipos.jugadores.store', $equipo), ['persona_id' => $personaId])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['equipo_id']);
+
+        $this->assertDatabaseCount('jugadores_equipos', 0);
+    }
+
+    public static function temporadasNoActivas(): array
+    {
+        return [
+            'borrador' => ['borrador'],
+            'cerrada' => ['cerrada'],
+        ];
+    }
+
+    #[DataProvider('estadosQueBloqueanOtraInscripcion')]
+    public function test_no_inscribe_jugador_suspendido_o_inelegible_en_otro_equipo_de_la_temporada(string $estadoElegibilidad): void
+    {
+        $temporada = Temporada::factory()->activa()->create();
+        $club = $this->crearClub('Club con inscripción '.$estadoElegibilidad);
+        $equipoOrigen = $this->crearEquipoEnTemporada($club, $temporada, 'Equipo origen '.$estadoElegibilidad);
+        $equipoDestino = $this->crearEquipoEnTemporada($club, $temporada, 'Equipo destino '.$estadoElegibilidad);
+        $personaId = $this->crearPersona();
+        Jugador::create([
+            'persona_id' => $personaId,
+            'equipo_id' => $equipoOrigen->id,
+            'estado_elegibilidad' => $estadoElegibilidad,
+        ]);
+
+        $this->actingAs($this->crearDelegado($club))
+            ->postJson(route('equipos.jugadores.store', $equipoDestino), ['persona_id' => $personaId])
+            ->assertUnprocessable()
+            ->assertJsonPath(
+                'errors.persona_id.0',
+                'El jugador tiene una inscripción suspendida, inelegible o dada de baja en otro equipo de la temporada destino.'
+            );
+
+        $this->assertSame(1, Jugador::query()->where('persona_id', $personaId)->count());
+    }
+
+    public static function estadosQueBloqueanOtraInscripcion(): array
+    {
+        return [
+            'Suspendido' => ['Suspendido'],
+            'Inelegible' => ['Inelegible'],
+        ];
+    }
+
+    #[DataProvider('estadosAnterioresQueNoBloqueanNuevaTemporada')]
+    public function test_permite_inscribir_en_temporada_activa_si_la_inscripcion_anterior_es_de_otra_temporada(string $estadoAnterior): void
+    {
+        $club = $this->crearClub('Club con renovación entre temporadas');
+        $delegado = $this->crearDelegado($club);
+        $temporadaAnterior = Temporada::factory()->cerrada()->create();
+        $temporadaActual = Temporada::factory()->activa()->create();
+        $equipoAnterior = $this->crearEquipoEnTemporada($club, $temporadaAnterior, 'Equipo anterior');
+        $equipoActual = $this->crearEquipoEnTemporada($club, $temporadaActual, 'Equipo actual');
+        $personaId = $this->crearPersona();
+        Jugador::create([
+            'persona_id' => $personaId,
+            'equipo_id' => $equipoAnterior->id,
+            'estado_elegibilidad' => $estadoAnterior,
+        ]);
+
+        $respuesta = $this->actingAs($delegado)
+            ->postJson(route('equipos.jugadores.store', $equipoActual), ['persona_id' => $personaId])
+            ->assertCreated();
+
+        $this->assertDatabaseHas('jugadores_equipos', [
+            'id' => $respuesta->json('inscripcion.id'),
+            'persona_id' => $personaId,
+            'equipo_id' => $equipoActual->id,
+            'estado_elegibilidad' => 'Activo',
+        ]);
+        $this->assertSame(2, Jugador::query()->where('persona_id', $personaId)->count());
+    }
+
+    public static function estadosAnterioresQueNoBloqueanNuevaTemporada(): array
+    {
+        return [
+            'Activo' => ['Activo'],
+            'Suspendido' => ['Suspendido'],
+            'Inelegible' => ['Inelegible'],
+        ];
+    }
+
     public function test_no_inscribe_jugador_activo_en_otro_equipo_de_la_misma_temporada(): void
     {
         $temporada = Temporada::factory()->activa()->create();
@@ -450,6 +557,17 @@ class EquipoRegistrationTest extends TestCase
             'grupo_id' => $grupo->id,
             'nombre' => $nombre,
         ]);
+    }
+
+    private function crearEquipoEnTemporada(Club $club, Temporada $temporada, string $nombre): Equipo
+    {
+        $categoria = Categoria::factory()->create(['temporada_id' => $temporada->id]);
+        $grupo = Grupo::factory()->create([
+            'categoria_id' => $categoria->id,
+            'temporada_id' => $temporada->id,
+        ]);
+
+        return $this->crearEquipoParaGrupo($club, $temporada, $grupo, $nombre);
     }
 
     /** @return array{Temporada, Categoria, Grupo} */

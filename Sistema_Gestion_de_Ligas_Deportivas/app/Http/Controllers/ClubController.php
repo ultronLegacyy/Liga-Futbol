@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Club;
 use App\Http\Requests\StoreVentaClubRequest;
+use App\Http\Requests\StoreClubDelegateRequest;
+use App\Services\AsignacionDelegadoClubService;
 use App\Services\AuditService;
 use App\Services\VentaClubService;
 use Illuminate\Http\JsonResponse;
@@ -145,6 +147,19 @@ class ClubController extends Controller
             'equipos' => $club->equipos,
             'acceso' => 'autorizado',
         ]);
+    }
+
+    public function asignarDelegado(
+        StoreClubDelegateRequest $request,
+        Club $club,
+        AsignacionDelegadoClubService $servicio,
+    ): JsonResponse {
+        $delegado = $servicio->asignar($club, (int) $request->validated('usuario_id'));
+
+        return response()->json([
+            'mensaje' => 'Delegado adscrito al club.',
+            'delegado' => $delegado->only(['id', 'name', 'email', 'club_id']),
+        ], 201);
     }
 
     public function vender(StoreVentaClubRequest $request, Club $club, VentaClubService $servicio): JsonResponse

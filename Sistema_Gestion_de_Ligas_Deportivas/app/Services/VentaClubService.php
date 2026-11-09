@@ -27,6 +27,31 @@ class VentaClubService
                 ]);
             }
 
+            $equipoIds = $club->equipos()->orderBy('id')->lockForUpdate()->pluck('id');
+            $hayInscripciones = DB::table('jugadores_equipos')
+                ->whereIn('equipo_id', $equipoIds)
+                ->exists();
+
+            if ($hayInscripciones) {
+                throw ValidationException::withMessages([
+                    'club' => 'No se puede vender el club mientras existan inscripciones de jugadores; la venta se canceló para conservar la plantilla, los documentos y su historial.',
+                ]);
+            }
+
+            $delegadosAnteriores = User::query()
+                ->where('club_id', $club->getKey())
+                ->whereKeyNot($nuevoPropietario->getKey())
+                ->whereHas('roles', fn ($query) => $query->where('name', 'Delegado del Club'))
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($delegadosAnteriores as $delegado) {
+                if ((int) $delegado->club_id === (int) $club->getKey()) {
+                    $delegado->forceFill(['club_id' => null])->save();
+                }
+            }
+
             $venta = HistorialVentaClub::query()->create([
                 'club_id' => $club->getKey(),
                 'propietario_anterior' => $propietarioAnterior === null ? 'Sin propietario registrado' : $propietarioAnterior->name,
@@ -37,9 +62,6 @@ class VentaClubService
                 'fecha_venta' => $fechaVenta,
             ]);
 
-            $equipoIds = $club->equipos()->lockForUpdate()->pluck('id');
-
-            DB::table('jugadores_equipos')->whereIn('equipo_id', $equipoIds)->delete();
             $club->equipos()->update(['partidos_default_acumulados' => 0]);
             $club->update(['propietario_usuario_id' => $nuevoPropietario->getKey()]);
 

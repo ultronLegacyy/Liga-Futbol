@@ -10,8 +10,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Equipo extends Model
 {
-    use HasFactory;
     use Auditable;
+    use HasFactory;
 
     // Nombre de la tabla de persistencia relacional
     protected $table = 'equipos';
@@ -37,6 +37,13 @@ class Equipo extends Model
     {
         return $this->belongsTo(Grupo::class, 'grupo_id');
     }
+
+    /** @return BelongsTo<Temporada, $this> */
+    public function temporada(): BelongsTo
+    {
+        return $this->belongsTo(Temporada::class, 'temporada_id');
+    }
+
     /** @return HasMany<Jugador, $this> */
     public function jugadores(): HasMany
     {
