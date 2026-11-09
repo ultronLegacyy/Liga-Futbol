@@ -21,7 +21,7 @@ class ConfirmarRolRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'fixture_payload' => ['required', 'string'],
+            'fixture_payload' => ['required', 'string', 'json'],
             'sobrescribir' => ['nullable', 'boolean'],
         ];
     }
@@ -34,6 +34,7 @@ class ConfirmarRolRequest extends FormRequest
         return [
             'fixture_payload.required' => 'La propuesta de enfrentamientos es requerida para su confirmación.',
             'fixture_payload.string' => 'El formato de la propuesta de enfrentamientos no es válido.',
+            'fixture_payload.json' => 'La propuesta de enfrentamientos debe ser una estructura JSON válida.',
         ];
     }
 }

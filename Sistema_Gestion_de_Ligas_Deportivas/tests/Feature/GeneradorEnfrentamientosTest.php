@@ -584,6 +584,22 @@ class GeneradorEnfrentamientosTest extends TestCase
         ]);
     }
 
+    /**
+     * Validación de ConfirmarRolRequest: El payload debe ser una cadena JSON válida.
+     */
+    public function test_confirmar_falla_si_payload_no_es_json_valido(): void
+    {
+        $this->crearEquipo('Club JSON 1');
+        $this->crearEquipo('Club JSON 2');
+
+        $response = $this->actingAs($this->programador)
+            ->post(route('grupos.confirmar-rol', $this->grupo), [
+                'fixture_payload' => 'invalido-no-json',
+            ]);
+
+        $response->assertSessionHasErrors(['fixture_payload']);
+    }
+
     private function crearEquipo(string $nombre): Equipo
     {
         $this->clubCount++;

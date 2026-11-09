@@ -33,7 +33,7 @@ class GeneradorEnfrentamientosController extends Controller
             $this->generadorService->validarGrupoParaGeneracion($grupo);
         } catch (ValidationException $e) {
             return redirect()->route('grupos.jornadas.index', $grupo)
-                ->with('error', $e->getMessage());
+                ->with('error', $e->validator->errors()->first() ?: $e->getMessage());
         }
 
         $grupo->load(['categoria.temporada', 'equipos']);
@@ -53,7 +53,7 @@ class GeneradorEnfrentamientosController extends Controller
             $propuesta = $this->generadorService->generarPropuestaRol($grupo, $request->validated());
         } catch (ValidationException $e) {
             return redirect()->route('grupos.generar-rol', $grupo)
-                ->with('error', $e->getMessage());
+                ->with('error', $e->validator->errors()->first() ?: $e->getMessage());
         }
 
         if ($request->wantsJson()) {
@@ -92,7 +92,7 @@ class GeneradorEnfrentamientosController extends Controller
             );
         } catch (ValidationException $e) {
             return redirect()->route('grupos.generar-rol', $grupo)
-                ->with('error', $e->getMessage());
+                ->with('error', $e->validator->errors()->first() ?: $e->getMessage());
         }
 
         return redirect()->route('grupos.jornadas.index', $grupo)
@@ -110,7 +110,7 @@ class GeneradorEnfrentamientosController extends Controller
             $this->generadorService->aplicarEnfrentamientosAJornada($jornada);
         } catch (ValidationException $e) {
             return redirect()->route('jornadas.show', $jornada)
-                ->with('error', $e->getMessage());
+                ->with('error', $e->validator->errors()->first() ?: $e->getMessage());
         }
 
         return redirect()->route('jornadas.show', $jornada)
