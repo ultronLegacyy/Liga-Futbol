@@ -13,7 +13,11 @@ class Sprint4MariaDbDocumentMigrationTest extends TestCase
     public function test_maria_db_revierte_multiples_documentos_con_timestamps_colisiones_y_mapa_incompleto(): void
     {
         $this->assertSame('mysql', DB::connection()->getDriverName());
-        $this->assertSame('sgld_scrum31_testing', DB::connection()->getDatabaseName());
+        $databaseName = DB::connection()->getDatabaseName();
+        $this->assertTrue(
+            in_array($databaseName, ['sgld_scrum31_testing', 'sgld_testing'], true),
+            'La prueba solo puede ejecutarse contra bases de datos aisladas de pruebas.'
+        );
         $this->assertFalse(Schema::hasTable('jugador_documentos'));
         $this->assertTrue(Schema::hasTable('jugador_documentos_consolidacion'));
         $this->assertTrue(Schema::hasTable('jugador_documentos_consolidacion_meta'));
