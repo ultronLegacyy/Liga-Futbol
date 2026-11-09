@@ -52,9 +52,15 @@ class GeneradorEnfrentamientosTest extends TestCase
         $this->programador = $this->crearUsuario('programador_rol@liga.com', 'Programador de Partidos');
         $this->usuarioSinPermiso = $this->crearUsuario('tesorero_rol@liga.com', 'Tesorero');
 
-        $this->temporada = Temporada::factory()->activa()->create();
+        $this->temporada = Temporada::factory()->activa()->create([
+            'fecha_inicio' => '2026-01-01',
+            'fecha_fin' => '2027-12-31',
+        ]);
         $categoria = Categoria::factory()->create(['temporada_id' => $this->temporada->id]);
-        $this->grupo = Grupo::factory()->create(['categoria_id' => $categoria->id]);
+        $this->grupo = Grupo::factory()->create([
+            'categoria_id' => $categoria->id,
+            'temporada_id' => $this->temporada->id,
+        ]);
 
         $this->generadorService = app(GeneradorEnfrentamientosService::class);
     }
@@ -598,6 +604,278 @@ class GeneradorEnfrentamientosTest extends TestCase
             ]);
 
         $response->assertSessionHasErrors(['fixture_payload']);
+    }
+
+    /**
+     * Prueba de seguridad: La confirmación rechaza propuestas manipuladas en el cliente con equipos ajenos o fechas inválidas.
+     */
+    public function test_confirmar_rol_rechaza_propuesta_alterada_con_equipos_o_fechas_invalidas(): void
+    {
+        $this->crearEquipo('Equipo A');
+        $this->crearEquipo('Equipo B');
+
+        // Grupo ajeno y equipo ajeno
+        $otroGrupo = Grupo::factory()->create(['temporada_id' => $this->temporada->id]);
+        $clubAjeno = Club::create(['nombre' => 'Club Ajeno']);
+        $equipoAjeno = Equipo::create([
+            'club_id' => $clubAjeno->id,
+            'grupo_id' => $otroGrupo->id,
+            'nombre' => 'Equipo Forastero',
+        ]);
+
+        $propuestaBase = $this->generadorService->generarPropuestaRol($this->grupo, [
+            'fecha_inicio' => '2026-11-20',
+        ]);
+
+        // 1. Partido con equipo ajeno al grupo
+        $propuestaAlterada1 = $propuestaBase;
+        $propuestaAlterada1['jornadas'][0]['partidos'][0]['equipo_visitante_id'] = $equipoAjeno->id;
+
+        $response1 = $this->actingAs($this->programador)
+            ->post(route('grupos.confirmar-rol', $this->grupo), [
+                'fixture_payload' => json_encode($propuestaAlterada1),
+            ]);
+        $response1->assertSessionHasErrors(['fixture_payload']);
+
+        // 2. Mismo equipo jugando contra sí mismo (local = visitante)
+        $propuestaAlterada2 = $propuestaBase;
+        $localId = $propuestaAlterada2['jornadas'][0]['partidos'][0]['equipo_local_id'];
+        $propuestaAlterada2['jornadas'][0]['partidos'][0]['equipo_visitante_id'] = $localId;
+
+        $response2 = $this->actingAs($this->programador)
+            ->post(route('grupos.confirmar-rol', $this->grupo), [
+                'fixture_payload' => json_encode($propuestaAlterada2),
+            ]);
+        $response2->assertSessionHasErrors(['fixture_payload']);
+
+        // 3. Fecha con fecha_fin anterior a fecha_inicio
+        $propuestaAlterada3 = $propuestaBase;
+        $propuestaAlterada3['jornadas'][0]['fecha_inicio'] = '2026-11-20';
+        $propuestaAlterada3['jornadas'][0]['fecha_fin'] = '2026-11-10';
+
+        $response3 = $this->actingAs($this->programador)
+            ->post(route('grupos.confirmar-rol', $this->grupo), [
+                'fixture_payload' => json_encode($propuestaAlterada3),
+            ]);
+        $response3->assertSessionHasErrors(['fixture_payload']);
+    }
+
+    /**
+     * Prueba de concurrencia y serialización transaccional (RNF-33).
+     */
+    public function test_generar_partidos_concurrente_no_duplica_partidos(): void
+    {
+        $this->crearEquipo('Alfa');
+        $this->crearEquipo('Beta');
+
+        $jornada = Jornada::create([
+            'grupo_id' => $this->grupo->id,
+            'numero_jornada' => 1,
+            'fecha_inicio' => '2026-11-15',
+            'fecha_fin' => '2026-11-16',
+        ]);
+
+        // Primera generación exitosa
+        $this->generadorService->aplicarEnfrentamientosAJornada($jornada);
+        $this->assertCount(1, $jornada->fresh()->partidos);
+
+        // Segunda llamada inmediata (simulando condición de carrera o doble clic)
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        $this->generadorService->aplicarEnfrentamientosAJornada($jornada);
+
+        $this->assertCount(1, $jornada->fresh()->partidos);
+    }
+
+    /**
+     * Criterio 2 (RF-06.2): Generar partidos en jornada con descanso previamente asignado respeta el descanso.
+     */
+    public function test_generar_partidos_en_jornada_con_descanso_existente_respeta_descanso(): void
+    {
+        $alfa = $this->crearEquipo('Alfa');
+        $beta = $this->crearEquipo('Beta');
+        $gamma = $this->crearEquipo('Gamma');
+
+        // La jornada tiene a Gamma asignado manualmente en descanso
+        $jornada = Jornada::create([
+            'grupo_id' => $this->grupo->id,
+            'numero_jornada' => 1,
+            'fecha_inicio' => '2026-11-15',
+            'fecha_fin' => '2026-11-16',
+            'equipo_descanso_id' => $gamma->id,
+        ]);
+
+        $this->generadorService->aplicarEnfrentamientosAJornada($jornada);
+
+        $jornadaActualizada = $jornada->fresh(['partidos']);
+        $this->assertEquals($gamma->id, $jornadaActualizada->equipo_descanso_id);
+        $this->assertCount(1, $jornadaActualizada->partidos);
+
+        $partido = $jornadaActualizada->partidos->first();
+        $this->assertNotNull($partido);
+        $equiposPartido = [$partido->equipo_local_id, $partido->equipo_visitante_id];
+
+        // Gamma descansa y NO debe estar jugando en el partido
+        $this->assertNotContains($gamma->id, $equiposPartido);
+        $this->assertContains($alfa->id, $equiposPartido);
+        $this->assertContains($beta->id, $equiposPartido);
+    }
+
+    /**
+     * Auditoría de reemplazo (RNF-30): Al reemplazar un rol, los partidos previos borrados deben auditarse individualmente.
+     */
+    public function test_reemplazar_rol_registra_auditoria_de_partidos_eliminados(): void
+    {
+        $e1 = $this->crearEquipo('Equipo X');
+        $e2 = $this->crearEquipo('Equipo Y');
+
+        $jornada = Jornada::create([
+            'grupo_id' => $this->grupo->id,
+            'numero_jornada' => 1,
+            'fecha_inicio' => '2026-11-10',
+            'fecha_fin' => '2026-11-11',
+        ]);
+
+        $partidoPrevio = Partido::create([
+            'jornada_id' => $jornada->id,
+            'equipo_local_id' => $e1->id,
+            'equipo_visitante_id' => $e2->id,
+            'fecha_partido' => '2026-11-10',
+            'estado' => 'programado',
+        ]);
+
+        $propuesta = $this->generadorService->generarPropuestaRol($this->grupo, [
+            'fecha_inicio' => '2026-11-20',
+        ]);
+
+        $this->actingAs($this->programador)
+            ->post(route('grupos.confirmar-rol', $this->grupo), [
+                'fixture_payload' => json_encode($propuesta),
+                'sobrescribir' => '1',
+            ])
+            ->assertRedirect(route('grupos.jornadas.index', $this->grupo));
+
+        // Debe existir el registro de auditoría del partido eliminado
+        $this->assertDatabaseHas('auditoria_logs', [
+            'tabla_afectada' => 'partidos',
+            'registro_id' => $partidoPrevio->id,
+            'accion' => 'eliminar',
+            'usuario_id' => $this->programador->id,
+        ]);
+    }
+
+    /**
+     * Verificación de la vista jornadas.show sin errores 500 (Punto 5 del code review).
+     */
+    public function test_pantalla_show_jornada_carga_correctamente_sin_error_500(): void
+    {
+        $this->crearEquipo('Equipo 1');
+        $this->crearEquipo('Equipo 2');
+
+        $jornada = Jornada::create([
+            'grupo_id' => $this->grupo->id,
+            'numero_jornada' => 1,
+            'fecha_inicio' => '2026-11-10',
+            'fecha_fin' => '2026-11-11',
+        ]);
+
+        $response = $this->actingAs($this->programador)
+            ->get(route('jornadas.show', $jornada));
+
+        $response->assertOk()
+            ->assertViewIs('jornadas.show')
+            ->assertViewHas('grupo')
+            ->assertViewHas('equipos')
+            ->assertSee("Jornada {$jornada->numero_jornada}");
+    }
+
+    /**
+     * Balance matemático de localías (Sistema Berger): Máxima diferencia de localías de 1 partido en 1 vuelta y 0 en 2 vueltas.
+     */
+    public function test_algoritmo_berger_balancea_localias_equitativamente_en_grupo_par(): void
+    {
+        $equiposIds = range(1, 10);
+
+        // 1 vuelta (9 jornadas)
+        $rol1 = $this->generadorService->calcularRolBerger($equiposIds, 1);
+        $locales = array_fill_keys($equiposIds, 0);
+        $visitas = array_fill_keys($equiposIds, 0);
+
+        foreach ($rol1 as $ronda) {
+            foreach ($ronda['partidos'] as $p) {
+                $locales[$p['equipo_local_id']]++;
+                $visitas[$p['equipo_visitante_id']]++;
+            }
+        }
+
+        foreach ($equiposIds as $id) {
+            $this->assertLessThanOrEqual(1, abs($locales[$id] - $visitas[$id]), "Equipo {$id} excede balance en 1 vuelta.");
+            $this->assertGreaterThan(0, $locales[$id], "Equipo {$id} no tiene partidos de local.");
+            $this->assertGreaterThan(0, $visitas[$id], "Equipo {$id} no tiene partidos de visitante.");
+        }
+
+        // 2 vueltas (18 jornadas)
+        $rol2 = $this->generadorService->calcularRolBerger($equiposIds, 2);
+        $locales2 = array_fill_keys($equiposIds, 0);
+        $visitas2 = array_fill_keys($equiposIds, 0);
+
+        foreach ($rol2 as $ronda) {
+            foreach ($ronda['partidos'] as $p) {
+                $locales2[$p['equipo_local_id']]++;
+                $visitas2[$p['equipo_visitante_id']]++;
+            }
+        }
+
+        foreach ($equiposIds as $id) {
+            $this->assertEquals($locales2[$id], $visitas2[$id], "Equipo {$id} no está 50/50 balanceado en 2 vueltas.");
+            $this->assertEquals(9, $locales2[$id]);
+            $this->assertEquals(9, $visitas2[$id]);
+        }
+    }
+
+    /**
+     * Protección de estados: Prohibido sobreescribir si hay partidos confirmados o suspendidos.
+     */
+    public function test_no_permite_sobrescribir_si_hay_partidos_confirmados_o_suspendidos(): void
+    {
+        $e1 = $this->crearEquipo('Rojos');
+        $e2 = $this->crearEquipo('Azules');
+
+        $jornada = Jornada::create([
+            'grupo_id' => $this->grupo->id,
+            'numero_jornada' => 1,
+            'fecha_inicio' => '2026-11-01',
+            'fecha_fin' => '2026-11-02',
+        ]);
+
+        $partido = Partido::create([
+            'jornada_id' => $jornada->id,
+            'equipo_local_id' => $e1->id,
+            'equipo_visitante_id' => $e2->id,
+            'estado' => 'confirmado',
+        ]);
+
+        $propuesta = $this->generadorService->generarPropuestaRol($this->grupo, [
+            'fecha_inicio' => '2026-11-15',
+        ]);
+
+        $this->actingAs($this->programador)
+            ->post(route('grupos.confirmar-rol', $this->grupo), [
+                'fixture_payload' => json_encode($propuesta),
+                'sobrescribir' => '1',
+            ])
+            ->assertRedirect(route('grupos.generar-rol', $this->grupo))
+            ->assertSessionHas('error');
+
+        // Probar también con suspendido
+        $partido->update(['estado' => 'suspendido']);
+
+        $this->actingAs($this->programador)
+            ->post(route('grupos.confirmar-rol', $this->grupo), [
+                'fixture_payload' => json_encode($propuesta),
+                'sobrescribir' => '1',
+            ])
+            ->assertRedirect(route('grupos.generar-rol', $this->grupo))
+            ->assertSessionHas('error');
     }
 
     private function crearEquipo(string $nombre): Equipo

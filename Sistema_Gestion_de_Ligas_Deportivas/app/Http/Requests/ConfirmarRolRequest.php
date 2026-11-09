@@ -37,4 +37,36 @@ class ConfirmarRolRequest extends FormRequest
             'fixture_payload.json' => 'La propuesta de enfrentamientos debe ser una estructura JSON válida.',
         ];
     }
+
+    public function withValidator(\Illuminate\Validation\Validator $validator): void
+    {
+        $validator->after(function (\Illuminate\Validation\Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            $grupo = $this->route('grupo');
+            if (! $grupo instanceof \App\Models\Grupo) {
+                return;
+            }
+
+            /** @var string $payloadString */
+            $payloadString = (string) $this->input('fixture_payload');
+            $propuesta = json_decode($payloadString, true);
+
+            if (! is_array($propuesta)) {
+                $validator->errors()->add('fixture_payload', 'La propuesta de enfrentamientos debe ser una estructura JSON válida.');
+
+                return;
+            }
+
+            try {
+                app(\App\Services\GeneradorEnfrentamientosService::class)->validarPropuestaRol($grupo, $propuesta);
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                foreach ($e->validator->errors()->all() as $mensaje) {
+                    $validator->errors()->add('fixture_payload', $mensaje);
+                }
+            }
+        });
+    }
 }

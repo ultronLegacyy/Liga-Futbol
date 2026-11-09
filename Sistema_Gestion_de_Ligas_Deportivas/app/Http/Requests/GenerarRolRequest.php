@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Grupo;
 use App\Models\Jornada;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -20,8 +21,21 @@ class GenerarRolRequest extends FormRequest
      */
     public function rules(): array
     {
+        $grupo = $this->route('grupo');
+        $fechaRules = ['required', 'date_format:Y-m-d'];
+
+        if ($grupo instanceof Grupo && $grupo->temporada) {
+            $temporada = $grupo->temporada;
+            if ($temporada->fecha_inicio) {
+                $fechaRules[] = 'after_or_equal:'.$temporada->fecha_inicio;
+            }
+            if ($temporada->fecha_fin) {
+                $fechaRules[] = 'before_or_equal:'.$temporada->fecha_fin;
+            }
+        }
+
         return [
-            'fecha_inicio' => ['required', 'date'],
+            'fecha_inicio' => $fechaRules,
             'intervalo_dias' => ['required', 'integer', 'min:1', 'max:60'],
             'dias_duracion' => ['required', 'integer', 'min:0', 'max:30'],
             'vueltas' => ['required', 'integer', 'in:1,2'],
@@ -37,7 +51,9 @@ class GenerarRolRequest extends FormRequest
     {
         return [
             'fecha_inicio.required' => 'La fecha de inicio es obligatoria para calcular el calendario.',
-            'fecha_inicio.date' => 'La fecha de inicio debe tener un formato de fecha válido.',
+            'fecha_inicio.date_format' => 'La fecha de inicio debe tener el formato AAAA-MM-DD (Y-m-d).',
+            'fecha_inicio.after_or_equal' => 'La fecha de inicio no puede ser anterior al inicio de la temporada.',
+            'fecha_inicio.before_or_equal' => 'La fecha de inicio no puede ser posterior al término de la temporada.',
             'intervalo_dias.required' => 'El intervalo de días entre jornadas es obligatorio.',
             'intervalo_dias.integer' => 'El intervalo debe ser un número entero.',
             'intervalo_dias.min' => 'El intervalo debe ser de al menos 1 día.',

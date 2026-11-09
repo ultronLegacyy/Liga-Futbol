@@ -190,15 +190,7 @@
                 @empty
                     <tr>
                         <td colspan="6" class="px-4 py-8 text-center text-gray-400">
-                            <div>No hay partidos programados en esta jornada todavía.</div>
-                            @can('update', $jornada)
-                                <form action="{{ route('jornadas.generar-partidos', $jornada) }}" method="POST" class="inline-block mt-3">
-                                    @csrf
-                                    <button type="submit" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 transition">
-                                        Generar enfrentamientos automáticos para esta jornada (HU-032)
-                                    </button>
-                                </form>
-                            @endcan
+                            No hay partidos programados en esta jornada todavía.
                         </td>
                     </tr>
                 @endforelse

@@ -82,7 +82,10 @@ class JornadaController extends Controller
             'partidos.arbitro.persona',
         ]);
 
-        return view('jornadas.show', compact('jornada'));
+        $grupo = $jornada->grupo;
+        $equipos = $grupo->equipos;
+
+        return view('jornadas.show', compact('jornada', 'grupo', 'equipos'));
     }
 
     /**
@@ -93,9 +96,10 @@ class JornadaController extends Controller
         Gate::authorize('update', $jornada);
 
         $jornada->load(['grupo.categoria.temporada', 'grupo.equipos', 'equipoDescanso']);
-        $equipos = $jornada->grupo->equipos()->orderBy('nombre')->get();
+        $grupo = $jornada->grupo;
+        $equipos = $grupo->equipos()->orderBy('nombre')->get();
 
-        return view('jornadas.edit', compact('jornada', 'equipos'));
+        return view('jornadas.edit', compact('jornada', 'grupo', 'equipos'));
     }
 
     /**
