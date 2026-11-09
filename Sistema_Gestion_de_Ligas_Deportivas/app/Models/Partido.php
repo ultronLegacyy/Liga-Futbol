@@ -4,12 +4,14 @@ namespace App\Models;
 
 use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 // Partido de una jornada (RF-06.1). HU-025 usa su cancha y su horario, HU-026 su árbitro; HU-014/HU-027 completan el resto
 class Partido extends Model
 {
+    use HasFactory;
     use Auditable;
 
     // Estados de un partido programado que admiten asignar árbitro (RF-06.3)
@@ -51,9 +53,21 @@ class Partido extends Model
     }
 
     /** @return BelongsTo<Equipo, $this> */
+    public function equipoLocal(): BelongsTo
+    {
+        return $this->local();
+    }
+
+    /** @return BelongsTo<Equipo, $this> */
     public function visitante(): BelongsTo
     {
         return $this->belongsTo(Equipo::class, 'equipo_visitante_id');
+    }
+
+    /** @return BelongsTo<Equipo, $this> */
+    public function equipoVisitante(): BelongsTo
+    {
+        return $this->visitante();
     }
 
     /** @return BelongsTo<Cancha, $this> */

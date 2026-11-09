@@ -36,7 +36,7 @@ class JugadorController extends Controller
             ->with(['temporada', 'grupo.categoria'])
             ->whereHas('temporada', fn (Builder $query): Builder => $query->where('estado', 'activa'))
             ->when(
-                $usuario->hasRole('Delegado del Club') && $usuario->club_id !== null,
+                $usuario->hasRole('Delegado del Club'),
                 fn (Builder $query): Builder => $query->where('club_id', $usuario->club_id),
             )
             ->orderBy('nombre')

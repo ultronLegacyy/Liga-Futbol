@@ -27,6 +27,11 @@
             <a href="{{ route('admin.usuarios.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white">
                 Usuarios
             </a>
+            @can('viewAny', App\Models\Temporada::class)
+                <a href="{{ route('temporadas.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white">
+                    Temporadas
+                </a>
+            @endcan
             @can('viewAny', App\Models\Cancha::class)
                 <a href="{{ route('canchas.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white">
                     Canchas
