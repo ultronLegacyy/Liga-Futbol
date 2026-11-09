@@ -178,7 +178,6 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/clubes/{club}', [ClubController::class, 'update'])->name('clubes.update');
         Route::get('/clubes/{club}/equipos', [ClubController::class, 'equipos'])->name('clubes.equipos');
         Route::post('/clubes/{club}/venta', [ClubController::class, 'vender'])->name('clubes.venta');
-        Route::post('/clubes/{club}/delegados', [ClubController::class, 'asignarDelegado'])->name('clubes.delegados.store');
 
         Route::get('/clubes/{club}/temporadas/{temporada}/tarjetones', [TarjetonDigitalController::class, 'index'])
             ->name('clubes.temporadas.tarjetones.index');
@@ -194,6 +193,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/jugadores', [JugadorController::class, 'store'])->name('jugadores.store');
         Route::post('/equipos/{equipo}/jugadores', [JugadorController::class, 'store'])->name('equipos.jugadores.store');
         Route::get('/jugadores/{jugador}/gestionar', [JugadorController::class, 'gestion'])->name('jugadores.gestion');
+        Route::get('/jugadores/vincular', [JugadorController::class, 'vincularForm'])->name('jugadores.vincular.form');
         Route::post('/jugadores/vincular', [JugadorController::class, 'vincular'])
             ->middleware('throttle:jugador-vinculacion')->name('jugadores.vincular');
         Route::get('/jugadores/{jugador}', [JugadorController::class, 'show'])->name('jugadores.show');

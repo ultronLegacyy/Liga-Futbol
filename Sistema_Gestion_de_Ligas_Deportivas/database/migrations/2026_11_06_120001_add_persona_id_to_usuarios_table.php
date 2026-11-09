@@ -12,31 +12,13 @@ return new class () extends Migration {
             $table->foreignId('persona_id')->nullable()->unique()->after('club_id')
                 ->constrained('personas')->nullOnDelete();
         });
-
-        Schema::create('jugador_documentos', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('jugador_id')->constrained('jugadores_equipos')->cascadeOnDelete();
-            $table->enum('tipo', ['INE', 'CURP', 'Fotografia', 'Comprobante']);
-            $table->string('disco')->default('private');
-            $table->string('ruta_storage');
-            $table->string('mime_type', 100);
-            $table->unsignedBigInteger('tamano_bytes');
-            $table->timestamps();
-            $table->unique(['jugador_id', 'tipo']);
-        });
     }
 
     public function down(): void
     {
-        if (Schema::hasTable('jugador_documentos') && DB::table('jugador_documentos')->exists()) {
-            throw new RuntimeException('No se puede revertir el vínculo persona-jugador mientras existan documentos legados.');
-        }
-
         if (DB::table('usuarios')->whereNotNull('persona_id')->exists()) {
             throw new RuntimeException('No se puede revertir el vínculo persona-cuenta mientras existan cuentas vinculadas.');
         }
-
-        Schema::dropIfExists('jugador_documentos');
 
         Schema::table('usuarios', function (Blueprint $table): void {
             $table->dropForeign(['persona_id']);

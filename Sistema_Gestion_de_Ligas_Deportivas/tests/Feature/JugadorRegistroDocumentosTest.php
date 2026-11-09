@@ -104,7 +104,10 @@ class JugadorRegistroDocumentosTest extends TestCase
         $usuario = $this->crearCuentaJugador($personaPropia);
 
         $this->actingAs($usuario)->getJson(route('jugadores.show', $propio))->assertOk();
-        $this->get(route('jugadores.documentos.show', [$propio, $documento]))->assertOk();
+        $this->get(route('jugadores.documentos.show', [$propio, $documento]))
+            ->assertOk()
+            ->assertDownload('ine-'.$personaPropia->id.'.pdf')
+            ->assertHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
         $this->getJson(route('jugadores.show', $ajeno))->assertForbidden();
 
         $documentoAjeno = $personaAjena->documentos()->create([
@@ -197,7 +200,7 @@ class JugadorRegistroDocumentosTest extends TestCase
         ]);
     }
 
-    public function test_vinculacion_por_curp_aplica_rate_limit(): void
+    public function test_vinculacion_por_curp_bloquea_despues_de_cinco_fallos(): void
     {
         $usuario = $this->crearCuentaJugador();
         $this->actingAs($usuario);
@@ -206,7 +209,20 @@ class JugadorRegistroDocumentosTest extends TestCase
             $this->postJson(route('jugadores.vincular'), ['curp' => 'ZZZZ000000HDFXXX00'])->assertOk();
         }
 
-        $this->postJson(route('jugadores.vincular'), ['curp' => 'ZZZZ000000HDFXXX00'])->assertStatus(429);
+        // Durante el bloqueo se conserva la respuesta generica.
+        $respuesta = $this->postJson(route('jugadores.vincular'), [
+            'curp' => 'ZZZZ000000HDFXXX00',
+        ])->assertOk();
+
+        $this->assertSame(
+            'Si los datos corresponden a un registro elegible, la cuenta quedará vinculada.',
+            $respuesta->json('mensaje')
+        );
+
+        $this->assertDatabaseHas('usuarios', [
+            'id' => $usuario->id,
+            'persona_id' => null,
+        ]);
     }
 
     public function test_solo_administrador_general_puede_desvincular_y_la_operacion_se_audita(): void
@@ -239,7 +255,7 @@ class JugadorRegistroDocumentosTest extends TestCase
             'nombre' => 'Jugador',
             'apellidos' => 'HU-016',
             'fecha_nacimiento' => '2010-01-01',
-            'curp' => str()->upper(str()->random(18)),
+            'curp' => fake()->unique()->regexify('[A-Z]{4}[0-9]{6}[HM][A-Z]{5}[0-9A-Z][0-9]'),
         ]);
     }
 

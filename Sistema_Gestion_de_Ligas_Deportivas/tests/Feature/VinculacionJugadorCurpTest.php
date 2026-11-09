@@ -75,19 +75,62 @@ class VinculacionJugadorCurpTest extends TestCase
         $this->assertDatabaseHas('usuarios', ['id' => $cuentaSinVinculo->id, 'persona_id' => null]);
     }
 
-    public function test_aplica_cinco_intentos_de_vinculacion_por_minuto(): void
+    public function test_curp_con_formato_invalido_se_rechaza_en_espanol_sin_consultar_registros(): void
     {
+        $cuenta = $this->crearCuentaJugador();
+
+        $this->actingAs($cuenta)
+            ->postJson(route('jugadores.vincular'), ['curp' => '1234567890ABCDEFGH'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['curp' => 'La CURP no tiene un formato válido.']);
+
+        $this->assertDatabaseHas('usuarios', ['id' => $cuenta->id, 'persona_id' => null]);
+    }
+
+    public function test_cinco_fallos_bloquean_vinculacion_durante_quince_minutos(): void
+    {
+        $temporada = Temporada::factory()->activa()->create();
+        $persona = $this->crearPersona('VINC900101HDFABC01');
+
+        PersonaRol::query()->create([
+            'persona_id' => $persona->id,
+            'rol' => 'jugador',
+            'temporada_id' => $temporada->id,
+        ]);
+
         $cuenta = $this->crearCuentaJugador();
         $this->actingAs($cuenta);
 
         for ($intento = 0; $intento < 5; $intento++) {
-            $this->postJson(route('jugadores.vincular'), ['curp' => 'SINP900101HDFABC01'])->assertOk();
+            $this->postJson(route('jugadores.vincular'), [
+                'curp' => 'SINP900101HDFABC01',
+            ])->assertOk();
         }
 
-        $this->postJson(route('jugadores.vincular'), ['curp' => 'SINP900101HDFABC01'])->assertStatus(429);
+        // Una CURP correcta no debe vincularse durante el bloqueo.
+        $this->postJson(route('jugadores.vincular'), [
+            'curp' => $persona->curp,
+        ])->assertOk();
+
+        $this->assertDatabaseHas('usuarios', [
+            'id' => $cuenta->id,
+            'persona_id' => null,
+        ]);
+
+        // Al finalizar el bloqueo, la vinculacion debe funcionar.
+        $this->travel(16)->minutes();
+
+        $this->postJson(route('jugadores.vincular'), [
+            'curp' => $persona->curp,
+        ])->assertOk();
+
+        $this->assertDatabaseHas('usuarios', [
+            'id' => $cuenta->id,
+            'persona_id' => $persona->id,
+        ]);
     }
 
-    public function test_solo_administrador_general_desvincula_y_revoca_el_rol_jugador_con_auditoria(): void
+    public function test_solo_administrador_general_desvincula_conserva_rol_y_permite_revincular_con_auditoria(): void
     {
         $temporada = Temporada::factory()->activa()->create();
         $persona = $this->crearPersona('QUIT900101HDFABC01');
@@ -118,10 +161,10 @@ class VinculacionJugadorCurpTest extends TestCase
         $this->assertDatabaseHas('usuarios', [
             'id' => $cuentaJugador->id,
             'persona_id' => null,
-            'rol' => 'Consultor',
+            'rol' => 'Jugador',
         ]);
-        $this->assertFalse($cuentaJugador->fresh()->hasRole('Jugador'));
-        // Se retira el acceso de la cuenta, sin borrar el rol deportivo ni su historial de temporada.
+        $this->assertTrue($cuentaJugador->fresh()->hasRole('Jugador'));
+        // Se conserva el rol de la cuenta y el historial deportivo de la persona.
         $this->assertDatabaseHas('persona_roles', [
             'persona_id' => $persona->id,
             'rol' => 'jugador',
@@ -133,6 +176,30 @@ class VinculacionJugadorCurpTest extends TestCase
             'tabla_afectada' => 'usuarios',
             'registro_id' => $cuentaJugador->id,
         ]);
+
+        // El jugador puede volver a vincular su cuenta con la misma CURP.
+        $this->actingAs($cuentaJugador->fresh())
+            ->postJson(route('jugadores.vincular'), ['curp' => $persona->curp])
+            ->assertOk();
+
+        $this->assertDatabaseHas('usuarios', [
+            'id' => $cuentaJugador->id,
+            'persona_id' => $persona->id,
+            'rol' => 'Jugador',
+        ]);
+        $this->assertTrue($cuentaJugador->fresh()->hasRole('Jugador'));
+
+        // El jugador puede volver a vincular su cuenta con la misma CURP.
+        $this->actingAs($cuentaJugador->fresh())
+            ->postJson(route('jugadores.vincular'), ['curp' => $persona->curp])
+            ->assertOk();
+
+        $this->assertDatabaseHas('usuarios', [
+            'id' => $cuentaJugador->id,
+            'persona_id' => $persona->id,
+            'rol' => 'Jugador',
+        ]);
+        $this->assertTrue($cuentaJugador->fresh()->hasRole('Jugador'));
     }
 
     private function crearPersona(string $curp): Persona

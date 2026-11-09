@@ -6,11 +6,40 @@ use App\Models\Jugador;
 use App\Models\Persona;
 use App\Models\User;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\RateLimiter;
 
 class VinculacionJugadorService
 {
+    private const MAX_INTENTOS_FALLIDOS = 5;
+    private const BLOQUEO_SEGUNDOS = 900;
+
     public function __construct(private AuditService $auditoria)
     {
+    }
+
+    private function claveIntentos(User $usuario): string
+    {
+        return 'jugador_vinculacion:intentos:'.$usuario->getKey();
+    }
+
+    private function claveBloqueo(User $usuario): string
+    {
+        return 'jugador_vinculacion:bloqueo:'.$usuario->getKey();
+    }
+
+    private function registrarFallo(User $usuario): void
+    {
+        $intentos = RateLimiter::hit(
+            $this->claveIntentos($usuario),
+            self::BLOQUEO_SEGUNDOS
+        );
+
+        if ($intentos >= self::MAX_INTENTOS_FALLIDOS) {
+            RateLimiter::hit(
+                $this->claveBloqueo($usuario),
+                self::BLOQUEO_SEGUNDOS
+            );
+        }
     }
 
     public function vincular(User $usuario, string $curp): void
@@ -20,23 +49,31 @@ class VinculacionJugadorService
                 return;
             }
 
+            if (RateLimiter::tooManyAttempts($this->claveBloqueo($usuario), 1)) {
+                return;
+            }
+
             $persona = Persona::query()
                 ->whereRaw('UPPER(curp) = ?', [strtoupper($curp)])
                 ->whereHas('roles', fn ($query) => $query->where('rol', 'jugador'))
                 ->first();
 
             if ($persona === null) {
+                $this->registrarFallo($usuario);
                 return;
             }
 
             if (User::query()->where('persona_id', $persona->getKey())->exists()) {
+                $this->registrarFallo($usuario);
                 return;
             }
 
             try {
                 $usuario->forceFill(['persona_id' => $persona->getKey()])->save();
+                RateLimiter::clear($this->claveIntentos($usuario));
             } catch (UniqueConstraintViolationException) {
                 // Otra solicitud pudo vincular la persona después de la consulta anterior.
+                $this->registrarFallo($usuario);
                 return;
             }
 
@@ -64,8 +101,7 @@ class VinculacionJugadorService
             $usuarios = User::query()->where('persona_id', $personaId)->get();
 
             foreach ($usuarios as $usuario) {
-                $usuario->forceFill(['persona_id' => null, 'rol' => 'Consultor'])->save();
-                $usuario->removeRole('Jugador');
+                $usuario->forceFill(['persona_id' => null])->save();
                 $this->auditoria->registrar('jugador_desvinculado', $usuario, ['persona_id' => $personaId], ['persona_id' => null]);
             }
         });

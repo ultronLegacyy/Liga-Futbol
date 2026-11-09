@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -88,6 +89,13 @@ class JugadorController extends Controller
         ], 201);
     }
 
+    public function vincularForm(): View
+    {
+        Gate::authorize('link', Jugador::class);
+
+        return view('jugadores.vincular');
+    }
+
     public function vincular(VincularJugadorRequest $request, VinculacionJugadorService $vinculacion): JsonResponse
     {
         $usuario = $request->user();
@@ -134,7 +142,12 @@ class JugadorController extends Controller
         abort_unless((int) $documento->persona_id === (int) $jugador->persona_id, 404);
         abort_unless($documento->disco === 'private', 404);
 
-        return Storage::disk('private')->download($documento->ruta_storage, $documento->tipo);
+        $extension = pathinfo($documento->ruta_storage, PATHINFO_EXTENSION);
+        $nombre = Str::slug($documento->tipo.'-'.$jugador->persona_id).($extension !== '' ? '.'.$extension : '');
+
+        return Storage::disk('private')->download($documento->ruta_storage, $nombre, [
+            'X-Robots-Tag' => 'noindex, nofollow, noarchive',
+        ]);
     }
 
     public function update(Request $request, Jugador $jugador): JsonResponse

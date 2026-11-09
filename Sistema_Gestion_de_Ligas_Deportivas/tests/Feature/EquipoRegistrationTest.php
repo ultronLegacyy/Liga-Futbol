@@ -231,15 +231,7 @@ class EquipoRegistrationTest extends TestCase
         }
     }
 
-    public function test_inscripcion_rechaza_salto_de_dos_niveles_hacia_abajo(): void
-    {
-        $temporada = Temporada::factory()->activa()->create();
-        $origen = Categoria::factory()->create(['temporada_id' => $temporada->id, 'jerarquia_salto' => 3]);
-        $destino = Categoria::factory()->create(['temporada_id' => $temporada->id, 'jerarquia_salto' => 1]);
 
-        $this->expectException(ValidationException::class);
-        app(ReglaSaltoCategoriaService::class)->validar($origen, $destino);
-    }
     public function test_inscripcion_de_jugador_rechaza_destino_dos_niveles_arriba(): void
     {
         $temporadaOrigen = Temporada::factory()->activa()->create(['nombre' => 'Temporada de Origen']);

@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 return new class () extends Migration {
     public function up(): void
     {
-        if (DB::getDriverName() === 'mysql') {
+        if (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
             DB::statement("ALTER TABLE documentos_persona MODIFY tipo ENUM('INE', 'CURP', 'Foto', 'Comprobante') NOT NULL");
         } elseif (DB::getDriverName() === 'sqlite') {
             Schema::table('documentos_persona', function (Blueprint $table): void {
@@ -42,7 +42,7 @@ return new class () extends Migration {
             $table->dropColumn(['disco', 'mime_type', 'tamano_bytes']);
         });
 
-        if (DB::getDriverName() === 'mysql') {
+        if (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
             DB::statement("ALTER TABLE documentos_persona MODIFY tipo ENUM('INE', 'CURP', 'Foto') NOT NULL");
         } elseif (DB::getDriverName() === 'sqlite') {
             Schema::table('documentos_persona', function (Blueprint $table): void {

@@ -234,7 +234,7 @@ class RegistroJugadorService
 
         $curp = strtoupper(trim($datos['curp']));
 
-        return Persona::query()->createOrFirst(
+        $persona = Persona::query()->createOrFirst(
             ['curp' => $curp],
             [
                 'nombre' => $datos['nombre'],
@@ -242,6 +242,24 @@ class RegistroJugadorService
                 'fecha_nacimiento' => $datos['fecha_nacimiento'],
             ],
         );
+
+        $normalizar = static function (string $valor): string {
+            $espaciosNormalizados = preg_replace('/\s+/u', ' ', trim($valor)) ?? trim($valor);
+
+            return mb_strtoupper($espaciosNormalizados);
+        };
+
+        if (
+            $normalizar($persona->nombre) !== $normalizar($datos['nombre'])
+            || $normalizar($persona->apellidos) !== $normalizar($datos['apellidos'])
+            || $persona->fecha_nacimiento->format('Y-m-d') !== $datos['fecha_nacimiento']
+        ) {
+            throw ValidationException::withMessages([
+                'curp' => 'La CURP ya está registrada con datos personales diferentes. Verifica la información antes de continuar.',
+            ]);
+        }
+
+        return $persona;
     }
 
     private function validarSaltoCategoria(Persona $persona, Equipo $equipoDestino): void

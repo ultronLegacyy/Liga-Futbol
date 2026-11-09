@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -317,128 +318,6 @@ class JugadorFormularioRegistroTest extends TestCase
         }
     }
 
-    public function test_migracion_consolida_documentos_legados_sin_mover_ni_eliminar_archivos(): void
-    {
-        $conexionOriginal = DB::getDefaultConnection();
-        config(['database.connections.documentos_consolidacion_test' => [
-            'driver' => 'sqlite',
-            'database' => ':memory:',
-            'prefix' => '',
-            'foreign_key_constraints' => true,
-        ]]);
-        DB::purge('documentos_consolidacion_test');
-        DB::setDefaultConnection('documentos_consolidacion_test');
-
-        try {
-            Schema::create('personas', function (Blueprint $table): void {
-                $table->id();
-            });
-            Schema::create('jugadores_equipos', function (Blueprint $table): void {
-                $table->id();
-                $table->unsignedBigInteger('persona_id');
-            });
-            Schema::create('documentos_persona', function (Blueprint $table): void {
-                $table->id();
-                $table->unsignedBigInteger('persona_id');
-                $table->string('tipo');
-                $table->string('ruta_storage');
-                $table->string('disco')->default('private');
-                $table->string('mime_type')->default('application/octet-stream');
-                $table->unsignedBigInteger('tamano_bytes')->default(0);
-                $table->timestamps();
-            });
-            Schema::create('jugador_documentos', function (Blueprint $table): void {
-                $table->id();
-                $table->unsignedBigInteger('jugador_id');
-                $table->string('tipo');
-                $table->string('disco')->default('private');
-                $table->string('ruta_storage');
-                $table->string('mime_type');
-                $table->unsignedBigInteger('tamano_bytes');
-                $table->timestamps();
-            });
-
-            $personaId = DB::table('personas')->insertGetId([]);
-            $jugadorId = DB::table('jugadores_equipos')->insertGetId(['persona_id' => $personaId]);
-            $ruta = 'personas/'.$personaId.'/foto.png';
-            Storage::fake('private');
-            Storage::disk('private')->put($ruta, 'imagen de prueba');
-            DB::table('jugador_documentos')->insert([
-                'jugador_id' => $jugadorId,
-                'tipo' => 'Fotografia',
-                'disco' => 'private',
-                'ruta_storage' => $ruta,
-                'mime_type' => 'image/png',
-                'tamano_bytes' => 16,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            $migracion = require database_path('migrations/2026_11_07_120001_remove_legacy_jugador_documentos_table.php');
-            $migracion->up();
-
-            $this->assertFalse(Schema::hasTable('jugador_documentos'));
-            $this->assertTrue(Schema::hasTable('jugador_documentos_consolidacion'));
-            $this->assertDatabaseHas('documentos_persona', [
-                'persona_id' => $personaId,
-                'tipo' => 'Foto',
-                'disco' => 'private',
-                'ruta_storage' => $ruta,
-                'mime_type' => 'image/png',
-                'tamano_bytes' => 16,
-            ]);
-            Storage::disk('private')->assertExists($ruta);
-
-            Schema::create('jugador_documentos', function (Blueprint $table): void {
-                $table->id();
-                $table->unsignedBigInteger('jugador_id');
-                $table->string('tipo');
-                $table->string('disco');
-                $table->string('ruta_storage');
-                $table->string('mime_type');
-                $table->unsignedBigInteger('tamano_bytes');
-                $table->timestamps();
-                $table->unique(['jugador_id', 'tipo']);
-            });
-            DB::table('jugador_documentos')->insert([
-                'id' => 1,
-                'jugador_id' => $jugadorId,
-                'tipo' => 'Fotografia',
-                'disco' => 'private',
-                'ruta_storage' => 'conflicto.png',
-                'mime_type' => 'image/png',
-                'tamano_bytes' => 16,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-            try {
-                $migracion->down();
-                $this->fail('La reversión debe rechazar una colisión sin borrar el documento consolidado.');
-            } catch (RuntimeException) {
-                $this->assertDatabaseCount('documentos_persona', 1);
-                $this->assertDatabaseHas('jugador_documentos', ['id' => 1, 'ruta_storage' => 'conflicto.png']);
-            }
-            Schema::drop('jugador_documentos');
-
-            $migracion->down();
-
-            $this->assertTrue(Schema::hasTable('jugador_documentos'));
-            $this->assertFalse(Schema::hasTable('jugador_documentos_consolidacion'));
-            $this->assertDatabaseHas('jugador_documentos', [
-                'id' => 1,
-                'jugador_id' => $jugadorId,
-                'tipo' => 'Fotografia',
-                'ruta_storage' => $ruta,
-                'mime_type' => 'image/png',
-            ]);
-            $this->assertDatabaseCount('documentos_persona', 0);
-            Storage::disk('private')->assertExists($ruta);
-        } finally {
-            DB::setDefaultConnection($conexionOriginal);
-            DB::purge('documentos_consolidacion_test');
-        }
-    }
-
     public function test_permiso_atomico_jugadores_crear_autoriza_el_formulario(): void
     {
         Permission::query()->firstOrCreate(['name' => 'jugadores.crear', 'guard_name' => 'web']);
@@ -458,8 +337,9 @@ class JugadorFormularioRegistroTest extends TestCase
     {
         [$delegado, $equipo, $temporada, $categoria] = $this->crearContexto();
         $persona = Persona::factory()->create([
-            'nombre' => 'Nombre previo',
-            'apellidos' => 'Apellido previo',
+            'nombre' => 'Jugador Formulario',
+            'apellidos' => 'Prueba',
+            'fecha_nacimiento' => '2010-01-01',
             'curp' => 'TEST010101HDFXXX01',
         ]);
         $datos = $this->datosFormulario($equipo, $temporada, $categoria, ['fotografia' => $this->imagenPng('foto.png')]);
@@ -473,6 +353,98 @@ class JugadorFormularioRegistroTest extends TestCase
             'persona_id' => $persona->id,
             'equipo_id' => $equipo->id,
         ]);
+    }
+
+    public function test_rechaza_curp_existente_con_datos_personales_diferentes_sin_crear_inscripcion(): void
+    {
+        [$delegado, $equipo, $temporada, $categoria] = $this->crearContexto();
+
+        $persona = Persona::factory()->create([
+            'nombre' => 'Persona Original',
+            'apellidos' => 'Apellido Original',
+            'fecha_nacimiento' => '2010-01-01',
+            'curp' => 'TEST010101HDFXXX01',
+        ]);
+
+        $datos = $this->datosFormulario(
+            $equipo,
+            $temporada,
+            $categoria,
+            ['fotografia' => $this->imagenPng('foto.png')]
+        );
+
+        $this->actingAs($delegado)
+            ->postJson(route('jugadores.store'), $datos)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('curp');
+
+        $this->assertDatabaseCount('personas', 1);
+        $this->assertDatabaseCount('jugadores_equipos', 0);
+        $this->assertDatabaseCount('documentos_persona', 0);
+
+        $this->assertDatabaseHas('personas', [
+            'id' => $persona->id,
+            'nombre' => 'Persona Original',
+            'apellidos' => 'Apellido Original',
+        ]);
+
+        $this->assertSame([], Storage::disk('private')->allFiles());
+    }
+    public function test_rechaza_fecha_nacimiento_con_formato_incorrecto(): void
+    {
+        [$delegado, $equipo, $temporada, $categoria] = $this->crearContexto();
+
+        $datos = $this->datosFormulario(
+            $equipo,
+            $temporada,
+            $categoria,
+            ['fotografia' => $this->imagenPng('foto.png')]
+        );
+
+        $datos['fecha_nacimiento'] = '01/01/2010';
+
+        $this->actingAs($delegado)
+            ->postJson(route('jugadores.store'), $datos)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('fecha_nacimiento');
+
+        $this->assertDatabaseCount('personas', 0);
+        $this->assertDatabaseCount('jugadores_equipos', 0);
+        $this->assertDatabaseCount('documentos_persona', 0);
+        $this->assertSame([], Storage::disk('private')->allFiles());
+    }
+
+    #[DataProvider('curpsConFormatoInvalido')]
+    public function test_rechaza_curp_con_formato_invalido(string $curp): void
+    {
+        [$delegado, $equipo, $temporada, $categoria] = $this->crearContexto();
+
+        $datos = $this->datosFormulario(
+            $equipo,
+            $temporada,
+            $categoria,
+            ['fotografia' => $this->imagenPng('foto.png')]
+        );
+        $datos['curp'] = $curp;
+
+        $this->actingAs($delegado)
+            ->postJson(route('jugadores.store'), $datos)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('curp');
+
+        $this->assertDatabaseCount('personas', 0);
+        $this->assertSame([], Storage::disk('private')->allFiles());
+    }
+
+    /** @return array<string, array{string}> */
+    public static function curpsConFormatoInvalido(): array
+    {
+        return [
+            'dígitos en lugar de letras iniciales' => ['1234900101HMNRRL01'],
+            'letras en la fecha' => ['PEGAAB0101HMNRRL01'],
+            'sexo inválido' => ['PEGA900101ZMNRRL01'],
+            'dígito verificador no numérico' => ['PEGA900101HMNRRL0A'],
+        ];
     }
 
     public function test_servicio_revalida_club_del_delegado_dentro_de_la_transaccion(): void

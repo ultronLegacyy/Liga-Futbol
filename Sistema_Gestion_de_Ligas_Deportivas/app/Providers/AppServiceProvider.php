@@ -80,7 +80,10 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Pago::class, PagoPolicy::class);
 
         RateLimiter::for('jugador-vinculacion', fn (Request $request): Limit => Limit::perMinute(5)
-            ->by(($request->user()?->getAuthIdentifier() ?? 'anonimo').'|'.$request->ip()));
+            ->by(($request->user()?->getAuthIdentifier() ?? 'anonimo').'|'.$request->ip())
+            ->response(fn (Request $request, array $headers) => response()->json([
+                'mensaje' => 'Si los datos corresponden a un registro elegible, la cuenta quedará vinculada.',
+            ], 200, $headers)));
 
         Club::observe(ClubObserver::class);
         DirectivoClub::observe(DirectivoClubObserver::class);

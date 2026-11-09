@@ -89,12 +89,12 @@ class StoreJugadorRequest extends FormRequest
                 : ['sometimes', 'integer'],
             'nombre' => [$esFormulario ? 'required_without:persona_id' : 'sometimes', 'string', 'max:120'],
             'apellidos' => [$esFormulario ? 'required_without:persona_id' : 'sometimes', 'string', 'max:160'],
-            'fecha_nacimiento' => [$esFormulario ? 'required_without:persona_id' : 'sometimes', 'date', 'before:today'],
+            'fecha_nacimiento' => [$esFormulario ? 'required_without:persona_id' : 'sometimes', 'date_format:Y-m-d', 'before:today'],
             'curp' => [
                 $esFormulario ? 'required_without:persona_id' : 'sometimes',
                 'string',
                 'size:18',
-                'regex:/^[A-Z0-9]+$/i',
+                'regex:/^[A-Z]{4}[0-9]{6}[HMX][A-Z]{5}[A-Z0-9][0-9]$/i',
             ],
             'dorsal' => [
                 'nullable',
@@ -206,7 +206,7 @@ class StoreJugadorRequest extends FormRequest
             'nombre.required_without' => 'El nombre del jugador es obligatorio.',
             'apellidos.required_without' => 'Los apellidos del jugador son obligatorios.',
             'curp.required_without' => 'La CURP del jugador es obligatoria.',
-            'curp.regex' => 'La CURP solo puede contener letras y números.',
+            'curp.regex' => 'La CURP no tiene un formato válido: 4 letras, 6 dígitos de la fecha, sexo (H, M o X), 5 letras, homoclave y dígito verificador.',
             'documentos.ine.mimes' => 'La identificación oficial debe ser un archivo JPG, PNG o PDF.',
             'documentos.ine.max' => 'La identificación oficial no debe superar los 10 MB.',
             'documentos.curp.mimes' => 'El documento de CURP debe ser un archivo JPG, PNG o PDF.',

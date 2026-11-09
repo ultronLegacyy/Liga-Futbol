@@ -30,13 +30,6 @@ class ClubPolicy
         return $usuario->can('clubes.crear');
     }
 
-    public function assignDelegates(User $usuario, Club $club): bool
-    {
-        return $usuario->hasRole('Administrador General')
-            || ($club->propietario_usuario_id !== null
-                && (int) $club->propietario_usuario_id === (int) $usuario->getKey());
-    }
-
     public function transferOwnership(User $usuario, Club $club): bool
     {
         return $usuario->can('clubes.editar')
