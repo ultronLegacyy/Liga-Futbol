@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditoriaLog;
 use App\Services\Respaldos\AlmacenRespaldos;
 use App\Services\Respaldos\CifradoRespaldo;
 use App\Services\Respaldos\DirectorioTrabajo;
@@ -10,6 +11,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Filesystem\FilesystemAdapter;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Process\PendingProcess;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
@@ -23,6 +25,9 @@ use Tests\TestCase;
 // HU-009 (SCRUM-174 a SCRUM-176): crear, programar, depurar, restaurar y probar los respaldos cifrados (RNF-23)
 class RespaldosTest extends TestCase
 {
+    // La restauración deja su registro en auditoria_logs
+    use DatabaseTransactions;
+
     private const VOLCADO = "-- volcado de prueba\nINSERT INTO usuarios VALUES (1,'admin');";
 
     private const CONTRASENA_BD = 'contrasena-secreta-bd';
@@ -365,6 +370,43 @@ class RespaldosTest extends TestCase
         Process::assertRan(fn (PendingProcess $proceso): bool => $this->comando($proceso)[0] === 'mariadb' && last($this->comando($proceso)) === $this->baseOperacion);
         Process::assertNotRan(fn (PendingProcess $proceso): bool => str_contains(implode(' ', $this->comando($proceso)), "DROP DATABASE IF EXISTS `{$this->baseOperacion}`"));
         Log::shouldHaveReceived('warning')->with('Restauración sobre la base y los documentos de operación', ['respaldo' => 'completo-20261108-020000', 'base' => $this->baseOperacion]);
+    }
+
+    // RNF-33: la restauración queda en la auditoría después de importar, con el respaldo, la base y los documentos
+    public function test_la_restauracion_queda_en_la_auditoria(): void
+    {
+        Storage::disk('local')->put('comprobantes/a.pdf', 'A1');
+        $this->crear(completo: true);
+        $ultimoId = (int) AuditoriaLog::query()->max('id');
+
+        $this->artisan('respaldo:restaurar', ['--operacion' => true])
+            ->expectsConfirmation('¿Seguro que quieres sobrescribir los datos de operación?', 'yes')
+            ->assertSuccessful();
+
+        $registro = AuditoriaLog::query()->where('id', '>', $ultimoId)->sole();
+        $this->assertSame('RESTAURACION_RESPALDO', $registro->accion);
+        $this->assertSame('sistema', $registro->tabla_afectada);
+        $this->assertNull($registro->usuario_id);
+        $this->assertSame('Restauración del respaldo sobre la base de operación', $registro->motivo);
+        $this->assertSame(['respaldo' => 'completo-20261108-020000', 'base' => $this->baseOperacion, 'documentos' => 1, 'operacion' => true], $registro->valores_nuevos);
+
+        // En la base aparte también queda registrada, en la base de operación, con la base de destino
+        $this->assertSame(0, Artisan::call('respaldo:restaurar'));
+        $aparte = AuditoriaLog::query()->where('id', '>', $registro->id)->sole();
+        $this->assertSame('RESTAURACION_RESPALDO', $aparte->accion);
+        $this->assertSame(['respaldo' => 'completo-20261108-020000', 'base' => 'sgld_restauracion_prueba', 'documentos' => 1, 'operacion' => false], $aparte->valores_nuevos);
+        $this->assertSame('Restauración del respaldo en la base aparte sgld_restauracion_prueba', $aparte->motivo);
+    }
+
+    // Si la importación falla, no queda un registro de restauración
+    public function test_una_restauracion_fallida_no_queda_como_hecha_en_la_auditoria(): void
+    {
+        $this->crear(completo: true);
+        $ultimoId = (int) AuditoriaLog::query()->max('id');
+        Process::fake(['*' => Process::result(errorOutput: 'ERROR 1045 (28000): Access denied', exitCode: 1)]);
+
+        $this->assertSame(1, Artisan::call('respaldo:restaurar'));
+        $this->assertSame(0, AuditoriaLog::query()->where('id', '>', $ultimoId)->where('accion', 'RESTAURACION_RESPALDO')->count());
     }
 
     // Aunque la configuración apunte a la base de operación, nunca se recrea ni se borra

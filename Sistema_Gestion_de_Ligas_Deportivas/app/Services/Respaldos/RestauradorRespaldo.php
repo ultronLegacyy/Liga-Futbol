@@ -2,6 +2,7 @@
 
 namespace App\Services\Respaldos;
 
+use App\Models\AuditoriaLog;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
@@ -87,6 +88,20 @@ class RestauradorRespaldo
 
             $extraidos = $documentosCompleto !== null && $delCompleto !== [] ? $this->paquete->extraer($documentosCompleto, $carpeta, $delCompleto) : 0;
             $extraidos += $this->paquete->extraer($documentos, $carpeta, $delDiario);
+
+            // RNF-33: después de importar, para que la importación no lo borre; desde consola no hay usuario
+            AuditoriaLog::create([
+                'usuario_id' => null,
+                'accion' => 'RESTAURACION_RESPALDO',
+                'tabla_afectada' => 'sistema',
+                'registro_id' => null,
+                'valores_anteriores' => null,
+                'valores_nuevos' => ['respaldo' => $nombre, 'base' => $base, 'documentos' => $extraidos, 'operacion' => $operacion],
+                'motivo' => $operacion
+                    ? 'Restauración del respaldo sobre la base de operación'
+                    : 'Restauración del respaldo en la base aparte '.$base,
+                'ip' => null,
+            ]);
 
             return ['nombre' => $nombre, 'fecha' => $this->almacen->fecha($nombre), 'base' => $base, 'carpeta' => $carpeta, 'documentos' => $extraidos];
         } finally {
