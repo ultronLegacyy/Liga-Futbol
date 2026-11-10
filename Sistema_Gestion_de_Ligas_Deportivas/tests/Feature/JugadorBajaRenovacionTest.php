@@ -165,6 +165,85 @@ class JugadorBajaRenovacionTest extends TestCase
         ]);
     }
 
+    public function test_formulario_de_baja_redirige_a_la_ficha_con_mensaje(): void
+    {
+        [$club, $delegado] = $this->crearClubYDelegado();
+        $temporada = Temporada::factory()->activa()->create();
+        $equipo = $this->crearEquipo($club, $temporada, 'Equipo baja formulario');
+        $jugador = $equipo->jugadores()->create(['persona_id' => $this->crearPersona()->id, 'estado_elegibilidad' => 'Activo']);
+
+        $this->actingAs($delegado)
+            ->from(route('jugadores.gestion', $jugador))
+            ->post(route('jugadores.baja', $jugador), [
+                'motivo' => 'Cambio de residencia',
+                'fecha_baja' => now()->toDateString(),
+            ])
+            ->assertRedirect(route('jugadores.gestion', $jugador))
+            ->assertSessionHas('success', 'El jugador fue dado de baja.');
+
+        $this->assertDatabaseHas('jugadores_equipos', [
+            'id' => $jugador->id,
+            'estado_elegibilidad' => 'Baja',
+            'motivo_baja' => 'Cambio de residencia',
+        ]);
+    }
+
+    public function test_formulario_de_baja_sin_motivo_regresa_con_errores(): void
+    {
+        [$club, $delegado] = $this->crearClubYDelegado();
+        $temporada = Temporada::factory()->activa()->create();
+        $equipo = $this->crearEquipo($club, $temporada, 'Equipo baja formulario inválido');
+        $jugador = $equipo->jugadores()->create(['persona_id' => $this->crearPersona()->id, 'estado_elegibilidad' => 'Activo']);
+
+        $this->actingAs($delegado)
+            ->from(route('jugadores.gestion', $jugador))
+            ->post(route('jugadores.baja', $jugador), ['motivo' => ''])
+            ->assertRedirect(route('jugadores.gestion', $jugador))
+            ->assertSessionHasErrors(['motivo', 'fecha_baja']);
+
+        $this->assertSame('Activo', $jugador->fresh()->estado_elegibilidad);
+    }
+
+    public function test_formulario_de_renovacion_redirige_a_la_ficha_de_la_nueva_inscripcion(): void
+    {
+        [$club, $delegado] = $this->crearClubYDelegado();
+        $temporadaAnterior = Temporada::factory()->cerrada()->create();
+        $temporadaActual = Temporada::factory()->activa()->create();
+        $equipoAnterior = $this->crearEquipo($club, $temporadaAnterior, 'Equipo anterior formulario');
+        $equipoActual = $this->crearEquipo($club, $temporadaActual, 'Equipo actual formulario');
+        $persona = $this->crearPersona();
+        $inscripcionAnterior = $equipoAnterior->jugadores()->create(['persona_id' => $persona->id, 'estado_elegibilidad' => 'Activo']);
+
+        $respuesta = $this->actingAs($delegado)
+            ->from(route('jugadores.gestion', $inscripcionAnterior))
+            ->post(route('jugadores.renovar', $inscripcionAnterior), ['equipo_id' => $equipoActual->id]);
+
+        $renovacion = Jugador::query()->where('persona_id', $persona->id)->where('equipo_id', $equipoActual->id)->firstOrFail();
+        $respuesta->assertRedirect(route('jugadores.gestion', $renovacion))
+            ->assertSessionHas('success', 'La inscripción fue renovada.');
+    }
+
+    public function test_formulario_de_transferencia_redirige_a_la_ficha_en_el_club_destino(): void
+    {
+        [$clubOrigen, $delegado] = $this->crearClubYDelegado();
+        [$clubDestino] = $this->crearClubYDelegado();
+        $temporada = Temporada::factory()->activa()->create();
+        $equipoOrigen = $this->crearEquipo($clubOrigen, $temporada, 'Equipo origen formulario');
+        $equipoDestino = $this->crearEquipo($clubDestino, $temporada, 'Equipo destino formulario');
+        $persona = $this->crearPersona();
+        $inscripcionOrigen = $equipoOrigen->jugadores()->create(['persona_id' => $persona->id, 'estado_elegibilidad' => 'Activo']);
+
+        $respuesta = $this->actingAs($delegado)
+            ->from(route('jugadores.gestion', $inscripcionOrigen))
+            ->post(route('jugadores.transferir', $inscripcionOrigen), ['equipo_id' => $equipoDestino->id]);
+
+        $inscripcionDestino = Jugador::query()->where('persona_id', $persona->id)->where('equipo_id', $equipoDestino->id)->firstOrFail();
+        $respuesta->assertRedirect(route('jugadores.gestion', $inscripcionDestino))
+            ->assertSessionHas('success');
+        $this->assertSame('Baja', $inscripcionOrigen->fresh()->estado_elegibilidad);
+        $this->assertSame('Transferencia a '.$clubDestino->nombre, $inscripcionOrigen->fresh()->motivo_baja);
+    }
+
     /** @return array{Club, User} */
     private function crearClubYDelegado(): array
     {
