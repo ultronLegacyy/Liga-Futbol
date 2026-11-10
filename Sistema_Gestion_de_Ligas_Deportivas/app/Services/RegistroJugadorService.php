@@ -23,6 +23,7 @@ class RegistroJugadorService
     public function __construct(
         private ReglaSaltoCategoriaService $reglaSaltoCategoria,
         private AuditService $auditoria,
+        private ReglaEdadCategoriaService $reglaEdad,
     ) {
     }
 
@@ -140,6 +141,8 @@ class RegistroJugadorService
                 }
 
                 $this->validarSaltoCategoria($persona, $equipoDestino);
+                // Reglas de edad de la categoría, compartidas con la renovación y la transferencia (HU-017).
+                $this->reglaEdad->validar($persona, $categoriaDestino, $temporadaDestino);
 
                 PersonaRol::query()->createOrFirst([
                     'persona_id' => $persona->getKey(),

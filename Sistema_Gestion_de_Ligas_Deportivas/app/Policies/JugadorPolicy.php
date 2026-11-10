@@ -4,7 +4,6 @@ namespace App\Policies;
 
 use App\Models\Jugador;
 use App\Models\User;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Auth\Access\Response;
 
 class JugadorPolicy
@@ -54,23 +53,50 @@ class JugadorPolicy
             : Response::deny('Solo el Administrador General puede desvincular una cuenta de jugador.');
     }
 
-    public function deactivate(User $user, Jugador $jugador): bool
+    /**
+     * Listado de jugadores (HU-017): el Delegado y el Presidente del Club ven los de su club;
+     * el Administrador General (before) ve todos.
+     */
+    public function viewAny(User $user): Response
     {
-        return $this->adminOrSourceClubDelegate($user, $jugador);
-    }
-    public function renew(User $user, Jugador $jugador): bool
-    {
-        return $this->adminOrSourceClubDelegate($user, $jugador);
-    }
-    public function transfer(User $user, Jugador $jugador): bool
-    {
-        return $this->adminOrSourceClubDelegate($user, $jugador)
-            && ($user->hasRole('Administrador General') || Gate::forUser($user)->allows('jugadores.transferir'));
-    }
-    private function adminOrSourceClubDelegate(User $user, Jugador $jugador): bool
-    {
-        return $user->hasRole('Administrador General')
-            || ($user->club_id !== null && (int) $user->club_id === (int) $jugador->equipo->club_id && $user->hasRole('Delegado del Club'));
+        $esDirectivoDeClub = $user->club_id !== null && $user->hasAnyRole(['Presidente del Club', 'Delegado del Club']);
+
+        return $esDirectivoDeClub
+            ? Response::allow()
+            : Response::deny('No cuenta con autorización para consultar el listado de jugadores.');
     }
 
+    /** HU-017, criterio 1: el Delegado del club de la inscripción o el Administrador General (before). */
+    public function deactivate(User $user, Jugador $jugador): Response
+    {
+        return $this->esDelegadoDelClub($user, $jugador)
+            ? Response::allow()
+            : Response::deny('Solo el Delegado del club del jugador puede darlo de baja.');
+    }
+
+    /** HU-017, criterio 2: el Delegado del club de la inscripción o el Administrador General (before). */
+    public function renew(User $user, Jugador $jugador): Response
+    {
+        return $this->esDelegadoDelClub($user, $jugador)
+            ? Response::allow()
+            : Response::deny('Solo el Delegado del club del jugador puede renovarlo.');
+    }
+
+    /**
+     * HU-017, criterio 3: el Delegado del club de origen con el permiso jugadores.transferir,
+     * o el Administrador General (before). Quién inicia la transferencia está pendiente del PO.
+     */
+    public function transfer(User $user, Jugador $jugador): Response
+    {
+        return $this->esDelegadoDelClub($user, $jugador) && $user->can('jugadores.transferir')
+            ? Response::allow()
+            : Response::deny('Solo el Delegado del club de origen puede transferir al jugador.');
+    }
+
+    private function esDelegadoDelClub(User $user, Jugador $jugador): bool
+    {
+        return $user->club_id !== null
+            && (int) $user->club_id === (int) $jugador->equipo->club_id
+            && $user->hasRole('Delegado del Club');
+    }
 }

@@ -8,6 +8,19 @@
     @if (session('success'))
         <x-alert type="success" :message="session('success')" />
     @endif
+    @if ($errors->any())
+        <div role="alert" class="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
+            <p class="font-semibold">No se pudo completar la operación:</p>
+            <ul class="mt-2 list-disc space-y-1 pl-5">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+    @can('viewAny', App\Models\Jugador::class)
+        <a href="{{ route('jugadores.index') }}" class="inline-flex text-sm text-emerald-300 underline">← Volver al listado de jugadores</a>
+    @endcan
 
     <section class="rounded-xl border border-gray-700 bg-gray-800 p-5 sm:p-7" aria-labelledby="jugador-titulo">
         <h2 id="jugador-titulo" class="text-xl font-bold text-white">{{ $jugador->persona->nombre }} {{ $jugador->persona->apellidos }}</h2>
@@ -40,8 +53,8 @@
                     <h2 class="text-lg font-semibold text-white">Dar de baja</h2>
                     <form method="POST" action="{{ route('jugadores.baja', $jugador) }}" class="mt-4 grid gap-4 sm:grid-cols-2">
                         @csrf
-                        <textarea name="motivo" required minlength="3" maxlength="1000" aria-label="Motivo de baja" class="rounded-lg border border-gray-600 bg-gray-900 p-3 text-white"></textarea>
-                        <div><input name="fecha_baja" type="date" max="{{ now()->toDateString() }}" required aria-label="Fecha de baja" class="rounded-lg border border-gray-600 bg-gray-900 p-3 text-white"><button class="ml-3 rounded-lg bg-red-700 px-4 py-2 font-semibold text-white">Confirmar baja</button></div>
+                        <textarea name="motivo" required minlength="3" maxlength="1000" aria-label="Motivo de baja" class="rounded-lg border border-gray-600 bg-gray-900 p-3 text-white">{{ old('motivo') }}</textarea>
+                        <div><input name="fecha_baja" type="date" min="{{ \Illuminate\Support\Carbon::parse($jugador->equipo->grupo->categoria->temporada->fecha_inicio)->toDateString() }}" max="{{ \App\Services\GestionJugadorService::hoy() }}" value="{{ old('fecha_baja') }}" required aria-label="Fecha de baja" class="rounded-lg border border-gray-600 bg-gray-900 p-3 text-white"><button class="ml-3 rounded-lg bg-red-700 px-4 py-2 font-semibold text-white">Confirmar baja</button></div>
                     </form>
                 </section>
             @endif

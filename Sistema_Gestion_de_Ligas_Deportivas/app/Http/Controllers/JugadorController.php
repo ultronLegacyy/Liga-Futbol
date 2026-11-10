@@ -27,6 +27,33 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class JugadorController extends Controller
 {
+    /**
+     * Listado de jugadores para llegar a la ficha (HU-017): el Delegado y el Presidente del
+     * Club ven solo los de su club; el Administrador General ve todos. Búsqueda por nombre o CURP.
+     */
+    public function index(Request $request): View
+    {
+        Gate::authorize('viewAny', Jugador::class);
+        $usuario = $request->user();
+        abort_unless($usuario instanceof User, 401);
+        $busqueda = trim((string) $request->query('q', ''));
+        $soloSuClub = ! $usuario->hasRole('Administrador General');
+
+        $jugadores = Jugador::query()
+            ->with(['persona', 'equipo.club', 'equipo.temporada', 'equipo.grupo.categoria'])
+            ->when($soloSuClub, fn (Builder $query): Builder => $query->whereHas('equipo', fn (Builder $equipo): Builder => $equipo->where('club_id', $usuario->club_id)))
+            ->when($busqueda !== '', fn (Builder $query): Builder => $query->whereHas('persona', function (Builder $persona) use ($busqueda): void {
+                $persona->where('nombre', 'like', '%'.$busqueda.'%')
+                    ->orWhere('apellidos', 'like', '%'.$busqueda.'%')
+                    ->orWhere('curp', 'like', '%'.strtoupper($busqueda).'%');
+            }))
+            ->orderByDesc('id')
+            ->paginate(25)
+            ->withQueryString();
+
+        return view('jugadores.index', compact('jugadores', 'busqueda'));
+    }
+
     public function create(Request $request): View
     {
         $usuario = $request->user();
@@ -83,11 +110,19 @@ class JugadorController extends Controller
         abort_unless($usuario instanceof User, 401);
         $datos = $request->validated();
         $transferencia = $gestion->transferir($jugador, (int) $datos['equipo_id'], $usuario, $datos['dorsal'] ?? null);
-        $transferencia->load('inscripcionDestino');
+        $transferencia->load('inscripcionDestino.equipo', 'clubDestino');
+        $mensaje = 'La transferencia a '.$transferencia->clubDestino->nombre.' fue realizada.';
 
-        return $request->expectsJson()
-            ? response()->json(['mensaje' => 'La transferencia fue realizada directamente.', 'transferencia' => ['id' => $transferencia->getKey(), 'persona_id' => $transferencia->persona_id, 'jugador_destino_id' => $transferencia->jugador_destino_id, 'club_origen_id' => $transferencia->club_origen_id, 'club_destino_id' => $transferencia->club_destino_id, 'equipo_origen_id' => $transferencia->equipo_origen_id, 'equipo_destino_id' => $transferencia->equipo_destino_id, 'temporada_id' => $transferencia->temporada_id]], 201)
-            : redirect()->route('jugadores.gestion', $transferencia->inscripcionDestino)->with('success', 'La transferencia fue realizada directamente.');
+        if ($request->expectsJson()) {
+            return response()->json(['mensaje' => $mensaje, 'transferencia' => ['id' => $transferencia->getKey(), 'persona_id' => $transferencia->persona_id, 'jugador_destino_id' => $transferencia->jugador_destino_id, 'club_origen_id' => $transferencia->club_origen_id, 'club_destino_id' => $transferencia->club_destino_id, 'equipo_origen_id' => $transferencia->equipo_origen_id, 'equipo_destino_id' => $transferencia->equipo_destino_id, 'temporada_id' => $transferencia->temporada_id]], 201);
+        }
+
+        // El Delegado de origen ya no puede ver la ficha del club destino: vuelve al listado de su club.
+        $destino = $transferencia->inscripcionDestino;
+
+        return $destino !== null && Gate::forUser($usuario)->allows('view', $destino)
+            ? redirect()->route('jugadores.gestion', $destino)->with('success', $mensaje)
+            : redirect()->route('jugadores.index')->with('success', $mensaje);
     }
 
     public function store(StoreJugadorRequest $request, RegistroJugadorService $registro): JsonResponse|RedirectResponse

@@ -12,6 +12,7 @@ use App\Models\Persona;
 use App\Models\Temporada;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\GestionJugadorService;
 use App\Services\RegistroJugadorService;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Database\Eloquent\Builder;
@@ -35,7 +36,7 @@ class JugadorTransferenciaTest extends TestCase
 
     public function test_transfiere_jugador_a_otro_club_en_temporada_activa_conservando_persona_y_auditando_historial(): void
     {
-        $temporada = Temporada::factory()->activa()->create();
+        $temporada = Temporada::factory()->activa()->create(['fecha_inicio' => now()->subMonths(3)->toDateString()]);
         [$clubOrigen, $delegado] = $this->crearClubYDelegado('Club origen transferencia');
         [$clubDestino] = $this->crearClubYDelegado('Club destino transferencia');
         $equipoOrigen = $this->crearEquipo($clubOrigen, $temporada, 'Equipo origen', 1);
@@ -67,7 +68,7 @@ class JugadorTransferenciaTest extends TestCase
         $origenActualizado = $inscripcionOrigen->fresh();
         $this->assertSame('Baja', $origenActualizado->estado_elegibilidad);
         $this->assertSame('Transferencia a '.$clubDestino->nombre, $origenActualizado->motivo_baja);
-        $this->assertSame(now()->toDateString(), $origenActualizado->fecha_baja?->toDateString());
+        $this->assertSame(GestionJugadorService::hoy(), $origenActualizado->fecha_baja?->toDateString());
         $this->assertSame($equipoOrigen->id, $origenActualizado->equipo_id);
         $this->assertSame(1, Persona::query()->whereKey($persona->id)->count());
 
@@ -87,7 +88,7 @@ class JugadorTransferenciaTest extends TestCase
 
     public function test_rechaza_transferencia_si_la_categoria_destino_supera_un_nivel(): void
     {
-        $temporada = Temporada::factory()->activa()->create();
+        $temporada = Temporada::factory()->activa()->create(['fecha_inicio' => now()->subMonths(3)->toDateString()]);
         [$clubOrigen, $delegado] = $this->crearClubYDelegado('Club origen salto');
         [$clubDestino] = $this->crearClubYDelegado('Club destino salto');
         $equipoOrigen = $this->crearEquipo($clubOrigen, $temporada, 'Equipo nivel uno', 1);
@@ -184,12 +185,12 @@ class JugadorTransferenciaTest extends TestCase
 
     public function test_baja_bloquea_una_inscripcion_en_otro_equipo_de_la_misma_temporada(): void
     {
-        $temporada = Temporada::factory()->activa()->create();
+        $temporada = Temporada::factory()->activa()->create(['fecha_inicio' => now()->subMonths(3)->toDateString()]);
         [$club, $delegado] = $this->crearClubYDelegado('Club baja registro mismo ciclo');
         $equipoOrigen = $this->crearEquipo($club, $temporada, 'Equipo con baja', 1);
         $equipoDestino = $this->crearEquipo($club, $temporada, 'Equipo alterno baja', 1);
         $persona = $this->crearPersona();
-        $equipoOrigen->jugadores()->create(['persona_id' => $persona->id, 'estado_elegibilidad' => 'Baja', 'motivo_baja' => 'Retiro', 'fecha_baja' => now()->toDateString()]);
+        $equipoOrigen->jugadores()->create(['persona_id' => $persona->id, 'estado_elegibilidad' => 'Baja', 'motivo_baja' => 'Retiro', 'fecha_baja' => GestionJugadorService::hoy()]);
 
         try {
             app(RegistroJugadorService::class)->registrar($equipoDestino, ['persona_id' => $persona->id], $delegado);
@@ -205,7 +206,7 @@ class JugadorTransferenciaTest extends TestCase
     {
         [$temporada, $clubOrigen, $delegado, , $equipoDestino, $persona, $inscripcionOrigen] = $this->prepararTransferencia('Nueva temporada tras transferencia');
         $this->actingAs($delegado)->postJson(route('jugadores.transferir', $inscripcionOrigen), ['equipo_id' => $equipoDestino->id])->assertCreated();
-        $temporadaSiguiente = Temporada::factory()->activa()->create();
+        $temporadaSiguiente = Temporada::factory()->activa()->create(['fecha_inicio' => now()->subMonths(3)->toDateString()]);
         $equipoSiguiente = $this->crearEquipo($clubOrigen, $temporadaSiguiente, 'Nuevo equipo después de transferencia', 2);
 
         $nuevaInscripcion = app(RegistroJugadorService::class)->registrar($equipoSiguiente, ['persona_id' => $persona->id], $delegado);
@@ -288,8 +289,8 @@ class JugadorTransferenciaTest extends TestCase
     {
         [, , $delegado, , , $persona, $inscripcionOrigen] = $this->prepararTransferencia('Destino inconsistente');
         [$clubDestino] = $this->crearClubYDelegado('Club con temporada destino inconsistente');
-        $temporadaEquipo = Temporada::factory()->activa()->create();
-        $temporadaGrupo = Temporada::factory()->activa()->create();
+        $temporadaEquipo = Temporada::factory()->activa()->create(['fecha_inicio' => now()->subMonths(3)->toDateString()]);
+        $temporadaGrupo = Temporada::factory()->activa()->create(['fecha_inicio' => now()->subMonths(3)->toDateString()]);
         $categoria = Categoria::factory()->create(['temporada_id' => $temporadaGrupo->id, 'jerarquia_salto' => 2]);
         $grupo = Grupo::factory()->create([
             'categoria_id' => $categoria->id,
@@ -510,7 +511,7 @@ class JugadorTransferenciaTest extends TestCase
     /** @return array{Temporada, Club, User, Equipo, Equipo, Persona, Jugador} */
     private function prepararTransferencia(string $nombre): array
     {
-        $temporada = Temporada::factory()->activa()->create();
+        $temporada = Temporada::factory()->activa()->create(['fecha_inicio' => now()->subMonths(3)->toDateString()]);
         [$clubOrigen, $delegado] = $this->crearClubYDelegado($nombre.' origen');
         [$clubDestino] = $this->crearClubYDelegado($nombre.' destino');
         $equipoOrigen = $this->crearEquipo($clubOrigen, $temporada, $nombre.' equipo origen', 1);
