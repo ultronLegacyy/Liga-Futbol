@@ -10,6 +10,7 @@ use App\Http\Controllers\ClubController;
 use App\Http\Controllers\EquipoController;
 use App\Http\Controllers\ForcePasswordChangeController;
 use App\Http\Controllers\GrupoController;
+use App\Http\Controllers\HistorialEquipoController;
 use App\Http\Controllers\JornadaController;
 use App\Http\Controllers\JugadorController;
 use App\Http\Controllers\PagoController;
@@ -111,6 +112,10 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('personas', PersonaController::class)->only(['index', 'create', 'store', 'show']);
         Route::post('/personas/{persona}/roles', [PersonaController::class, 'asignarRol'])
             ->name('personas.roles.store');
+
+        // Historial de equipos por temporada (HU-015, RF-03.4)
+        Route::get('/historial-equipos', [HistorialEquipoController::class, 'index'])->name('equipos.historial.index');
+        Route::get('/historial-equipos/{equipo}', [HistorialEquipoController::class, 'show'])->name('equipos.historial.show');
 
         // Padrón de árbitros y su asignación a partidos programados (HU-026, RF-06.1)
         Route::get('/arbitros/asignaciones', [ArbitroController::class, 'asignaciones'])
