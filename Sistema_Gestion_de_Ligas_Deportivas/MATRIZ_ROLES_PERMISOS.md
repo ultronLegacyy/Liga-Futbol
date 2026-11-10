@@ -99,10 +99,11 @@ Donde:
 | | `equipos.editar` | Sí | No | No | No | No | No | No | No | No | No | Pendiente (HU-013) | Pendiente (HU-013) | No |
 | | `equipos.eliminar` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
 | **Jugadores y Padrón** | `jugadores.ver` | Sí | No | Sí | No | Sí | Sí | Sí | Sí | Sí | Sí | Sí* | Sí* | Sí* |
-| | `jugadores.crear` | Sí | No | No | No | Pendiente (HU-009) | No | No | No | No | No | Pendiente (HU-009) | Pendiente (HU-009) | No |
+| | `jugadores.crear` | Sí | No | No | No | Pendiente (HU-009) | No | No | No | No | No | Pendiente (HU-009) | Sí* (HU-016, su club) | No |
 | | `jugadores.editar` | Sí | No | No | No | Pendiente (HU-009) | No | No | No | No | No | Pendiente (HU-009) | Pendiente (HU-009) | No |
 | | `jugadores.eliminar` | Sí | No | No | No | No | No | No | No | No | No | No | No | No |
-| | `jugadores.transferir`| Sí | No | No | No | No | No | No | No | No | No | Pendiente (HU-009) | Pendiente (HU-009) | No |
+| | `jugadores.transferir`| Sí | No | No | No | No | No | No | No | No | No | Pendiente (HU-009) | Sí* (HU-017, club de origen) | No |
+| | `jugadores.estado.cambiar`| Sí | No | Sí (HU-018) | No | No | No | No | No | No | No | No | No | No |
 | | `jugadores.validar_edad`| Sí | No | Sí | No | Sí* | No | No | No | No | No | No | No | No |
 | **Personas (HU-013)** | `personas.ver` | Sí | No | Sí | No | No | No | No | No | No | No | No | Pendiente (HU-016) | No |
 | | `personas.crear` | Sí | No | Sí | No | No | No | No | No | No | No | No | Pendiente (HU-016) | No |

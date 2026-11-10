@@ -19,8 +19,10 @@
 •	historial_ventas_club: id (PK), club_id (FK), propietario_anterior, propietario_nuevo, carta_venta_pdf, fecha_venta.
 •	equipos: id (PK), club_id (FK), grupo_id (FK), nombre, partidos_default_acumulados (INT, default 0).
 •	personas: id (PK), nombre, apellidos, fecha_nacimiento, curp.
-•	documentos_persona: id (PK), persona_id (FK), tipo (INE/CURP/Foto), ruta_storage, validado_en.
-•	jugadores_equipos (Roster): id (PK), persona_id (FK), equipo_id (FK), dorsal, estado_elegibilidad (Activo, Inelegible, Suspendido).
+•	documentos_persona: id (PK), persona_id (FK), tipo (INE/CURP/Foto/Comprobante), disco (privado), ruta_storage, mime_type, tamano_bytes, validado_en (HU-016).
+•	jugadores_equipos (Roster): id (PK), persona_id (FK), equipo_id (FK), dorsal, estado_elegibilidad (Activo, Suspendido, Baja, Inelegible: los 4 estados de HU-018), motivo_baja, fecha_baja (HU-017).
+•	historial_transferencias_jugador: id (PK), persona_id (FK), jugador_origen_id (FK, nullable: se conserva si la venta de club borra la inscripción), jugador_destino_id (FK, nullable), club_origen_id (FK), club_destino_id (FK), equipo_origen_id (FK), equipo_destino_id (FK), temporada_id (FK), transferido_por_usuario_id (FK) (HU-017).
+•	historial_estados_jugador: id (PK), persona_id (FK), jugador_id (FK, nullable: se conserva si la venta de club borra la inscripción), estado_anterior, estado_nuevo, motivo, usuario_id (FK), created_at: quién cambió el estado, por qué y cuándo (HU-018).
 •	arbitros: id (PK), persona_id (UNIQUE FK), colegio_pertenencia, tarifa_por_partido, estado. (Administración del padrón arbitral).
 
 4. Logística y Programación
