@@ -18,8 +18,8 @@ use App\Http\Controllers\PartidoController;
 use App\Http\Controllers\PersonaController;
 use App\Http\Controllers\RecuperacionContrasenaController;
 use App\Http\Controllers\ReglaTemporadaController;
-use App\Http\Controllers\TemporadaController;
 use App\Http\Controllers\TarjetonDigitalController;
+use App\Http\Controllers\TemporadaController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\ForcePasswordChange;
 use Illuminate\Support\Facades\Route;
@@ -194,7 +194,21 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/equipos/{equipo}', [EquipoController::class, 'show'])->name('equipos.show');
         Route::post('/equipos', [EquipoController::class, 'store'])->name('equipos.store');
+        Route::get('/jugadores/create', [JugadorController::class, 'create'])->name('jugadores.create');
+        Route::post('/jugadores', [JugadorController::class, 'store'])->name('jugadores.store');
         Route::post('/equipos/{equipo}/jugadores', [JugadorController::class, 'store'])->name('equipos.jugadores.store');
+        Route::get('/jugadores/{jugador}/gestionar', [JugadorController::class, 'gestion'])->name('jugadores.gestion');
+        Route::get('/jugadores/vincular', [JugadorController::class, 'vincularForm'])->name('jugadores.vincular.form');
+        Route::post('/jugadores/vincular', [JugadorController::class, 'vincular'])
+            ->middleware('throttle:jugador-vinculacion')->name('jugadores.vincular');
+        Route::get('/jugadores/{jugador}', [JugadorController::class, 'show'])->name('jugadores.show');
+        Route::put('/jugadores/{jugador}', [JugadorController::class, 'update'])->name('jugadores.update');
+        Route::get('/jugadores/{jugador}/documentos/{documento}', [JugadorController::class, 'documento'])
+            ->name('jugadores.documentos.show');
+        Route::delete('/jugadores/{jugador}/vinculo', [JugadorController::class, 'desvincular'])
+            ->name('jugadores.vinculo.destroy');
+        Route::delete('/admin/jugadores/{usuario}/vinculo', [JugadorController::class, 'desvincularCuenta'])
+            ->name('admin.jugadores.vinculo.destroy');
         Route::put('/equipos/{equipo}', [EquipoController::class, 'update'])->name('equipos.update');
     });
 });

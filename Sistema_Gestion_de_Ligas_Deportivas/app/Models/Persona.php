@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Identidad única y reutilizable de una persona (HU-013, RF-03.2); la CURP la distingue.
@@ -15,16 +17,17 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property int $id
  * @property string $nombre
  * @property string $apellidos
- * @property \Illuminate\Support\Carbon $fecha_nacimiento
+ * @property Carbon $fecha_nacimiento
  * @property string $curp
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  */
 class Persona extends Model
 {
+    use Auditable;
+
     /** @use HasFactory<PersonaFactory> */
     use HasFactory;
-    use Auditable;
 
     protected $table = 'personas';
 
@@ -57,6 +60,13 @@ class Persona extends Model
         return $this->hasMany(Jugador::class, 'persona_id');
     }
 
+
+    /** @return HasMany<DocumentoPersona, $this> */
+    public function documentos(): HasMany
+    {
+        return $this->hasMany(DocumentoPersona::class, 'persona_id');
+    }
+
     // Registro en el padrón de árbitros, si es árbitro colegiado (HU-026)
     /** @return HasOne<Arbitro, $this> */
     public function arbitro(): HasOne
@@ -68,7 +78,7 @@ class Persona extends Model
      * Roles agrupados por temporada, para consultar qué papel tiene en cada una (HU-013, CA2).
      * También es su historial (HU-015, CA2): de la temporada más reciente a la más antigua.
      *
-     * @return \Illuminate\Support\Collection<int, \Illuminate\Database\Eloquent\Collection<int, PersonaRol>>
+     * @return Collection<int, \Illuminate\Database\Eloquent\Collection<int, PersonaRol>>
      */
     public function rolesPorTemporada()
     {
