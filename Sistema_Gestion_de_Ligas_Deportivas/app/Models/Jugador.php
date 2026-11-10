@@ -5,7 +5,11 @@ namespace App\Models;
 use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
+/**
+ * @property \Illuminate\Support\Carbon|null $fecha_baja
+ */
 class Jugador extends Model
 {
     use Auditable;
@@ -25,4 +29,11 @@ class Jugador extends Model
     {
         return $this->belongsTo(Equipo::class, 'equipo_id');
     }
+
+    /** @return HasManyThrough<DocumentoPersona, Persona, $this> */
+    public function documentos(): HasManyThrough
+    {
+        return $this->hasManyThrough(DocumentoPersona::class, Persona::class, 'id', 'persona_id', 'persona_id', 'id');
+    }
+
 }
