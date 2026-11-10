@@ -30,6 +30,7 @@ class Categoria extends Model
         'anio_nacimiento_desde',
         'anio_nacimiento_hasta',
         'edad_min',
+        'edad_max',
         'jerarquia_salto',
     ];
 
@@ -42,6 +43,7 @@ class Categoria extends Model
             'anio_nacimiento_desde' => 'integer',
             'anio_nacimiento_hasta' => 'integer',
             'edad_min' => 'integer',
+            'edad_max' => 'integer',
             'jerarquia_salto' => 'integer',
         ];
     }
