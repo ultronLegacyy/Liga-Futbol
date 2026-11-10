@@ -2,26 +2,27 @@
 
 namespace App\Models;
 
+use App\Mail\CorreoDelSistema;
+use App\Models\Concerns\Auditable;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Mail;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Spatie\Permission\Traits\HasRoles;
-use App\Models\Concerns\Auditable;
-use App\Mail\CorreoDelSistema;
-use Illuminate\Support\Facades\Mail;
 
 class User extends Authenticatable
 {
+    use Auditable;
+
     /** @use HasFactory<UserFactory> */
     use HasFactory;
-    use Notifiable;
     use HasRoles;
+    use Notifiable;
     use TwoFactorAuthenticatable;
-    use Auditable;
 
     /**
      * Nombre de la tabla asociada al modelo.
@@ -54,7 +55,7 @@ class User extends Authenticatable
         'password_hash',
         'remember_token',
         'two_factor_secret',
-        'two_factor_recovery_codes'
+        'two_factor_recovery_codes',
     ];
 
     /**
@@ -75,6 +76,12 @@ class User extends Authenticatable
     public function club(): BelongsTo
     {
         return $this->belongsTo(Club::class, 'club_id');
+    }
+
+    /** @return BelongsTo<Persona, $this> */
+    public function persona(): BelongsTo
+    {
+        return $this->belongsTo(Persona::class, 'persona_id');
     }
 
     /**

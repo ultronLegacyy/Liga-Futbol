@@ -27,6 +27,16 @@
             <a href="{{ route('admin.usuarios.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white">
                 Usuarios
             </a>
+            @can('jugadores.crear')
+                <a href="{{ route('jugadores.create') }}" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white">
+                    Registrar jugadores
+                </a>
+            @endcan
+            @can('link', App\Models\Jugador::class)
+                <a href="{{ route('jugadores.vincular.form') }}" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white">
+                    Vincular mi cuenta
+                </a>
+            @endcan
             @can('viewAny', App\Models\Temporada::class)
                 <a href="{{ route('temporadas.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white">
                     Temporadas
@@ -40,6 +50,11 @@
             @can('viewAny', App\Models\Persona::class)
                 <a href="{{ route('personas.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white">
                     Personas
+                </a>
+            @endcan
+            @can('viewAnyHistorial', App\Models\Equipo::class)
+                <a href="{{ route('equipos.historial.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white">
+                    Historial de equipos
                 </a>
             @endcan
             @can('viewAny', App\Models\Arbitro::class)
