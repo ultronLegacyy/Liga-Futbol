@@ -103,11 +103,13 @@ class PermisosRolTest extends TestCase
         $antes = $rol->permissions()->pluck('name')->sort()->values()->all();
         $intento = ['permisos' => ['usuarios.ver', 'usuarios.crear'], 'permissions' => ['usuarios.ver'], 'name' => 'Otro nombre'];
 
+        $aviso = 'Los permisos de los roles son fijos en esta versión';
+
         foreach (['post', 'put', 'patch', 'delete'] as $metodo) {
-            $this->actingAs($this->administrador)->{$metodo}('/admin/roles/'.$rol->id, $intento)->assertForbidden();
-            $this->actingAs($this->administrador)->{$metodo}('/admin/roles/'.$rol->id.'/permisos', $intento)->assertForbidden();
+            $this->actingAs($this->administrador)->{$metodo}('/admin/roles/'.$rol->id, $intento)->assertForbidden()->assertSee($aviso);
+            $this->actingAs($this->administrador)->{$metodo}('/admin/roles/'.$rol->id.'/permisos', $intento)->assertForbidden()->assertSee($aviso);
         }
-        $this->actingAs($this->administrador)->post('/admin/roles', ['name' => 'Rol nuevo'])->assertForbidden();
+        $this->actingAs($this->administrador)->post('/admin/roles', ['name' => 'Rol nuevo'])->assertForbidden()->assertSee($aviso);
 
         $rol->refresh();
         $this->assertSame('Tesorero', $rol->name);
@@ -123,9 +125,18 @@ class PermisosRolTest extends TestCase
         foreach (array_diff(RoleAndPermissionSeeder::ROLES, ['Administrador General']) as $nombreRol) {
             $usuario = $this->crearUsuario($nombreRol);
 
-            $this->actingAs($usuario)->get(route('admin.roles.index'))->assertForbidden();
-            $this->actingAs($usuario)->get(route('admin.roles.show', $rol->id))->assertForbidden();
-            $this->actingAs($usuario)->put('/admin/roles/'.$rol->id.'/permisos', ['permisos' => ['usuarios.ver']])->assertForbidden();
+            $respuestas = [
+                $this->actingAs($usuario)->get(route('admin.roles.index')),
+                $this->actingAs($usuario)->get(route('admin.roles.show', $rol->id)),
+                $this->actingAs($usuario)->put('/admin/roles/'.$rol->id.'/permisos', ['permisos' => ['usuarios.ver']]),
+            ];
+
+            // La pantalla 403 se muestra en español, no con el texto en inglés de Spatie
+            foreach ($respuestas as $respuesta) {
+                $respuesta->assertForbidden()
+                    ->assertSee('No posee los permisos requeridos para acceder a este recurso administrativo.')
+                    ->assertDontSee('User does not have the right roles');
+            }
         }
     }
 

@@ -139,10 +139,12 @@
 
         <h1 class="error-title">Acceso Restringido</h1>
 
+        {{-- Primero el mensaje en español que manda bootstrap/app.php; el de la excepción solo si no viene (Spatie lo trae en inglés) --}}
         <p class="error-message">
-            {{ (isset($exception) && $exception->getMessage())
-                ? $exception->getMessage()
-                : ($mensaje ?? 'No cuenta con los permisos necesarios o el rol autorizado para acceder a este módulo del sistema.') }}
+            {{ $mensaje
+                ?? ((isset($exception) && $exception->getMessage())
+                    ? $exception->getMessage()
+                    : 'No cuenta con los permisos necesarios o el rol autorizado para acceder a este módulo del sistema.') }}
         </p>
 
         <div class="info-box">
