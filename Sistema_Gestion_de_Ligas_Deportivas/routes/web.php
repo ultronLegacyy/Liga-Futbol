@@ -9,6 +9,7 @@ use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\EquipoController;
 use App\Http\Controllers\ForcePasswordChangeController;
+use App\Http\Controllers\GeneradorEnfrentamientosController;
 use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\HistorialEquipoController;
 use App\Http\Controllers\JornadaController;
@@ -104,6 +105,16 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('grupos.jornadas', JornadaController::class)->shallow()->only(['index', 'create', 'store', 'show', 'edit', 'update', 'destroy']);
         Route::match(['put', 'patch'], '/jornadas/{jornada}/descanso', [JornadaController::class, 'actualizarDescanso'])
             ->name('jornadas.descanso.update');
+
+        // Generación automática de rol regular y enfrentamientos (HU-032, RF-07.1)
+        Route::get('/grupos/{grupo}/generar-rol', [GeneradorEnfrentamientosController::class, 'configurar'])
+            ->name('grupos.generar-rol');
+        Route::post('/grupos/{grupo}/previsualizar-rol', [GeneradorEnfrentamientosController::class, 'previsualizar'])
+            ->name('grupos.previsualizar-rol');
+        Route::post('/grupos/{grupo}/confirmar-rol', [GeneradorEnfrentamientosController::class, 'confirmar'])
+            ->name('grupos.confirmar-rol');
+        Route::post('/jornadas/{jornada}/generar-partidos', [GeneradorEnfrentamientosController::class, 'generarJornada'])
+            ->name('jornadas.generar-partidos');
 
         // Alta manual y reprogramación de partidos en jornadas (HU-027, RF-06.1)
         Route::resource('jornadas.partidos', PartidoController::class)->shallow()->only(['create', 'store', 'show', 'edit', 'update', 'destroy']);

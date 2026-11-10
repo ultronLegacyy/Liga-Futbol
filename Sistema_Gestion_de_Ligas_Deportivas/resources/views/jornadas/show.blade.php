@@ -110,11 +110,24 @@
                 <p class="text-xs text-gray-400">Asignación manual de local, visitante, cancha, fecha, hora y árbitro.</p>
             </div>
 
-            @can('create', [App\Models\Partido::class, $jornada])
-                <a href="{{ route('jornadas.partidos.create', $jornada) }}" class="px-4 py-2 bg-green-600 text-white font-medium text-sm rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400 transition">
-                    + Programar partido
-                </a>
-            @endcan
+            <div class="flex flex-wrap items-center gap-2">
+                @if ($jornada->partidos->isEmpty())
+                    @can('update', $jornada)
+                        <form action="{{ route('jornadas.generar-partidos', $jornada) }}" method="POST" class="inline">
+                            @csrf
+                            <button type="submit" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 transition">
+                                Generar partidos automáticamente (HU-032)
+                            </button>
+                        </form>
+                    @endcan
+                @endif
+
+                @can('create', [App\Models\Partido::class, $jornada])
+                    <a href="{{ route('jornadas.partidos.create', $jornada) }}" class="px-4 py-2 bg-green-600 text-white font-medium text-sm rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400 transition">
+                        + Programar partido
+                    </a>
+                @endcan
+            </div>
         </div>
 
         <x-table caption="Partidos programados de la jornada">
@@ -139,12 +152,18 @@
                             </div>
                         </td>
                         <td class="px-4 py-3 text-sm text-gray-300 whitespace-nowrap">
-                            <div>{{ \Carbon\Carbon::parse($partido->fecha_partido)->format('d/m/Y') }}</div>
-                            <div class="text-xs text-gray-400">{{ \Carbon\Carbon::parse($partido->hora_partido)->format('H:i') }} hrs</div>
+                            <div>{{ $partido->fecha_partido ? \Carbon\Carbon::parse($partido->fecha_partido)->format('d/m/Y') : 'Sin fecha' }}</div>
+                            <div class="text-xs text-gray-400">
+                                @if ($partido->hora_partido)
+                                    {{ \Carbon\Carbon::parse($partido->hora_partido)->format('H:i') }} hrs
+                                @else
+                                    Sin hora
+                                @endif
+                            </div>
                         </td>
                         <td class="px-4 py-3 text-sm text-gray-300">
-                            <div>{{ $partido->cancha->nombre }}</div>
-                            <div class="text-xs text-gray-500">{{ $partido->cancha->direccion_ubicacion ?? 'Sin dirección' }}</div>
+                            <div>{{ $partido->cancha?->nombre ?? 'Sin cancha asignada' }}</div>
+                            <div class="text-xs text-gray-500">{{ $partido->cancha?->direccion_ubicacion ?? 'Sin dirección' }}</div>
                         </td>
                         <td class="px-4 py-3 text-sm text-gray-300">
                             {{ $partido->arbitro->persona->nombre_completo ?? 'Árbitro #'.$partido->arbitro_id }}

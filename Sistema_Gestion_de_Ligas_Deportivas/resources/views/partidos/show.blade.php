@@ -53,14 +53,19 @@
         <div class="bg-gray-900/50 border border-gray-700 rounded-lg p-4">
             <dt class="text-gray-400">Fecha y Hora</dt>
             <dd class="mt-1 text-white font-medium">
-                {{ \Carbon\Carbon::parse($partido->fecha_partido)->format('d/m/Y') }} a las {{ \Carbon\Carbon::parse($partido->hora_partido)->format('H:i') }} hrs
+                {{ $partido->fecha_partido ? \Carbon\Carbon::parse($partido->fecha_partido)->format('d/m/Y') : 'Sin fecha' }}
+                @if ($partido->hora_partido)
+                    a las {{ \Carbon\Carbon::parse($partido->hora_partido)->format('H:i') }} hrs
+                @else
+                    · Sin hora
+                @endif
             </dd>
         </div>
         <div class="bg-gray-900/50 border border-gray-700 rounded-lg p-4">
             <dt class="text-gray-400">Cancha Asignada</dt>
             <dd class="mt-1 text-white font-medium">
-                {{ $partido->cancha->nombre }}
-                @if ($partido->cancha->direccion_ubicacion)
+                {{ $partido->cancha?->nombre ?? 'Sin cancha asignada' }}
+                @if ($partido->cancha?->direccion_ubicacion)
                     <span class="block text-xs text-gray-400 mt-0.5">{{ $partido->cancha->direccion_ubicacion }}</span>
                 @endif
             </dd>
