@@ -209,6 +209,46 @@ class RespaldosTest extends TestCase
         Log::shouldHaveReceived('error')->withArgs(fn (string $mensaje, array $contexto): bool => ! str_contains((string) json_encode($contexto), self::CONTRASENA_BD));
     }
 
+    // La cuenta de la aplicación (sgld:usuario-bd) no puede volcar los triggers: se usa DB_ADMIN_* si existe
+    public function test_el_volcado_usa_el_administrador_si_existe_y_si_no_la_cuenta_de_la_aplicacion(): void
+    {
+        $usuarioAplicacion = (string) config('database.connections.'.config('database.default').'.username');
+        $this->crear(completo: true);
+        Process::assertRan(fn (PendingProcess $proceso): bool => $this->comando($proceso)[0] === 'mariadb-dump'
+            && in_array('--user='.$usuarioAplicacion, $this->comando($proceso), true)
+            && ($proceso->environment['MYSQL_PWD'] ?? null) === self::CONTRASENA_BD);
+
+        config(['database.administracion.usuario' => 'sgld_respaldos', 'database.administracion.password' => 'contrasena-admin-respaldos']);
+        $this->travelTo(CarbonImmutable::parse('2026-11-08 02:01:00', 'America/Mexico_City'));
+        $this->crear(completo: true);
+
+        Process::assertRan(fn (PendingProcess $proceso): bool => $this->comando($proceso)[0] === 'mariadb-dump'
+            && in_array('--user=sgld_respaldos', $this->comando($proceso), true)
+            && ($proceso->environment['MYSQL_PWD'] ?? null) === 'contrasena-admin-respaldos');
+        Process::assertNotRan(fn (PendingProcess $proceso): bool => str_contains(implode(' ', $this->comando($proceso)), 'contrasena-admin-respaldos'));
+    }
+
+    // Las advertencias (WARNING:) no tapan el error real del volcado
+    public function test_el_error_del_volcado_muestra_el_error_real_y_no_las_advertencias(): void
+    {
+        $error = "mariadb-dump: Couldn't execute 'SHOW CREATE TRIGGER auditoria_logs_impedir_update': Access denied; you need (at least one of) the TRIGGER privilege(s) for this operation (1227)";
+        Process::fake(['*mariadb-dump*' => Process::result(
+            errorOutput: "WARNING: option --ssl-verify-server-cert is disabled, because of an insecure passwordless login.\n{$error}\n",
+            exitCode: 2,
+        )]);
+
+        $this->assertSame(1, Artisan::call('respaldo:crear', ['--completo' => true]));
+        $salida = Artisan::output();
+        $this->assertStringContainsString('Falló el volcado de la base (código 2): '.$error, $salida);
+        $this->assertStringNotContainsString('WARNING', $salida);
+
+        // Si solo hay advertencias, se muestra la última
+        Process::fake(['*mariadb-dump*' => Process::result(errorOutput: "WARNING: primera advertencia\nWARNING: última advertencia\n", exitCode: 2)]);
+
+        $this->assertSame(1, Artisan::call('respaldo:crear', ['--completo' => true]));
+        $this->assertStringContainsString('Falló el volcado de la base (código 2): WARNING: última advertencia', Artisan::output());
+    }
+
     // Si falla la subida del manifiesto, se borran las partes que ya habían subido
     public function test_si_falla_la_subida_no_queda_un_respaldo_a_medias(): void
     {

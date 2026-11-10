@@ -56,7 +56,20 @@ Variables del `.env`. Las que están vacías toman el valor por defecto:
 | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_ENDPOINT` | Las credenciales del bucket de R2. |
 
 - **Contraseña de la base:** los programas la reciben en la variable de entorno `MYSQL_PWD`, nunca como argumento, así que no aparece en la lista de procesos.
-- **Administrador:** para crear y borrar la base de restauración se usan `DB_ADMIN_USERNAME` y `DB_ADMIN_PASSWORD`, si existen; si no, la cuenta de la aplicación.
+- **Administrador:** el volcado, la importación y la base de restauración usan `DB_ADMIN_USERNAME` y `DB_ADMIN_PASSWORD`, si existen; si no, la cuenta de la aplicación. **En producción configura `DB_ADMIN_*`:** la cuenta de la aplicación que crea `sgld:usuario-bd` solo tiene SELECT, INSERT, UPDATE y DELETE por tabla, y el volcado falla al leer los triggers de la auditoría («you need (at least one of) the TRIGGER privilege(s)», error 1227).
+- **Permisos de la cuenta de respaldos:**
+  - para el volcado, sobre la base de operación: `SELECT`, `SHOW VIEW`, `TRIGGER` y `LOCK TABLES`;
+  - para restaurar y para la prueba mensual: todos los permisos sobre la base de `RESPALDO_BASE_RESTAURACION`, porque la crea, la borra e importa en ella.
+
+  Por ejemplo:
+
+  ```sql
+  CREATE USER 'sgld_respaldos'@'localhost' IDENTIFIED BY '<contraseña>';
+  GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES ON sgld_db.* TO 'sgld_respaldos'@'localhost';
+  GRANT ALL PRIVILEGES ON sgld_restauracion.* TO 'sgld_respaldos'@'localhost';
+  ```
+
+  Para restaurar con `--operacion` la cuenta necesita además permisos de escritura y de estructura sobre la base de operación. En un desastre conviene usar la cuenta `root` de MariaDB.
 - **Base en Docker:** si MariaDB corre en Docker y el servidor no tiene los clientes, los programas pueden llevar argumentos:
 
   ```dotenv

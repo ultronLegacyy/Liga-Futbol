@@ -31,8 +31,9 @@ class ClienteMariaDb
         $fallaCompresion = false;
 
         try {
-            $proceso = $this->proceso(false)->start(
-                [...$this->programa('volcado'), ...$this->argumentos(false), '--single-transaction', '--routines', '--triggers', $this->baseDeOperacion()],
+            // Con --triggers la cuenta de la aplicación (sgld:usuario-bd) no alcanza: se usa la de DB_ADMIN_* si existe
+            $proceso = $this->proceso(true)->start(
+                [...$this->programa('volcado'), ...$this->argumentos(true), '--single-transaction', '--routines', '--triggers', $this->baseDeOperacion()],
                 function (string $tipo, string $salida) use ($gz, &$fallaCompresion): void {
                     if ($tipo === 'out' && gzwrite($gz, $salida) === false) {
                         $fallaCompresion = true;
@@ -139,7 +140,7 @@ class ClienteMariaDb
         return $resultado->output();
     }
 
-    // Para crear y borrar la base de restauración se usa el administrador, si está configurado
+    // El volcado, la importación y la base de restauración usan el administrador, si está configurado
     private function proceso(bool $administrador): PendingProcess
     {
         return Process::timeout(self::LIMITE_SEGUNDOS)
@@ -215,10 +216,20 @@ class ClienteMariaDb
         return $nombre;
     }
 
+    // La primera línea de error real: las advertencias (WARNING:) taparían el motivo
     private function detalle(string $error): string
     {
-        $linea = strtok(RespaldoException::sinSecretos($error), "\n");
+        $lineas = array_values(array_filter(
+            array_map('trim', explode("\n", RespaldoException::sinSecretos($error))),
+            fn (string $linea): bool => $linea !== ''
+        ));
 
-        return $linea === false ? 'sin detalle' : $linea;
+        foreach ($lineas as $linea) {
+            if (! str_starts_with($linea, 'WARNING:')) {
+                return $linea;
+            }
+        }
+
+        return $lineas === [] ? 'sin detalle' : $lineas[count($lineas) - 1];
     }
 }
