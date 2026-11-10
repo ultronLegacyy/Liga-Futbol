@@ -4,16 +4,18 @@ namespace App\Http\Requests;
 
 use App\Models\Grupo;
 use App\Models\Jornada;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 
 // Solicitud de configuración y previsualización de rol de juegos (HU-032, RF-07.1)
 class GenerarRolRequest extends FormRequest
 {
-    public function authorize(): bool
+    public function authorize(): Response
     {
         $grupo = $this->route('grupo');
 
-        return $this->user()?->can('create', [Jornada::class, $grupo]) ?? false;
+        return Gate::inspect('create', [Jornada::class, $grupo]);
     }
 
     /**

@@ -2,17 +2,23 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Grupo;
 use App\Models\Jornada;
+use App\Services\GeneradorEnfrentamientosService;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Validator;
 
 // Confirmación y persistencia del rol regular generado (HU-032, RF-07.1)
 class ConfirmarRolRequest extends FormRequest
 {
-    public function authorize(): bool
+    public function authorize(): Response
     {
         $grupo = $this->route('grupo');
 
-        return $this->user()?->can('create', [Jornada::class, $grupo]) ?? false;
+        return Gate::inspect('create', [Jornada::class, $grupo]);
     }
 
     /**
@@ -38,15 +44,15 @@ class ConfirmarRolRequest extends FormRequest
         ];
     }
 
-    public function withValidator(\Illuminate\Validation\Validator $validator): void
+    public function withValidator(Validator $validator): void
     {
-        $validator->after(function (\Illuminate\Validation\Validator $validator): void {
+        $validator->after(function (Validator $validator): void {
             if ($validator->errors()->isNotEmpty()) {
                 return;
             }
 
             $grupo = $this->route('grupo');
-            if (! $grupo instanceof \App\Models\Grupo) {
+            if (! $grupo instanceof Grupo) {
                 return;
             }
 
@@ -61,8 +67,8 @@ class ConfirmarRolRequest extends FormRequest
             }
 
             try {
-                app(\App\Services\GeneradorEnfrentamientosService::class)->validarPropuestaRol($grupo, $propuesta);
-            } catch (\Illuminate\Validation\ValidationException $e) {
+                app(GeneradorEnfrentamientosService::class)->validarPropuestaRol($grupo, $propuesta);
+            } catch (ValidationException $e) {
                 foreach ($e->validator->errors()->all() as $mensaje) {
                     $validator->errors()->add('fixture_payload', $mensaje);
                 }

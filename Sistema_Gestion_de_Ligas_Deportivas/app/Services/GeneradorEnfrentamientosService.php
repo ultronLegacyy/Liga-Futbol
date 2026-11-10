@@ -7,8 +7,8 @@ use App\Models\Grupo;
 use App\Models\Jornada;
 use App\Models\Partido;
 use Carbon\Carbon;
+use DateTimeImmutable;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 // Motor algorítmico Round-Robin / Sistema Berger para generación automática de enfrentamientos (HU-032, RF-07.1)
@@ -259,13 +259,36 @@ class GeneradorEnfrentamientosService
         $equiposIds = $equipos->pluck('id')->all();
 
         $numEquipos = count($equiposIds);
-        $totalItems = ($numEquipos % 2 !== 0) ? ($numEquipos + 1) : $numEquipos;
-        $rondasPorVuelta = $totalItems - 1;
-
         $numeroJornada = $jornada->numero_jornada;
-        $vueltas = ($numeroJornada > $rondasPorVuelta) ? 2 : 1;
+        // Se calculan 2 vueltas completas para tener disponibles ambas opciones de cruces/descansos
+        $rol = $this->calcularRolBerger($equiposIds, 2, false);
 
-        $rol = $this->calcularRolBerger($equiposIds, $vueltas, false);
+        // Identificar partidos ya programados en otras jornadas del grupo para evitar duplicar cruces
+        $otrasJornadas = $grupo->jornadas()
+            ->where('id', '!=', $jornada->id)
+            ->whereHas('partidos')
+            ->with('partidos')
+            ->get();
+
+        $enfrentamientosOtras = [];
+        foreach ($otrasJornadas as $otra) {
+            $parejas = [];
+            foreach ($otra->partidos as $partido) {
+                $parejas[] = $partido->equipo_local_id.'-'.$partido->equipo_visitante_id;
+            }
+            sort($parejas);
+            $enfrentamientosOtras[] = implode('|', $parejas);
+        }
+
+        $firmaRonda = function (array $ronda): string {
+            $parejas = [];
+            foreach ($ronda['partidos'] as $p) {
+                $parejas[] = $p['equipo_local_id'].'-'.$p['equipo_visitante_id'];
+            }
+            sort($parejas);
+
+            return implode('|', $parejas);
+        };
 
         // Si la jornada ya tiene descanso asignado (RF-06.2), buscar la ronda que respete dicho descanso
         if ($jornada->equipo_descanso_id !== null) {
@@ -282,30 +305,57 @@ class GeneradorEnfrentamientosService
                 ]);
             }
 
-            foreach ($rol as $ronda) {
-                if ($ronda['equipo_descanso_id'] === $descansoExistente) {
+            $rondasConDescanso = array_filter($rol, fn ($r) => $r['equipo_descanso_id'] === $descansoExistente);
+
+            // Primero intentar con una ronda no utilizada previamente por otra jornada
+            foreach ($rondasConDescanso as $ronda) {
+                if (! in_array($firmaRonda($ronda), $enfrentamientosOtras, true)) {
                     return [
                         'equipo_descanso_id' => $descansoExistente,
                         'partidos' => $ronda['partidos'],
                     ];
                 }
             }
+
+            // Si todas fueron usadas, retornar la primera coincidente
+            $primera = reset($rondasConDescanso);
+            if ($primera) {
+                return [
+                    'equipo_descanso_id' => $descansoExistente,
+                    'partidos' => $primera['partidos'],
+                ];
+            }
         }
 
-        // Buscar la ronda cuyo número coincida con la jornada actual
-        $rondaEncontrada = null;
+        // Buscar una ronda que coincida con el número de jornada y no haya sido utilizada
+        $candidataExacta = null;
         foreach ($rol as $ronda) {
             if ($ronda['numero_jornada'] === $numeroJornada) {
-                $rondaEncontrada = $ronda;
+                $candidataExacta = $ronda;
                 break;
             }
         }
 
-        if ($rondaEncontrada === null) {
-            // Mapeo cíclico si excede las vueltas calculadas
-            $indiceModulo = ($numeroJornada - 1) % count($rol);
-            $rondaEncontrada = $rol[$indiceModulo];
+        if ($candidataExacta !== null && ! in_array($firmaRonda($candidataExacta), $enfrentamientosOtras, true)) {
+            return [
+                'equipo_descanso_id' => $candidataExacta['equipo_descanso_id'],
+                'partidos' => $candidataExacta['partidos'],
+            ];
         }
+
+        // Buscar la primera ronda de Berger disponible que no haya sido programada en otra jornada
+        foreach ($rol as $ronda) {
+            if (! in_array($firmaRonda($ronda), $enfrentamientosOtras, true)) {
+                return [
+                    'equipo_descanso_id' => $ronda['equipo_descanso_id'],
+                    'partidos' => $ronda['partidos'],
+                ];
+            }
+        }
+
+        // Respaldo cíclico
+        $indiceModulo = ($numeroJornada - 1) % count($rol);
+        $rondaEncontrada = $rol[$indiceModulo];
 
         return [
             'equipo_descanso_id' => $rondaEncontrada['equipo_descanso_id'],
@@ -330,16 +380,40 @@ class GeneradorEnfrentamientosService
             ]);
         }
 
+        /** @var array<int, int> $equiposValidos */
         $equiposValidos = $grupo->equipos()->pluck('id')->map(fn ($id) => (int) $id)->all();
         $equiposValidosMap = array_flip($equiposValidos);
         $numEquipos = count($equiposValidos);
         $esImpar = ($numEquipos % 2 !== 0);
+        $rondasPorVuelta = $esImpar ? $numEquipos : ($numEquipos - 1);
+        $partidosPorJornadaEsperados = (int) floor($numEquipos / 2);
+
+        $totalJornadas = count($propuesta['jornadas']);
+        if ($totalJornadas !== $rondasPorVuelta && $totalJornadas !== 2 * $rondasPorVuelta) {
+            throw ValidationException::withMessages([
+                'fixture_payload' => "La propuesta contiene {$totalJornadas} jornada(s), pero se requieren exactamente {$rondasPorVuelta} jornadas para 1 vuelta o ".(2 * $rondasPorVuelta).' jornadas para 2 vueltas.',
+            ]);
+        }
+        $vueltas = ($totalJornadas === 2 * $rondasPorVuelta) ? 2 : 1;
 
         $temporada = $grupo->temporada;
-        $temporadaInicio = $temporada?->fecha_inicio ? Carbon::parse($temporada->fecha_inicio)->startOfDay() : null;
-        $temporadaFin = $temporada?->fecha_fin ? Carbon::parse($temporada->fecha_fin)->endOfDay() : null;
+        $temporadaInicio = null;
+        $temporadaFin = null;
+        if ($temporada?->fecha_inicio) {
+            $dtInicio = DateTimeImmutable::createFromFormat('Y-m-d', (string) $temporada->fecha_inicio);
+            if ($dtInicio) {
+                $temporadaInicio = $dtInicio->setTime(0, 0, 0);
+            }
+        }
+        if ($temporada?->fecha_fin) {
+            $dtFin = DateTimeImmutable::createFromFormat('Y-m-d', (string) $temporada->fecha_fin);
+            if ($dtFin) {
+                $temporadaFin = $dtFin->setTime(23, 59, 59);
+            }
+        }
 
-        $numerosJornadaVistos = [];
+        $fechaInicioAnterior = null;
+        $fechaFinAnterior = null;
 
         foreach ($propuesta['jornadas'] as $index => $jornada) {
             if (! is_array($jornada)) {
@@ -348,21 +422,23 @@ class GeneradorEnfrentamientosService
                 ]);
             }
 
-            $numero = $jornada['numero_jornada'] ?? null;
-            if (! is_numeric($numero) || (int) $numero < 1) {
+            // Validación de número de jornada correlativo estricto
+            $rawNumero = $jornada['numero_jornada'] ?? null;
+            if (! is_int($rawNumero) && (! is_string($rawNumero) || ! ctype_digit((string) $rawNumero))) {
                 throw ValidationException::withMessages([
-                    'fixture_payload' => "El número de jornada '{$numero}' no es válido.",
+                    'fixture_payload' => "El número de jornada en la posición {$index} debe ser un número entero positivo.",
                 ]);
             }
-            $numero = (int) $numero;
-            if (isset($numerosJornadaVistos[$numero])) {
-                throw ValidationException::withMessages([
-                    'fixture_payload' => "El número de jornada {$numero} está repetido en la propuesta.",
-                ]);
-            }
-            $numerosJornadaVistos[$numero] = true;
 
-            // Validación de formato y coherencia de fechas
+            $numero = (int) $rawNumero;
+            $esperado = $index + 1;
+            if ($numero !== $esperado) {
+                throw ValidationException::withMessages([
+                    'fixture_payload' => "Los números de jornada deben ser correlativos comenzando en 1. Se esperaba jornada {$esperado}, pero se recibió {$rawNumero}.",
+                ]);
+            }
+
+            // Validación estricta de fechas (sin rollover de PHP/Carbon que provoque error 500 en BD)
             $inicioStr = $jornada['fecha_inicio'] ?? null;
             $finStr = $jornada['fecha_fin'] ?? null;
 
@@ -372,55 +448,92 @@ class GeneradorEnfrentamientosService
                 ]);
             }
 
-            try {
-                $fechaInicio = Carbon::createFromFormat('Y-m-d', $inicioStr)->startOfDay();
-                $fechaFin = Carbon::createFromFormat('Y-m-d', $finStr)->endOfDay();
-            } catch (\Throwable) {
+            $dInicio = DateTimeImmutable::createFromFormat('Y-m-d', $inicioStr);
+            if (! $dInicio || $dInicio->format('Y-m-d') !== $inicioStr) {
                 throw ValidationException::withMessages([
-                    'fixture_payload' => "Las fechas de la jornada {$numero} deben tener formato AAAA-MM-DD válido.",
+                    'fixture_payload' => "La fecha de inicio '{$inicioStr}' de la jornada {$numero} no es una fecha válida en formato AAAA-MM-DD.",
                 ]);
             }
 
-            if ($fechaFin->lt($fechaInicio)) {
+            $dFin = DateTimeImmutable::createFromFormat('Y-m-d', $finStr);
+            if (! $dFin || $dFin->format('Y-m-d') !== $finStr) {
+                throw ValidationException::withMessages([
+                    'fixture_payload' => "La fecha de fin '{$finStr}' de la jornada {$numero} no es una fecha válida en formato AAAA-MM-DD.",
+                ]);
+            }
+
+            $dInicioDia = $dInicio->setTime(0, 0, 0);
+            $dFinDia = $dFin->setTime(23, 59, 59);
+
+            if ($dFinDia < $dInicioDia) {
                 throw ValidationException::withMessages([
                     'fixture_payload' => "La fecha de fin ({$finStr}) de la jornada {$numero} no puede ser anterior a la de inicio ({$inicioStr}).",
                 ]);
             }
 
-            if ($temporadaInicio && $fechaInicio->lt($temporadaInicio)) {
+            if ($temporadaInicio && $dInicioDia < $temporadaInicio) {
                 throw ValidationException::withMessages([
                     'fixture_payload' => "La fecha de inicio ({$inicioStr}) de la jornada {$numero} es anterior al inicio de la temporada.",
                 ]);
             }
 
-            if ($temporadaFin && $fechaFin->gt($temporadaFin)) {
+            if ($temporadaFin && $dFinDia > $temporadaFin) {
                 throw ValidationException::withMessages([
                     'fixture_payload' => "La fecha de fin ({$finStr}) de la jornada {$numero} es posterior al término de la temporada.",
                 ]);
             }
+
+            // Orden cronológico estricto no decreciente y sin cruces entre fechas
+            if ($fechaInicioAnterior !== null && $dInicioDia <= $fechaInicioAnterior) {
+                throw ValidationException::withMessages([
+                    'fixture_payload' => "El orden cronológico es inválido: la fecha de inicio de la jornada {$numero} ({$inicioStr}) debe ser posterior a la fecha de inicio de la jornada anterior.",
+                ]);
+            }
+
+            if ($fechaFinAnterior !== null && $dInicioDia < $fechaFinAnterior->setTime(0, 0, 0)) {
+                throw ValidationException::withMessages([
+                    'fixture_payload' => "Las fechas de la jornada {$numero} se cruzan con la jornada anterior.",
+                ]);
+            }
+
+            $fechaInicioAnterior = $dInicioDia;
+            $fechaFinAnterior = $dFinDia;
 
             // Validación de descanso
             $descansoId = ! empty($jornada['equipo_descanso_id'])
                 ? (int) $jornada['equipo_descanso_id']
                 : null;
 
-            if (! $esImpar && $descansoId !== null) {
-                throw ValidationException::withMessages([
-                    'fixture_payload' => "La jornada {$numero} no debe tener descanso en un grupo con número par de equipos.",
-                ]);
-            }
-
-            if ($descansoId !== null && ! isset($equiposValidosMap[$descansoId])) {
-                throw ValidationException::withMessages([
-                    'fixture_payload' => "El equipo en descanso de la jornada {$numero} no pertenece al grupo.",
-                ]);
+            if ($esImpar) {
+                if ($descansoId === null) {
+                    throw ValidationException::withMessages([
+                        'fixture_payload' => "La jornada {$numero} requiere un equipo en descanso ya que el grupo tiene un número impar de equipos.",
+                    ]);
+                }
+                if (! isset($equiposValidosMap[$descansoId])) {
+                    throw ValidationException::withMessages([
+                        'fixture_payload' => "El equipo en descanso de la jornada {$numero} no pertenece al grupo.",
+                    ]);
+                }
+            } else {
+                if ($descansoId !== null) {
+                    throw ValidationException::withMessages([
+                        'fixture_payload' => "La jornada {$numero} no debe tener descanso en un grupo con número par de equipos.",
+                    ]);
+                }
             }
 
             // Validación de partidos
-            $partidos = $jornada['partidos'] ?? [];
+            $partidos = $jornada['partidos'] ?? null;
             if (! is_array($partidos)) {
                 throw ValidationException::withMessages([
                     'fixture_payload' => "Los partidos de la jornada {$numero} deben ser una lista.",
+                ]);
+            }
+
+            if (count($partidos) !== $partidosPorJornadaEsperados) {
+                throw ValidationException::withMessages([
+                    'fixture_payload' => "La jornada {$numero} debe contener exactamente {$partidosPorJornadaEsperados} partido(s).",
                 ]);
             }
 
@@ -477,6 +590,49 @@ class GeneradorEnfrentamientosService
                 }
                 $equiposEnJornada[$visitanteId] = 'jugando';
             }
+
+            if (count($equiposEnJornada) !== $numEquipos) {
+                throw ValidationException::withMessages([
+                    'fixture_payload' => "La jornada {$numero} no incluye a la totalidad de los equipos del grupo ({$numEquipos} requeridos).",
+                ]);
+            }
+        }
+
+        // Validación de integridad de Round-Robin por cada vuelta
+        for ($v = 0; $v < $vueltas; $v++) {
+            $jornadasVuelta = array_slice($propuesta['jornadas'], $v * $rondasPorVuelta, $rondasPorVuelta);
+            $crucesVistosVuelta = [];
+            $descansosVistosVuelta = [];
+
+            foreach ($jornadasVuelta as $jItem) {
+                if ($esImpar) {
+                    $dId = (int) $jItem['equipo_descanso_id'];
+                    if (isset($descansosVistosVuelta[$dId])) {
+                        throw ValidationException::withMessages([
+                            'fixture_payload' => "El equipo #{$dId} descansa más de una vez en la vuelta ".($v + 1).'.',
+                        ]);
+                    }
+                    $descansosVistosVuelta[$dId] = true;
+                }
+
+                foreach ($jItem['partidos'] as $pItem) {
+                    $loc = (int) $pItem['equipo_local_id'];
+                    $vis = (int) $pItem['equipo_visitante_id'];
+                    $cruce = min($loc, $vis).'-'.max($loc, $vis);
+                    if (isset($crucesVistosVuelta[$cruce])) {
+                        throw ValidationException::withMessages([
+                            'fixture_payload' => "El enfrentamiento entre los equipos #{$loc} y #{$vis} está repetido en la vuelta ".($v + 1).'.',
+                        ]);
+                    }
+                    $crucesVistosVuelta[$cruce] = true;
+                }
+            }
+
+            if ($esImpar && count($descansosVistosVuelta) !== $numEquipos) {
+                throw ValidationException::withMessages([
+                    'fixture_payload' => 'No todos los equipos descansan exactamente una vez en la vuelta '.($v + 1).'.',
+                ]);
+            }
         }
     }
 
@@ -495,71 +651,74 @@ class GeneradorEnfrentamientosService
         return $this->auditService->conMotivo(
             'Generación automática de rol de enfrentamientos (HU-032 / RF-07.1)',
             function () use ($grupo, $propuesta, $sobrescribir): array {
-                return DB::transaction(function () use ($grupo, $propuesta, $sobrescribir): array {
-                    $jornadasExistentes = $grupo->jornadas()->with('partidos')->get();
+                // Serializar concurrencia bloqueando pesimistamente la fila del grupo (RNF-33)
+                /** @var Grupo $grupoBloqueado */
+                $grupoBloqueado = Grupo::query()->whereKey($grupo->id)->lockForUpdate()->firstOrFail();
 
-                    if ($jornadasExistentes->isNotEmpty()) {
-                        if (! $sobrescribir) {
-                            throw ValidationException::withMessages([
-                                'grupo' => 'El grupo ya cuenta con jornadas programadas. Active la casilla de confirmación para reemplazarlas.',
-                            ]);
-                        }
+                // Leer las jornadas existentes después de adquirir el bloqueo
+                $jornadasExistentes = $grupoBloqueado->jornadas()->with('partidos')->get();
 
-                        // Verificar si hay partidos ya jugados, en juego, suspendidos o confirmados
-                        foreach ($jornadasExistentes as $jornadaEx) {
-                            $partidosProtegidos = $jornadaEx->partidos()
-                                ->whereIn('estado', ['confirmado', 'en juego', 'suspendido', 'finalizado'])
-                                ->exists();
-
-                            if ($partidosProtegidos) {
-                                throw ValidationException::withMessages([
-                                    'grupo' => "La jornada {$jornadaEx->numero_jornada} contiene partidos en estado confirmado, en juego, suspendido o finalizado y no puede ser reemplazada.",
-                                ]);
-                            }
-                        }
-
-                        // Eliminar jornadas y partidos previos individualmente para disparar auditoría (RNF-30)
-                        foreach ($jornadasExistentes as $jornadaEx) {
-                            foreach ($jornadaEx->partidos as $partidoEx) {
-                                $partidoEx->delete();
-                            }
-                            $jornadaEx->delete();
-                        }
-                    }
-
-                    $totalJornadas = 0;
-                    $totalPartidos = 0;
-
-                    foreach ($propuesta['jornadas'] as $itemJornada) {
-                        $jornada = Jornada::create([
-                            'grupo_id' => $grupo->id,
-                            'numero_jornada' => (int) $itemJornada['numero_jornada'],
-                            'fecha_inicio' => $itemJornada['fecha_inicio'],
-                            'fecha_fin' => $itemJornada['fecha_fin'],
-                            'equipo_descanso_id' => $itemJornada['equipo_descanso_id'] ? (int) $itemJornada['equipo_descanso_id'] : null,
+                if ($jornadasExistentes->isNotEmpty()) {
+                    if (! $sobrescribir) {
+                        throw ValidationException::withMessages([
+                            'grupo' => 'El grupo ya cuenta con jornadas programadas. Active la casilla de confirmación para reemplazarlas.',
                         ]);
-                        $totalJornadas++;
+                    }
 
-                        foreach ($itemJornada['partidos'] as $itemPartido) {
-                            Partido::create([
-                                'jornada_id' => $jornada->id,
-                                'equipo_local_id' => (int) $itemPartido['equipo_local_id'],
-                                'equipo_visitante_id' => (int) $itemPartido['equipo_visitante_id'],
-                                'fecha_partido' => $itemJornada['fecha_inicio'],
-                                'hora_partido' => null,
-                                'cancha_id' => null,
-                                'arbitro_id' => null,
-                                'estado' => 'programado',
+                    // Verificar en memoria si hay partidos ya jugados, en juego, suspendidos o confirmados
+                    foreach ($jornadasExistentes as $jornadaEx) {
+                        $tieneProtegidos = $jornadaEx->partidos->contains(function (Partido $p) {
+                            return in_array($p->estado, ['confirmado', 'en juego', 'suspendido', 'finalizado'], true);
+                        });
+
+                        if ($tieneProtegidos) {
+                            throw ValidationException::withMessages([
+                                'grupo' => "La jornada {$jornadaEx->numero_jornada} contiene partidos en estado confirmado, en juego, suspendido o finalizado y no puede ser reemplazada.",
                             ]);
-                            $totalPartidos++;
                         }
                     }
 
-                    return [
-                        'jornadas_creadas' => $totalJornadas,
-                        'partidos_creados' => $totalPartidos,
-                    ];
-                });
+                    // Eliminar jornadas y partidos previos individualmente para disparar auditoría (RNF-30)
+                    foreach ($jornadasExistentes as $jornadaEx) {
+                        foreach ($jornadaEx->partidos as $partidoEx) {
+                            $partidoEx->delete();
+                        }
+                        $jornadaEx->delete();
+                    }
+                }
+
+                $totalJornadas = 0;
+                $totalPartidos = 0;
+
+                foreach ($propuesta['jornadas'] as $itemJornada) {
+                    $jornada = Jornada::create([
+                        'grupo_id' => $grupoBloqueado->id,
+                        'numero_jornada' => (int) $itemJornada['numero_jornada'],
+                        'fecha_inicio' => $itemJornada['fecha_inicio'],
+                        'fecha_fin' => $itemJornada['fecha_fin'],
+                        'equipo_descanso_id' => $itemJornada['equipo_descanso_id'] ? (int) $itemJornada['equipo_descanso_id'] : null,
+                    ]);
+                    $totalJornadas++;
+
+                    foreach ($itemJornada['partidos'] as $itemPartido) {
+                        Partido::create([
+                            'jornada_id' => $jornada->id,
+                            'equipo_local_id' => (int) $itemPartido['equipo_local_id'],
+                            'equipo_visitante_id' => (int) $itemPartido['equipo_visitante_id'],
+                            'fecha_partido' => $itemJornada['fecha_inicio'],
+                            'hora_partido' => null,
+                            'cancha_id' => null,
+                            'arbitro_id' => null,
+                            'estado' => 'programado',
+                        ]);
+                        $totalPartidos++;
+                    }
+                }
+
+                return [
+                    'jornadas_creadas' => $totalJornadas,
+                    'partidos_creados' => $totalPartidos,
+                ];
             }
         );
     }
@@ -577,38 +736,36 @@ class GeneradorEnfrentamientosService
         return $this->auditService->conMotivo(
             "Generación automática de partidos para jornada {$jornada->numero_jornada} (HU-032 / RF-07.1)",
             function () use ($jornada): Jornada {
-                return DB::transaction(function () use ($jornada): Jornada {
-                    $jornadaBloqueada = Jornada::query()->whereKey($jornada->id)->lockForUpdate()->firstOrFail();
+                $jornadaBloqueada = Jornada::query()->whereKey($jornada->id)->lockForUpdate()->firstOrFail();
 
-                    // Concurrencia serializada (RNF-33): comprobar existencia de partidos dentro del lock
-                    if ($jornadaBloqueada->partidos()->exists()) {
-                        throw ValidationException::withMessages([
-                            'jornada' => 'La jornada ya cuenta con partidos programados. Debe eliminarlos antes de generar nuevos enfrentamientos.',
-                        ]);
-                    }
+                // Concurrencia serializada (RNF-33): comprobar existencia de partidos dentro del lock
+                if ($jornadaBloqueada->partidos()->exists()) {
+                    throw ValidationException::withMessages([
+                        'jornada' => 'La jornada ya cuenta con partidos programados. Debe eliminarlos antes de generar nuevos enfrentamientos.',
+                    ]);
+                }
 
-                    $enfrentamientos = $this->calcularEnfrentamientosParaJornada($jornadaBloqueada);
+                $enfrentamientos = $this->calcularEnfrentamientosParaJornada($jornadaBloqueada);
 
-                    // Si la jornada no tenía descanso asignado y el cálculo arroja descanso, actualizarlo
-                    if ($jornadaBloqueada->equipo_descanso_id === null && $enfrentamientos['equipo_descanso_id'] !== null) {
-                        $jornadaBloqueada->update(['equipo_descanso_id' => $enfrentamientos['equipo_descanso_id']]);
-                    }
+                // Si la jornada no tenía descanso asignado y el cálculo arroja descanso, actualizarlo
+                if ($jornadaBloqueada->equipo_descanso_id === null && $enfrentamientos['equipo_descanso_id'] !== null) {
+                    $jornadaBloqueada->update(['equipo_descanso_id' => $enfrentamientos['equipo_descanso_id']]);
+                }
 
-                    foreach ($enfrentamientos['partidos'] as $par) {
-                        Partido::create([
-                            'jornada_id' => $jornadaBloqueada->id,
-                            'equipo_local_id' => $par['equipo_local_id'],
-                            'equipo_visitante_id' => $par['equipo_visitante_id'],
-                            'fecha_partido' => $jornadaBloqueada->fecha_inicio,
-                            'hora_partido' => null,
-                            'cancha_id' => null,
-                            'arbitro_id' => null,
-                            'estado' => 'programado',
-                        ]);
-                    }
+                foreach ($enfrentamientos['partidos'] as $par) {
+                    Partido::create([
+                        'jornada_id' => $jornadaBloqueada->id,
+                        'equipo_local_id' => $par['equipo_local_id'],
+                        'equipo_visitante_id' => $par['equipo_visitante_id'],
+                        'fecha_partido' => $jornadaBloqueada->fecha_inicio,
+                        'hora_partido' => null,
+                        'cancha_id' => null,
+                        'arbitro_id' => null,
+                        'estado' => 'programado',
+                    ]);
+                }
 
-                    return $jornadaBloqueada->fresh(['partidos.local', 'partidos.visitante', 'equipoDescanso']);
-                });
+                return $jornadaBloqueada->fresh(['partidos.local', 'partidos.visitante', 'equipoDescanso']);
             }
         );
     }

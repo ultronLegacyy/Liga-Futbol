@@ -58,8 +58,24 @@
         </div>
     @endif
 
-    @if ($errors->any())
-        <x-alert type="error" message="No se pudo procesar la solicitud. Revisa los campos señalados." />
+    @if (session('success'))
+        <x-alert type="success" :message="session('success')" />
+    @endif
+
+    @if (session('error'))
+        <x-alert type="error" :message="session('error')" />
+    @endif
+
+    @if ($errors->has('fixture_payload'))
+        <x-alert type="error" :message="$errors->first('fixture_payload')" />
+    @endif
+
+    @if ($errors->has('grupo'))
+        <x-alert type="error" :message="$errors->first('grupo')" />
+    @endif
+
+    @if ($errors->any() && ! $errors->has('fixture_payload') && ! $errors->has('grupo'))
+        <x-alert type="error" :message="$errors->first()" />
     @endif
 
     <form method="POST" action="{{ route('grupos.previsualizar-rol', $grupo) }}" novalidate class="space-y-5">

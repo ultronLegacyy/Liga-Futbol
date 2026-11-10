@@ -51,8 +51,30 @@
             </div>
         </div>
 
-        @if ($errors->any())
-            <x-alert type="error" message="No se pudo confirmar la programación. Revisa los errores." />
+        @if (session('error'))
+            <x-alert type="error" :message="session('error')" />
+        @endif
+
+        @if ($errors->has('fixture_payload'))
+            <x-alert type="error" :message="$errors->first('fixture_payload')" />
+        @elseif ($errors->has('sobrescribir'))
+            <x-alert type="error" :message="$errors->first('sobrescribir')" />
+        @elseif ($errors->has('grupo'))
+            <x-alert type="error" :message="$errors->first('grupo')" />
+        @elseif ($errors->any())
+            <x-alert type="error" :message="$errors->first()" />
+        @endif
+
+        @if ($sobrescribir && isset($partidosPreviosCount) && $partidosPreviosCount > 0)
+            <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 text-sm text-yellow-300">
+                <p class="font-semibold">Aviso de reemplazo de programación:</p>
+                <p class="text-xs text-yellow-300/90 mt-1">
+                    Esta confirmación reemplazará {{ $grupo->jornadas()->count() }} jornada(s) y eliminará {{ $partidosPreviosCount }} partido(s) previamente registrados.
+                    @if (isset($partidosConArbitroCount) && $partidosConArbitroCount > 0)
+                        <span class="block text-yellow-400 font-semibold mt-1">Atención: {{ $partidosConArbitroCount }} de los partidos a eliminar ya cuentan con árbitro asignado.</span>
+                    @endif
+                </p>
+            </div>
         @endif
     </div>
 

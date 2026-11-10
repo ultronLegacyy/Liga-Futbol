@@ -152,12 +152,18 @@
                             </div>
                         </td>
                         <td class="px-4 py-3 text-sm text-gray-300 whitespace-nowrap">
-                            <div>{{ \Carbon\Carbon::parse($partido->fecha_partido)->format('d/m/Y') }}</div>
-                            <div class="text-xs text-gray-400">{{ \Carbon\Carbon::parse($partido->hora_partido)->format('H:i') }} hrs</div>
+                            <div>{{ $partido->fecha_partido ? \Carbon\Carbon::parse($partido->fecha_partido)->format('d/m/Y') : 'Sin fecha' }}</div>
+                            <div class="text-xs text-gray-400">
+                                @if ($partido->hora_partido)
+                                    {{ \Carbon\Carbon::parse($partido->hora_partido)->format('H:i') }} hrs
+                                @else
+                                    Sin hora
+                                @endif
+                            </div>
                         </td>
                         <td class="px-4 py-3 text-sm text-gray-300">
-                            <div>{{ $partido->cancha->nombre }}</div>
-                            <div class="text-xs text-gray-500">{{ $partido->cancha->direccion_ubicacion ?? 'Sin dirección' }}</div>
+                            <div>{{ $partido->cancha?->nombre ?? 'Sin cancha asignada' }}</div>
+                            <div class="text-xs text-gray-500">{{ $partido->cancha?->direccion_ubicacion ?? 'Sin dirección' }}</div>
                         </td>
                         <td class="px-4 py-3 text-sm text-gray-300">
                             {{ $partido->arbitro->persona->nombre_completo ?? 'Árbitro #'.$partido->arbitro_id }}

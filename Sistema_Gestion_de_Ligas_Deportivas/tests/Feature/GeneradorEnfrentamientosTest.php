@@ -661,9 +661,9 @@ class GeneradorEnfrentamientosTest extends TestCase
     }
 
     /**
-     * Prueba de concurrencia y serialización transaccional (RNF-33).
+     * Prueba de serialización transaccional consecutiva (RNF-33).
      */
-    public function test_generar_partidos_concurrente_no_duplica_partidos(): void
+    public function test_generar_partidos_consecutivo_no_duplica_partidos(): void
     {
         $this->crearEquipo('Alfa');
         $this->crearEquipo('Beta');
@@ -764,7 +764,7 @@ class GeneradorEnfrentamientosTest extends TestCase
     }
 
     /**
-     * Verificación de la vista jornadas.show sin errores 500 (Punto 5 del code review).
+     * Verificación de la vista jornadas.show y partidos.show sin errores 500 con partidos generados sin cancha ni hora (Obligatorio 2).
      */
     public function test_pantalla_show_jornada_carga_correctamente_sin_error_500(): void
     {
@@ -778,14 +778,37 @@ class GeneradorEnfrentamientosTest extends TestCase
             'fecha_fin' => '2026-11-11',
         ]);
 
-        $response = $this->actingAs($this->programador)
+        // 1. Abrir jornada vacía
+        $responseVacia = $this->actingAs($this->programador)
             ->get(route('jornadas.show', $jornada));
 
-        $response->assertOk()
+        $responseVacia->assertOk()
             ->assertViewIs('jornadas.show')
             ->assertViewHas('grupo')
             ->assertViewHas('equipos')
             ->assertSee("Jornada {$jornada->numero_jornada}");
+
+        // 2. Generar enfrentamientos automáticos (los partidos quedan sin cancha y sin hora)
+        $this->generadorService->aplicarEnfrentamientosAJornada($jornada);
+
+        // 3. Abrir jornada con partidos generados (no debe lanzar error 500 en cancha ni en hora)
+        $responseConPartidos = $this->actingAs($this->programador)
+            ->get(route('jornadas.show', $jornada));
+
+        $responseConPartidos->assertOk()
+            ->assertSee('Sin cancha asignada')
+            ->assertSee('Sin hora');
+
+        // 4. Abrir la vista individual del partido generado
+        $partidoGenerado = $jornada->fresh()->partidos->first();
+        $this->assertNotNull($partidoGenerado);
+
+        $responsePartido = $this->actingAs($this->programador)
+            ->get(route('partidos.show', $partidoGenerado));
+
+        $responsePartido->assertOk()
+            ->assertSee('Sin cancha asignada')
+            ->assertSee('Sin hora');
     }
 
     /**
@@ -876,6 +899,388 @@ class GeneradorEnfrentamientosTest extends TestCase
             ])
             ->assertRedirect(route('grupos.generar-rol', $this->grupo))
             ->assertSessionHas('error');
+    }
+
+    public function test_confirmar_rol_rechaza_fechas_imposibles_sin_error_500(): void
+    {
+        $this->crearEquipo('Equipo A');
+        $this->crearEquipo('Equipo B');
+
+        $propuesta = $this->generadorService->generarPropuestaRol($this->grupo, [
+            'fecha_inicio' => '2026-11-15',
+        ]);
+
+        // Fecha inexistente (rollover en Carbon si no se valida estrictamente)
+        $propuesta['jornadas'][0]['fecha_inicio'] = '2026-11-31';
+
+        $response = $this->actingAs($this->programador)
+            ->post(route('grupos.confirmar-rol', $this->grupo), [
+                'fixture_payload' => json_encode($propuesta),
+            ]);
+
+        $response->assertSessionHasErrors(['fixture_payload']);
+        $this->assertNotEquals(500, $response->getStatusCode());
+    }
+
+    public function test_confirmar_rol_rechaza_numero_jornada_invalido_o_no_correlativo(): void
+    {
+        $this->crearEquipo('Equipo A');
+        $this->crearEquipo('Equipo B');
+
+        $propuesta = $this->generadorService->generarPropuestaRol($this->grupo, [
+            'fecha_inicio' => '2026-11-15',
+        ]);
+
+        // Caso 1: número fuera de rango
+        $propuestaInvalida = $propuesta;
+        $propuestaInvalida['jornadas'][0]['numero_jornada'] = 99999999999;
+
+        $response1 = $this->actingAs($this->programador)
+            ->post(route('grupos.confirmar-rol', $this->grupo), [
+                'fixture_payload' => json_encode($propuestaInvalida),
+            ]);
+        $response1->assertSessionHasErrors(['fixture_payload']);
+
+        // Caso 2: número decimal en string
+        $propuestaInvalida['jornadas'][0]['numero_jornada'] = '2.7';
+        $response2 = $this->actingAs($this->programador)
+            ->post(route('grupos.confirmar-rol', $this->grupo), [
+                'fixture_payload' => json_encode($propuestaInvalida),
+            ]);
+        $response2->assertSessionHasErrors(['fixture_payload']);
+    }
+
+    public function test_confirmar_rol_rechaza_propuesta_incompleta_o_con_cruces_repetidos(): void
+    {
+        $alfa = $this->crearEquipo('Alfa');
+        $beta = $this->crearEquipo('Beta');
+        $gamma = $this->crearEquipo('Gamma');
+
+        $propuesta = $this->generadorService->generarPropuestaRol($this->grupo, [
+            'fecha_inicio' => '2026-11-15',
+        ]);
+
+        // Caso 1: En grupo impar, las jornadas sin descanso
+        $propuestaSinDescanso = $propuesta;
+        foreach ($propuestaSinDescanso['jornadas'] as &$j) {
+            $j['equipo_descanso_id'] = null;
+        }
+        unset($j);
+
+        $response1 = $this->actingAs($this->programador)
+            ->post(route('grupos.confirmar-rol', $this->grupo), [
+                'fixture_payload' => json_encode($propuestaSinDescanso),
+            ]);
+        $response1->assertSessionHasErrors(['fixture_payload']);
+
+        // Caso 2: El mismo cruce (Beta-Gamma) en todas las jornadas con Alfa descansando en todas
+        $propuestaMismoCruce = $propuesta;
+        foreach ($propuestaMismoCruce['jornadas'] as &$j) {
+            $j['equipo_descanso_id'] = $alfa->id;
+            $j['partidos'] = [
+                ['equipo_local_id' => $beta->id, 'equipo_visitante_id' => $gamma->id],
+            ];
+        }
+        unset($j);
+
+        $response2 = $this->actingAs($this->programador)
+            ->post(route('grupos.confirmar-rol', $this->grupo), [
+                'fixture_payload' => json_encode($propuestaMismoCruce),
+            ]);
+        $response2->assertSessionHasErrors(['fixture_payload']);
+
+        // Caso 3: Una sola jornada en lugar de las 3 requeridas
+        $propuestaIncompleta = $propuesta;
+        $propuestaIncompleta['jornadas'] = [$propuesta['jornadas'][0]];
+
+        $response3 = $this->actingAs($this->programador)
+            ->post(route('grupos.confirmar-rol', $this->grupo), [
+                'fixture_payload' => json_encode($propuestaIncompleta),
+            ]);
+        $response3->assertSessionHasErrors(['fixture_payload']);
+    }
+
+    public function test_confirmar_rol_rechaza_fechas_cronologicamente_invalidas_o_superpuestas(): void
+    {
+        $this->crearEquipo('Alfa');
+        $this->crearEquipo('Beta');
+        $this->crearEquipo('Gamma');
+
+        $propuesta = $this->generadorService->generarPropuestaRol($this->grupo, [
+            'fecha_inicio' => '2026-11-15',
+        ]);
+
+        // Caso 1: Todas las jornadas con la misma fecha de inicio
+        $propuestaMismaFecha = $propuesta;
+        foreach ($propuestaMismaFecha['jornadas'] as &$j) {
+            $j['fecha_inicio'] = '2026-11-15';
+            $j['fecha_fin'] = '2026-11-16';
+        }
+        unset($j);
+
+        $response1 = $this->actingAs($this->programador)
+            ->post(route('grupos.confirmar-rol', $this->grupo), [
+                'fixture_payload' => json_encode($propuestaMismaFecha),
+            ]);
+        $response1->assertSessionHasErrors(['fixture_payload']);
+
+        // Caso 2: Jornada 1 después de la Jornada 2 (orden cronológico invertido)
+        $propuestaInvertida = $propuesta;
+        $propuestaInvertida['jornadas'][0]['fecha_inicio'] = '2026-11-30';
+        $propuestaInvertida['jornadas'][0]['fecha_fin'] = '2026-12-01';
+        $propuestaInvertida['jornadas'][1]['fecha_inicio'] = '2026-11-20';
+        $propuestaInvertida['jornadas'][1]['fecha_fin'] = '2026-11-21';
+
+        $response2 = $this->actingAs($this->programador)
+            ->post(route('grupos.confirmar-rol', $this->grupo), [
+                'fixture_payload' => json_encode($propuestaInvertida),
+            ]);
+        $response2->assertSessionHasErrors(['fixture_payload']);
+    }
+
+    public function test_rutas_generar_rol_retornan_403_con_mensaje_en_espanol_de_la_politica(): void
+    {
+        $this->crearEquipo('Alfa');
+        $this->crearEquipo('Beta');
+
+        $delegado = $this->crearUsuario('delegado_test@ligafutbol.test', 'Delegado del Club');
+
+        // 1. Usuario no autorizado en previsualizar-rol
+        $response1 = $this->actingAs($delegado)
+            ->post(route('grupos.previsualizar-rol', $this->grupo), [
+                'fecha_inicio' => '2026-11-15',
+                'intervalo_dias' => 7,
+                'dias_duracion' => 1,
+                'vueltas' => 1,
+            ]);
+
+        $response1->assertStatus(403)
+            ->assertSee('No cuenta con privilegios para crear jornadas.');
+
+        // 2. Usuario no autorizado en confirmar-rol
+        $response2 = $this->actingAs($delegado)
+            ->post(route('grupos.confirmar-rol', $this->grupo), [
+                'fixture_payload' => json_encode(['jornadas' => []]),
+            ]);
+
+        $response2->assertStatus(403)
+            ->assertSee('No cuenta con privilegios para crear jornadas.');
+
+        // 3. Temporada cerrada para usuario con rol de programador
+        $this->temporada->update(['estado' => 'cerrada']);
+
+        $response3 = $this->actingAs($this->programador)
+            ->post(route('grupos.previsualizar-rol', $this->grupo), [
+                'fecha_inicio' => '2026-11-15',
+                'intervalo_dias' => 7,
+                'dias_duracion' => 1,
+                'vueltas' => 1,
+            ]);
+
+        $response3->assertStatus(403)
+            ->assertSee('Una temporada cerrada no admite cambios en sus jornadas.');
+    }
+
+    public function test_formulario_generar_rol_muestra_alerta_de_error_de_sesion_y_errores_de_validacion(): void
+    {
+        $this->crearEquipo('Equipo A');
+        $this->crearEquipo('Equipo B');
+
+        $response = $this->actingAs($this->programador)
+            ->withSession(['error' => 'Mensaje de error crítico para el usuario'])
+            ->get(route('grupos.generar-rol', $this->grupo));
+
+        $response->assertOk()
+            ->assertSee('Mensaje de error crítico para el usuario');
+    }
+
+    public function test_algoritmo_berger_balancea_localias_en_grupos_impares(): void
+    {
+        foreach ([5, 7, 9] as $numEquipos) {
+            $equiposIds = range(1, $numEquipos);
+
+            // 1 vuelta: diferencia máxima es a lo sumo 2
+            $rol1 = $this->generadorService->calcularRolBerger($equiposIds, 1);
+            $locales = array_fill_keys($equiposIds, 0);
+            $visitas = array_fill_keys($equiposIds, 0);
+
+            foreach ($rol1 as $ronda) {
+                foreach ($ronda['partidos'] as $p) {
+                    $locales[$p['equipo_local_id']]++;
+                    $visitas[$p['equipo_visitante_id']]++;
+                }
+            }
+
+            foreach ($equiposIds as $id) {
+                $this->assertLessThanOrEqual(2, abs($locales[$id] - $visitas[$id]), "Equipo {$id} excede balance en {$numEquipos} equipos (1 vuelta).");
+                $this->assertGreaterThan(0, $locales[$id]);
+                $this->assertGreaterThan(0, $visitas[$id]);
+            }
+
+            // 2 vueltas: balance exacto 50/50 (diferencia 0)
+            $rol2 = $this->generadorService->calcularRolBerger($equiposIds, 2);
+            $locales2 = array_fill_keys($equiposIds, 0);
+            $visitas2 = array_fill_keys($equiposIds, 0);
+
+            foreach ($rol2 as $ronda) {
+                foreach ($ronda['partidos'] as $p) {
+                    $locales2[$p['equipo_local_id']]++;
+                    $visitas2[$p['equipo_visitante_id']]++;
+                }
+            }
+
+            foreach ($equiposIds as $id) {
+                $this->assertEquals($locales2[$id], $visitas2[$id], "Equipo {$id} no tiene 50/50 balance en {$numEquipos} equipos (2 vueltas).");
+            }
+        }
+    }
+
+    public function test_generar_partidos_individual_en_dos_jornadas_con_mismo_descanso_evita_partidos_identicos(): void
+    {
+        $a1 = $this->crearEquipo('E1');
+        $this->crearEquipo('E2');
+        $this->crearEquipo('E3');
+        $this->crearEquipo('E4');
+        $this->crearEquipo('E5');
+
+        $jornada1 = Jornada::create([
+            'grupo_id' => $this->grupo->id,
+            'numero_jornada' => 1,
+            'fecha_inicio' => '2026-11-15',
+            'fecha_fin' => '2026-11-16',
+            'equipo_descanso_id' => $a1->id,
+        ]);
+
+        $jornada2 = Jornada::create([
+            'grupo_id' => $this->grupo->id,
+            'numero_jornada' => 2,
+            'fecha_inicio' => '2026-11-22',
+            'fecha_fin' => '2026-11-23',
+            'equipo_descanso_id' => $a1->id,
+        ]);
+
+        $this->generadorService->aplicarEnfrentamientosAJornada($jornada1);
+        $this->generadorService->aplicarEnfrentamientosAJornada($jornada2);
+
+        $partidos1 = $jornada1->fresh()->partidos->map(fn ($p) => $p->equipo_local_id.'-'.$p->equipo_visitante_id)->sort()->values()->all();
+        $partidos2 = $jornada2->fresh()->partidos->map(fn ($p) => $p->equipo_local_id.'-'.$p->equipo_visitante_id)->sort()->values()->all();
+
+        $this->assertNotEquals($partidos1, $partidos2, 'La jornada 2 no debe recibir los mismos enfrentamientos exactos de la jornada 1.');
+    }
+
+    public function test_validar_propuesta_detecta_fecha_fuera_de_temporada(): void
+    {
+        $this->crearEquipo('Alfa');
+        $this->crearEquipo('Beta');
+
+        $propuesta = $this->generadorService->generarPropuestaRol($this->grupo, [
+            'fecha_inicio' => '2026-11-15',
+        ]);
+        $propuesta['jornadas'][0]['fecha_inicio'] = '2030-01-01';
+        $propuesta['jornadas'][0]['fecha_fin'] = '2030-01-02';
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        $this->generadorService->validarPropuestaRol($this->grupo, $propuesta);
+    }
+
+    public function test_validar_propuesta_detecta_equipo_descanso_jugando(): void
+    {
+        $alfa = $this->crearEquipo('Alfa');
+        $beta = $this->crearEquipo('Beta');
+        $gamma = $this->crearEquipo('Gamma');
+
+        $propuesta = $this->generadorService->generarPropuestaRol($this->grupo, [
+            'fecha_inicio' => '2026-11-15',
+        ]);
+
+        // Alfa descansa y a la vez juega contra Beta
+        $propuesta['jornadas'][0]['equipo_descanso_id'] = $alfa->id;
+        $propuesta['jornadas'][0]['partidos'] = [
+            ['equipo_local_id' => $alfa->id, 'equipo_visitante_id' => $beta->id],
+        ];
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        $this->generadorService->validarPropuestaRol($this->grupo, $propuesta);
+    }
+
+    public function test_validar_propuesta_detecta_equipo_duplicado_en_jornada(): void
+    {
+        $this->crearEquipo('Alfa');
+        $beta = $this->crearEquipo('Beta');
+        $gamma = $this->crearEquipo('Gamma');
+        $delta = $this->crearEquipo('Delta');
+
+        $propuesta = $this->generadorService->generarPropuestaRol($this->grupo, [
+            'fecha_inicio' => '2026-11-15',
+        ]);
+
+        // Beta juega dos partidos en la misma jornada
+        $propuesta['jornadas'][0]['partidos'] = [
+            ['equipo_local_id' => $beta->id, 'equipo_visitante_id' => $gamma->id],
+            ['equipo_local_id' => $beta->id, 'equipo_visitante_id' => $delta->id],
+        ];
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        $this->generadorService->validarPropuestaRol($this->grupo, $propuesta);
+    }
+
+    public function test_validar_propuesta_detecta_equipo_de_otro_grupo(): void
+    {
+        $this->crearEquipo('Alfa');
+        $this->crearEquipo('Beta');
+
+        $otroGrupo = Grupo::create([
+            'categoria_id' => $this->grupo->categoria_id,
+            'temporada_id' => $this->temporada->id,
+            'nombre' => 'Grupo Ajeno',
+        ]);
+        $clubAjeno = Club::create(['nombre' => 'Club Ajeno']);
+        $equipoAjeno = Equipo::create([
+            'club_id' => $clubAjeno->id,
+            'grupo_id' => $otroGrupo->id,
+            'nombre' => 'Equipo Ajeno',
+        ]);
+
+        $propuesta = $this->generadorService->generarPropuestaRol($this->grupo, [
+            'fecha_inicio' => '2026-11-15',
+        ]);
+
+        $propuesta['jornadas'][0]['partidos'][0]['equipo_local_id'] = $equipoAjeno->id;
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        $this->generadorService->validarPropuestaRol($this->grupo, $propuesta);
+    }
+
+    public function test_validar_propuesta_detecta_numero_jornada_repetido(): void
+    {
+        $this->crearEquipo('Alfa');
+        $this->crearEquipo('Beta');
+        $this->crearEquipo('Gamma');
+
+        $propuesta = $this->generadorService->generarPropuestaRol($this->grupo, [
+            'fecha_inicio' => '2026-11-15',
+        ]);
+
+        $propuesta['jornadas'][1]['numero_jornada'] = 1; // Repetido
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        $this->generadorService->validarPropuestaRol($this->grupo, $propuesta);
+    }
+
+    public function test_validar_propuesta_detecta_equipo_contra_si_mismo(): void
+    {
+        $alfa = $this->crearEquipo('Alfa');
+        $this->crearEquipo('Beta');
+
+        $propuesta = $this->generadorService->generarPropuestaRol($this->grupo, [
+            'fecha_inicio' => '2026-11-15',
+        ]);
+
+        $propuesta['jornadas'][0]['partidos'][0]['equipo_local_id'] = $alfa->id;
+        $propuesta['jornadas'][0]['partidos'][0]['equipo_visitante_id'] = $alfa->id;
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        $this->generadorService->validarPropuestaRol($this->grupo, $propuesta);
     }
 
     private function crearEquipo(string $nombre): Equipo

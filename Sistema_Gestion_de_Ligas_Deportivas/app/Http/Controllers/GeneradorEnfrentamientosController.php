@@ -9,7 +9,6 @@ use App\Models\Jornada;
 use App\Services\GeneradorEnfrentamientosService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -63,7 +62,17 @@ class GeneradorEnfrentamientosController extends Controller
         $grupo->load(['categoria.temporada', 'equipos']);
         $sobrescribir = (bool) $request->boolean('sobrescribir');
 
-        return view('jornadas.previsualizar-rol', compact('grupo', 'propuesta', 'sobrescribir'));
+        $jornadasPrevias = $grupo->jornadas()->with('partidos')->get();
+        $partidosPreviosCount = $jornadasPrevias->sum(fn ($j) => $j->partidos->count());
+        $partidosConArbitroCount = $jornadasPrevias->sum(fn ($j) => $j->partidos->whereNotNull('arbitro_id')->count());
+
+        return view('jornadas.previsualizar-rol', compact(
+            'grupo',
+            'propuesta',
+            'sobrescribir',
+            'partidosPreviosCount',
+            'partidosConArbitroCount'
+        ));
     }
 
     /**
@@ -75,12 +84,8 @@ class GeneradorEnfrentamientosController extends Controller
 
         /** @var string $payloadString */
         $payloadString = $request->validated('fixture_payload');
+        /** @var array<string, mixed> $propuesta */
         $propuesta = json_decode($payloadString, true);
-
-        if (! is_array($propuesta) || ! isset($propuesta['jornadas'])) {
-            return redirect()->route('grupos.generar-rol', $grupo)
-                ->with('error', 'El formato de la propuesta de enfrentamientos no es válido para confirmación.');
-        }
 
         try {
             /** @var array{jornadas: array<int, array{numero_jornada: int, fecha_inicio: string, fecha_fin: string, equipo_descanso_id: int|null, partidos: array<int, array{equipo_local_id: int, equipo_visitante_id: int}>}>} $propuestaTipada */
@@ -93,6 +98,9 @@ class GeneradorEnfrentamientosController extends Controller
         } catch (ValidationException $e) {
             return redirect()->route('grupos.generar-rol', $grupo)
                 ->with('error', $e->validator->errors()->first() ?: $e->getMessage());
+        } catch (\DomainException $e) {
+            return redirect()->route('grupos.generar-rol', $grupo)
+                ->with('error', $e->getMessage());
         }
 
         return redirect()->route('grupos.jornadas.index', $grupo)
@@ -102,7 +110,7 @@ class GeneradorEnfrentamientosController extends Controller
     /**
      * Generación automática de partidos para una jornada existente específica.
      */
-    public function generarJornada(Request $request, Jornada $jornada): RedirectResponse
+    public function generarJornada(Jornada $jornada): RedirectResponse
     {
         Gate::authorize('update', $jornada);
 
