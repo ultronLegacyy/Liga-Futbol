@@ -127,6 +127,8 @@ class RegistroJugadorService
                 $inscripcionBloqueanteEnTemporada = Jugador::query()
                     ->where('persona_id', $persona->getKey())
                     ->whereIn('estado_elegibilidad', ['Suspendido', 'Inelegible', 'Baja'])
+                    // La baja de una inscripción transferida no bloquea (HU-017): el historial de transferencias la identifica.
+                    ->whereDoesntHave('transferenciasOrigen')
                     ->where('equipo_id', '!=', $equipoDestino->getKey())
                     ->whereHas('equipo', fn ($query) => $query->where('temporada_id', $equipoDestino->temporada_id))
                     ->exists();

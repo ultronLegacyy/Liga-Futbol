@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\Jugador;
 use App\Models\User;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Auth\Access\Response;
 
 class JugadorPolicy
@@ -51,6 +52,25 @@ class JugadorPolicy
         return $user->hasRole('Administrador General')
             ? Response::allow()
             : Response::deny('Solo el Administrador General puede desvincular una cuenta de jugador.');
+    }
+
+    public function deactivate(User $user, Jugador $jugador): bool
+    {
+        return $this->adminOrSourceClubDelegate($user, $jugador);
+    }
+    public function renew(User $user, Jugador $jugador): bool
+    {
+        return $this->adminOrSourceClubDelegate($user, $jugador);
+    }
+    public function transfer(User $user, Jugador $jugador): bool
+    {
+        return $this->adminOrSourceClubDelegate($user, $jugador)
+            && ($user->hasRole('Administrador General') || Gate::forUser($user)->allows('jugadores.transferir'));
+    }
+    private function adminOrSourceClubDelegate(User $user, Jugador $jugador): bool
+    {
+        return $user->hasRole('Administrador General')
+            || ($user->club_id !== null && (int) $user->club_id === (int) $jugador->equipo->club_id && $user->hasRole('Delegado del Club'));
     }
 
 }

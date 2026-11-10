@@ -3,12 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreJugadorRequest;
+use App\Http\Requests\BajaJugadorRequest;
+use App\Http\Requests\RenovarJugadorRequest;
+use App\Http\Requests\TransferirJugadorRequest;
 use App\Http\Requests\VincularJugadorRequest;
 use App\Models\DocumentoPersona;
 use App\Models\Equipo;
 use App\Models\Jugador;
 use App\Models\User;
 use App\Services\RegistroJugadorService;
+use App\Services\GestionJugadorService;
 use App\Services\VinculacionJugadorService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -47,6 +51,43 @@ class JugadorController extends Controller
         $categorias = $equipos->pluck('grupo.categoria')->unique('id')->values();
 
         return view('jugadores.create', compact('equipos', 'temporadas', 'categorias'));
+    }
+
+    public function darDeBaja(BajaJugadorRequest $request, Jugador $jugador, GestionJugadorService $gestion): JsonResponse|RedirectResponse
+    {
+        $usuario = $request->user();
+        abort_unless($usuario instanceof User, 401);
+        $datos = $request->validated();
+        $jugador = $gestion->darDeBaja($jugador, $datos['motivo'], $datos['fecha_baja'], $usuario);
+
+        return $request->expectsJson()
+            ? response()->json(['mensaje' => 'El jugador fue dado de baja.', 'jugador' => ['id' => $jugador->getKey(), 'estado' => $jugador->estado_elegibilidad, 'motivo_baja' => $jugador->motivo_baja, 'fecha_baja' => $jugador->fecha_baja?->toDateString()]])
+            : redirect()->route('jugadores.gestion', $jugador)->with('success', 'El jugador fue dado de baja.');
+    }
+
+    public function renovar(RenovarJugadorRequest $request, Jugador $jugador, GestionJugadorService $gestion): JsonResponse|RedirectResponse
+    {
+        $usuario = $request->user();
+        abort_unless($usuario instanceof User, 401);
+        $datos = $request->validated();
+        $renovacion = $gestion->renovar($jugador, Equipo::query()->findOrFail($datos['equipo_id']), $usuario, $datos['dorsal'] ?? null);
+
+        return $request->expectsJson()
+            ? response()->json(['mensaje' => 'La inscripción fue renovada.', 'inscripcion' => ['id' => $renovacion->getKey(), 'persona_id' => $renovacion->persona_id, 'equipo_id' => $renovacion->equipo_id, 'temporada_id' => Equipo::query()->findOrFail($renovacion->equipo_id)->temporada_id, 'dorsal' => $renovacion->dorsal]], 201)
+            : redirect()->route('jugadores.gestion', $renovacion)->with('success', 'La inscripción fue renovada.');
+    }
+
+    public function transferir(TransferirJugadorRequest $request, Jugador $jugador, GestionJugadorService $gestion): JsonResponse|RedirectResponse
+    {
+        $usuario = $request->user();
+        abort_unless($usuario instanceof User, 401);
+        $datos = $request->validated();
+        $transferencia = $gestion->transferir($jugador, (int) $datos['equipo_id'], $usuario, $datos['dorsal'] ?? null);
+        $transferencia->load('inscripcionDestino');
+
+        return $request->expectsJson()
+            ? response()->json(['mensaje' => 'La transferencia fue realizada directamente.', 'transferencia' => ['id' => $transferencia->getKey(), 'persona_id' => $transferencia->persona_id, 'jugador_destino_id' => $transferencia->jugador_destino_id, 'club_origen_id' => $transferencia->club_origen_id, 'club_destino_id' => $transferencia->club_destino_id, 'equipo_origen_id' => $transferencia->equipo_origen_id, 'equipo_destino_id' => $transferencia->equipo_destino_id, 'temporada_id' => $transferencia->temporada_id]], 201)
+            : redirect()->route('jugadores.gestion', $transferencia->inscripcionDestino)->with('success', 'La transferencia fue realizada directamente.');
     }
 
     public function store(StoreJugadorRequest $request, RegistroJugadorService $registro): JsonResponse|RedirectResponse
@@ -131,9 +172,13 @@ class JugadorController extends Controller
     public function gestion(Jugador $jugador): View
     {
         Gate::authorize('view', $jugador);
-        $jugador->load(['persona.documentos', 'equipo.grupo.categoria.temporada']);
+        $jugador->load(['persona.documentos', 'equipo.grupo.categoria.temporada', 'transferenciasOrigen.clubDestino', 'transferenciasOrigen.equipoDestino']);
+        $clubId = $jugador->equipo->club_id;
+        $temporadaId = $jugador->equipo->temporada_id;
+        $equiposRenovacion = Equipo::query()->with(['temporada', 'grupo.categoria'])->where('club_id', $clubId)->whereHas('temporada', fn (Builder $query): Builder => $query->where('estado', 'activa')->whereKeyNot($temporadaId))->get();
+        $equiposTransferencia = Equipo::query()->with(['club', 'temporada', 'grupo.categoria'])->where('club_id', '!=', $clubId)->whereHas('temporada', fn (Builder $query): Builder => $query->where('estado', 'activa'))->get();
 
-        return view('jugadores.gestion', ['jugador' => $jugador]);
+        return view('jugadores.gestion', compact('jugador', 'equiposRenovacion', 'equiposTransferencia'));
     }
 
     public function documento(Jugador $jugador, DocumentoPersona $documento): StreamedResponse

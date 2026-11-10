@@ -1,0 +1,180 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Club;
+use App\Models\Equipo;
+use App\Models\HistorialTransferenciaJugador;
+use App\Models\Jugador;
+use App\Models\Persona;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
+
+class GestionJugadorService
+{
+    public function __construct(
+        private AuditService $auditoria,
+        private ReglaTransferenciaJugadorService $reglaTransferencia,
+        private ReglaSaltoCategoriaService $reglaSaltoCategoria,
+    ) {
+    }
+
+    public function darDeBaja(Jugador $jugador, string $motivo, string $fecha, User $usuario): Jugador
+    {
+        $id = (int) $jugador->getKey();
+
+        return $this->auditoria->conMotivo('Baja de jugador: '.trim($motivo), function () use ($id, $motivo, $fecha, $usuario): Jugador {
+            [$jugador, , $usuario] = $this->bloquearContexto($id, [], $usuario);
+            Gate::forUser($usuario)->authorize('deactivate', $jugador);
+            if ($jugador->estado_elegibilidad !== 'Activo') {
+                throw ValidationException::withMessages(['jugador' => 'Solo se puede dar de baja a un jugador activo.']);
+            }
+
+            $anterior = ['estado_elegibilidad' => $jugador->estado_elegibilidad, 'motivo_baja' => $jugador->motivo_baja, 'fecha_baja' => $jugador->fecha_baja?->toDateString()];
+            $jugador->forceFill(['estado_elegibilidad' => 'Baja', 'motivo_baja' => trim($motivo), 'fecha_baja' => $fecha])->save();
+            $this->auditoria->registrar('jugador_dado_de_baja', $jugador, $anterior, ['estado_elegibilidad' => 'Baja', 'motivo_baja' => trim($motivo), 'fecha_baja' => $fecha]);
+
+            return $jugador;
+        });
+    }
+
+    public function renovar(Jugador $jugadorAnterior, Equipo $equipoDestino, User $usuario, int|string|null $dorsal = null): Jugador
+    {
+        $jugadorId = (int) $jugadorAnterior->getKey();
+        $destinoId = (int) $equipoDestino->getKey();
+
+        return $this->auditoria->conMotivo('Renovación de inscripción de jugador', function () use ($jugadorId, $destinoId, $usuario, $dorsal): Jugador {
+            [$anterior, $equipos, $usuario] = $this->bloquearContexto($jugadorId, [$destinoId], $usuario);
+            $destino = $equipos->get($destinoId);
+            if ($destino === null) {
+                throw ValidationException::withMessages(['equipo_id' => 'El equipo de destino no existe.']);
+            }
+            Gate::forUser($usuario)->authorize('renew', $anterior);
+            $anterior->load('equipo.grupo.categoria.temporada');
+            $destino->load('club', 'temporada', 'grupo.categoria');
+            $temporada = $destino->temporada;
+            if ($temporada === null || $temporada->estado !== 'activa') {
+                throw ValidationException::withMessages(['equipo_id' => 'La renovación debe dirigirse a un equipo de la temporada activa.']);
+            }
+            if ((int) $anterior->equipo->temporada_id === (int) $temporada->getKey()) {
+                throw ValidationException::withMessages(['equipo_id' => 'El jugador ya pertenece a la temporada seleccionada.']);
+            }
+            if ((int) $anterior->equipo->club_id !== (int) $destino->club_id) {
+                throw ValidationException::withMessages(['equipo_id' => 'La renovación debe conservar el club de origen del jugador.']);
+            }
+            if (Jugador::query()->where('persona_id', $anterior->persona_id)->whereHas('equipo', fn (Builder $query): Builder => $query->where('temporada_id', $temporada->getKey()))->exists()) {
+                throw ValidationException::withMessages(['jugador' => 'El jugador ya cuenta con una inscripción en la temporada activa.']);
+            }
+            $origenCategoria = $anterior->equipo->grupo?->categoria;
+            $destinoCategoria = $destino->grupo?->categoria;
+            if ($origenCategoria === null || $destinoCategoria === null) {
+                throw ValidationException::withMessages(['equipo_id' => 'El equipo de origen o destino no tiene una categoría válida.']);
+            }
+            $this->reglaSaltoCategoria->validar($origenCategoria, $destinoCategoria);
+            $numero = $dorsal ?? $anterior->dorsal;
+            if ($numero !== null && Jugador::query()->where('equipo_id', $destino->getKey())->where('dorsal', $numero)->exists()) {
+                throw ValidationException::withMessages(['dorsal' => 'El dorsal ya está asignado a otro jugador de este equipo.']);
+            }
+            $renovacion = $destino->jugadores()->create(['persona_id' => $anterior->persona_id, 'dorsal' => $numero, 'estado_elegibilidad' => 'Activo']);
+            $this->auditoria->registrar('jugador_renovado', $renovacion, ['jugador_anterior_id' => $anterior->getKey(), 'temporada_anterior_id' => $anterior->equipo->temporada_id], ['persona_id' => $renovacion->persona_id, 'equipo_id' => $destino->getKey(), 'temporada_id' => $temporada->getKey(), 'estado_elegibilidad' => 'Activo']);
+
+            return $renovacion;
+        });
+    }
+
+    public function transferir(Jugador $jugadorOrigen, int $equipoDestinoId, User $usuario, int|string|null $dorsal = null): HistorialTransferenciaJugador
+    {
+        $jugadorId = (int) $jugadorOrigen->getKey();
+
+        return $this->auditoria->conMotivo('Transferencia de jugador entre clubes', function () use ($jugadorId, $equipoDestinoId, $usuario, $dorsal): HistorialTransferenciaJugador {
+            [$origen, $equipos, $usuario] = $this->bloquearContexto($jugadorId, [$equipoDestinoId], $usuario);
+            $equipoOrigen = $equipos->get((int) $origen->equipo_id);
+            $destino = $equipos->get($equipoDestinoId);
+            if ($destino === null) {
+                throw ValidationException::withMessages(['equipo_id' => 'El equipo de destino no existe.']);
+            }
+            Gate::forUser($usuario)->authorize('transfer', $origen);
+            if ($origen->estado_elegibilidad !== 'Activo') {
+                throw ValidationException::withMessages(['jugador' => 'Solo se puede transferir una inscripción activa.']);
+            }
+            $equipoOrigen->load('grupo.categoria');
+            $destino->load('club', 'grupo.categoria', 'temporada');
+            $categoriaOrigen = $equipoOrigen->grupo?->categoria;
+            $categoriaDestino = $destino->grupo?->categoria;
+            $temporada = $destino->temporada;
+            $grupo = $destino->grupo;
+            if ($temporada === null || $grupo === null || $categoriaDestino === null || (int) $destino->temporada_id !== (int) $grupo->temporada_id || (int) $grupo->temporada_id !== (int) $categoriaDestino->temporada_id) {
+                throw ValidationException::withMessages(['equipo_id' => 'El equipo, grupo, categoría y temporada de destino no son consistentes.']);
+            }
+            if ($temporada->estado !== 'activa') {
+                throw ValidationException::withMessages(['equipo_id' => 'El equipo de destino debe pertenecer a la temporada activa.']);
+            }
+            if ((int) $equipoOrigen->club_id === (int) $destino->club_id) {
+                throw ValidationException::withMessages(['equipo_id' => 'El equipo de destino debe pertenecer a otro club.']);
+            }
+            if ($categoriaOrigen === null) {
+                throw ValidationException::withMessages(['equipo_id' => 'El equipo de origen o destino no tiene una categoría válida.']);
+            }
+            $this->reglaTransferencia->validarTransferencia($categoriaOrigen, $categoriaDestino, $origen->persona, $temporada);
+            $queryPersona = Jugador::query()->where('persona_id', $origen->persona_id)->whereKeyNot($origen->getKey())->whereHas('equipo', fn (Builder $query): Builder => $query->where('temporada_id', $temporada->getKey()));
+            if ((clone $queryPersona)->where('estado_elegibilidad', 'Activo')->exists()) {
+                throw ValidationException::withMessages(['jugador' => 'El jugador ya tiene una inscripción activa en la temporada de destino.']);
+            }
+            // Una baja originada por una transferencia anterior no bloquea: el jugador sigue activo en su nuevo club.
+            if ((clone $queryPersona)->whereIn('estado_elegibilidad', ['Suspendido', 'Inelegible', 'Baja'])->whereDoesntHave('transferenciasOrigen')->exists()) {
+                throw ValidationException::withMessages(['jugador' => 'El jugador tiene una inscripción suspendida, inelegible o dada de baja en otro equipo de la temporada de destino.']);
+            }
+            $numero = $dorsal ?? $origen->dorsal;
+            if ($numero !== null && Jugador::query()->where('equipo_id', $destino->getKey())->where('dorsal', $numero)->exists()) {
+                throw ValidationException::withMessages(['dorsal' => 'El dorsal ya está asignado a un jugador del equipo destino.']);
+            }
+            // HU-018 define 4 estados: la inscripción de origen pasa a Baja y el motivo identifica la transferencia.
+            $motivoBaja = 'Transferencia a '.$destino->club->nombre;
+            $fechaBaja = now()->toDateString();
+            $origen->forceFill(['estado_elegibilidad' => 'Baja', 'motivo_baja' => $motivoBaja, 'fecha_baja' => $fechaBaja])->save();
+            $jugadorDestino = $destino->jugadores()->create(['persona_id' => $origen->persona_id, 'dorsal' => $numero, 'estado_elegibilidad' => 'Activo']);
+            $historial = HistorialTransferenciaJugador::query()->create(['persona_id' => $origen->persona_id, 'jugador_origen_id' => $origen->getKey(), 'jugador_destino_id' => $jugadorDestino->getKey(), 'club_origen_id' => $equipoOrigen->club_id, 'club_destino_id' => $destino->club_id, 'equipo_origen_id' => $equipoOrigen->getKey(), 'equipo_destino_id' => $destino->getKey(), 'temporada_id' => $temporada->getKey(), 'transferido_por_usuario_id' => $usuario->getKey()]);
+            $this->auditoria->registrar('jugador_transferido', $historial, ['persona_id' => $origen->persona_id, 'jugador_origen_id' => $origen->getKey(), 'equipo_origen_id' => $equipoOrigen->getKey(), 'estado_origen' => 'Activo'], ['persona_id' => $origen->persona_id, 'jugador_origen_id' => $origen->getKey(), 'jugador_destino_id' => $jugadorDestino->getKey(), 'club_origen_id' => $equipoOrigen->club_id, 'club_destino_id' => $destino->club_id, 'equipo_origen_id' => $equipoOrigen->getKey(), 'equipo_destino_id' => $destino->getKey(), 'temporada_id' => $temporada->getKey(), 'usuario_ejecutor_id' => $usuario->getKey(), 'estado_origen' => 'Baja', 'motivo_baja_origen' => $motivoBaja, 'fecha_baja_origen' => $fechaBaja]);
+
+            return $historial;
+        });
+    }
+
+    /** @param list<int> $equipoDestinoIds
+     * @return array{Jugador, Collection<int, Equipo>, User}
+     */
+    private function bloquearContexto(int $jugadorId, array $equipoDestinoIds, User $usuario): array
+    {
+        $snapshot = Jugador::query()->findOrFail($jugadorId);
+        $equipoOrigenId = (int) $snapshot->equipo_id;
+        $personaId = (int) $snapshot->persona_id;
+        $ids = array_values(array_unique([$equipoOrigenId, ...$equipoDestinoIds]));
+        sort($ids);
+        $previos = Equipo::query()->whereKey($ids)->get()->keyBy('id');
+        if ($previos->count() !== count($ids)) {
+            throw ValidationException::withMessages(['equipo_id' => 'Uno de los equipos de la operación ya no está disponible.']);
+        }
+        $clubIds = $previos->pluck('club_id')->map(static fn ($id): int => (int) $id)->unique()->sort()->values();
+        $clubes = Club::query()->whereKey($clubIds)->orderBy('id')->lockForUpdate()->get();
+        if ($clubes->count() !== $clubIds->count()) {
+            throw ValidationException::withMessages(['equipo_id' => 'Uno de los clubes de la operación ya no está disponible.']);
+        }
+        $equipos = Equipo::query()->whereKey($ids)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+        foreach ($ids as $id) {
+            if ((int) $equipos->get($id)->club_id !== (int) $previos->get($id)->club_id) {
+                throw ValidationException::withMessages(['equipo_id' => 'Un equipo cambió de club mientras se procesaba la operación.']);
+            }
+        }
+        $usuarioBloqueado = User::query()->whereKey($usuario->getKey())->lockForUpdate()->firstOrFail();
+        $persona = Persona::query()->whereKey($personaId)->lockForUpdate()->firstOrFail();
+        $jugadorBloqueado = Jugador::query()->whereKey($jugadorId)->lockForUpdate()->firstOrFail();
+        if ((int) $jugadorBloqueado->equipo_id !== $equipoOrigenId || (int) $jugadorBloqueado->persona_id !== $personaId) {
+            throw ValidationException::withMessages(['jugador' => 'La inscripción cambió mientras se procesaba la operación.']);
+        }
+        $jugadorBloqueado->setRelation('equipo', $equipos->get($equipoOrigenId));
+        return [$jugadorBloqueado, $equipos, $usuarioBloqueado];
+    }
+}
