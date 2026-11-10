@@ -203,6 +203,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/jugadores/{jugador}/baja', [JugadorController::class, 'darDeBaja'])->name('jugadores.baja');
         Route::post('/jugadores/{jugador}/renovar', [JugadorController::class, 'renovar'])->name('jugadores.renovar');
         Route::post('/jugadores/{jugador}/transferir', [JugadorController::class, 'transferir'])->name('jugadores.transferir');
+        Route::put('/jugadores/{jugador}/estado', [JugadorController::class, 'cambiarEstado'])->name('jugadores.estado.update');
         Route::post('/jugadores/vincular', [JugadorController::class, 'vincular'])
             ->middleware('throttle:jugador-vinculacion')->name('jugadores.vincular');
         Route::get('/jugadores/{jugador}', [JugadorController::class, 'show'])->name('jugadores.show');
