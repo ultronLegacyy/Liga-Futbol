@@ -18,11 +18,13 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Spatie\Permission\Models\Role;
+use Tests\Concerns\DatosPrivacidadJugador;
 use Tests\TestCase;
 
 class EquipoRegistrationTest extends TestCase
 {
     use DatabaseTransactions;
+    use DatosPrivacidadJugador;
 
     protected function setUp(): void
     {
@@ -260,7 +262,7 @@ class EquipoRegistrationTest extends TestCase
         Jugador::create(['persona_id' => $personaId, 'equipo_id' => $equipoOrigen->id]);
 
         $this->actingAs($this->crearDelegado($clubDestino))
-            ->postJson(route('equipos.jugadores.store', $equipoDestino), ['persona_id' => $personaId])
+            ->postJson(route('equipos.jugadores.store', $equipoDestino), ['persona_id' => $personaId] + $this->privacidad())
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['categoria_id']);
 
@@ -295,7 +297,7 @@ class EquipoRegistrationTest extends TestCase
         Jugador::create(['persona_id' => $personaId, 'equipo_id' => $equipoOrigen->id]);
 
         $respuesta = $this->actingAs($this->crearDelegado($clubDestino))
-            ->postJson(route('equipos.jugadores.store', $equipoDestino), ['persona_id' => $personaId])
+            ->postJson(route('equipos.jugadores.store', $equipoDestino), ['persona_id' => $personaId] + $this->privacidad())
             ->assertCreated()
             ->assertJsonPath('inscripcion.persona_id', $personaId)
             ->assertJsonPath('inscripcion.equipo_id', $equipoDestino->id);
@@ -320,9 +322,9 @@ class EquipoRegistrationTest extends TestCase
         $personaId = $this->crearPersona();
 
         $this->actingAs($delegado)
-            ->postJson(route('equipos.jugadores.store', $equipo), ['persona_id' => $personaId])
+            ->postJson(route('equipos.jugadores.store', $equipo), ['persona_id' => $personaId] + $this->privacidad())
             ->assertCreated();
-        $this->postJson(route('equipos.jugadores.store', $equipo), ['persona_id' => $personaId])
+        $this->postJson(route('equipos.jugadores.store', $equipo), ['persona_id' => $personaId] + $this->privacidad())
             ->assertUnprocessable()
             ->assertJsonPath('errors.persona_id.0', 'El jugador ya está registrado en este equipo.');
 
@@ -341,9 +343,9 @@ class EquipoRegistrationTest extends TestCase
         $personaDuplicada = $this->crearPersona();
 
         $this->actingAs($delegado)
-            ->postJson(route('equipos.jugadores.store', $equipo), ['persona_id' => $personaInicial, 'dorsal' => 9])
+            ->postJson(route('equipos.jugadores.store', $equipo), ['persona_id' => $personaInicial, 'dorsal' => 9] + $this->privacidad())
             ->assertCreated();
-        $this->postJson(route('equipos.jugadores.store', $equipo), ['persona_id' => $personaDuplicada, 'dorsal' => 9])
+        $this->postJson(route('equipos.jugadores.store', $equipo), ['persona_id' => $personaDuplicada, 'dorsal' => 9] + $this->privacidad())
             ->assertUnprocessable()
             ->assertJsonPath('errors.dorsal.0', 'El dorsal ya está asignado a otro jugador de este equipo.');
 
@@ -360,7 +362,7 @@ class EquipoRegistrationTest extends TestCase
         $personaId = $this->crearPersona();
 
         $this->actingAs($delegado)
-            ->postJson(route('equipos.jugadores.store', $equipo), ['persona_id' => $personaId])
+            ->postJson(route('equipos.jugadores.store', $equipo), ['persona_id' => $personaId] + $this->privacidad())
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['equipo_id']);
 
@@ -390,7 +392,7 @@ class EquipoRegistrationTest extends TestCase
         ]);
 
         $this->actingAs($this->crearDelegado($club))
-            ->postJson(route('equipos.jugadores.store', $equipoDestino), ['persona_id' => $personaId])
+            ->postJson(route('equipos.jugadores.store', $equipoDestino), ['persona_id' => $personaId] + $this->privacidad())
             ->assertUnprocessable()
             ->assertJsonPath(
                 'errors.persona_id.0',
@@ -425,7 +427,7 @@ class EquipoRegistrationTest extends TestCase
         ]);
 
         $respuesta = $this->actingAs($delegado)
-            ->postJson(route('equipos.jugadores.store', $equipoActual), ['persona_id' => $personaId])
+            ->postJson(route('equipos.jugadores.store', $equipoActual), ['persona_id' => $personaId] + $this->privacidad())
             ->assertCreated();
 
         $this->assertDatabaseHas('jugadores_equipos', [
@@ -462,7 +464,7 @@ class EquipoRegistrationTest extends TestCase
         ]);
 
         $this->actingAs($this->crearDelegado($club))
-            ->postJson(route('equipos.jugadores.store', $equipoDestino), ['persona_id' => $personaId])
+            ->postJson(route('equipos.jugadores.store', $equipoDestino), ['persona_id' => $personaId] + $this->privacidad())
             ->assertUnprocessable()
             ->assertJsonPath('errors.persona_id.0', 'El jugador ya está activo en otro equipo de esta temporada.');
 
@@ -535,7 +537,7 @@ class EquipoRegistrationTest extends TestCase
         return (int) DB::table('personas')->insertGetId([
             'nombre' => 'Jugador de Prueba',
             'apellidos' => 'Historia SCRUM-26',
-            'fecha_nacimiento' => '2010-01-01',
+            'fecha_nacimiento' => '2006-01-01',
             'curp' => str()->upper(str()->random(18)),
             'created_at' => now(),
             'updated_at' => now(),

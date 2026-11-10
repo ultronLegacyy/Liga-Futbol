@@ -17,11 +17,13 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Role;
+use Tests\Concerns\DatosPrivacidadJugador;
 use Tests\TestCase;
 
 class JugadorRegistroDocumentosTest extends TestCase
 {
     use DatabaseTransactions;
+    use DatosPrivacidadJugador;
 
     protected function setUp(): void
     {
@@ -39,6 +41,7 @@ class JugadorRegistroDocumentosTest extends TestCase
 
         $respuesta = $this->actingAs($delegado)->post(route('equipos.jugadores.store', $equipo), [
             'persona_id' => $persona->id,
+            ...$this->privacidad(),
             'dorsal' => 12,
             'documentos' => [
                 'ine' => UploadedFile::fake()->create('ine.pdf', 80, 'application/pdf'),
@@ -80,6 +83,7 @@ class JugadorRegistroDocumentosTest extends TestCase
 
         $this->actingAs($delegado)->post(route('equipos.jugadores.store', $equipo), [
             'persona_id' => $persona->id,
+            ...$this->privacidad(),
             'documentos' => ['fotografia' => $this->crearFotografiaFake('captura-camara.png')],
         ])->assertCreated();
 
@@ -254,7 +258,7 @@ class JugadorRegistroDocumentosTest extends TestCase
         return Persona::query()->create([
             'nombre' => 'Jugador',
             'apellidos' => 'HU-016',
-            'fecha_nacimiento' => '2010-01-01',
+            'fecha_nacimiento' => '2006-01-01',
             'curp' => fake()->unique()->regexify('[A-Z]{4}[0-9]{6}[HM][A-Z]{5}[0-9A-Z][0-9]'),
         ]);
     }

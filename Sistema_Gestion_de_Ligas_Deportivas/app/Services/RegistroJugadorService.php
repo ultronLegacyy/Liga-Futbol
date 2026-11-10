@@ -24,6 +24,7 @@ class RegistroJugadorService
         private ReglaSaltoCategoriaService $reglaSaltoCategoria,
         private AuditService $auditoria,
         private ReglaEdadCategoriaService $reglaEdad,
+        private ConsentimientoPrivacidadService $consentimiento,
     ) {
     }
 
@@ -36,7 +37,9 @@ class RegistroJugadorService
      *     fecha_nacimiento?: string,
      *     curp?: string,
      *     documentos?: array<string, UploadedFile>,
-     *     fotografia_base64?: string
+     *     fotografia_base64?: string,
+     *     aviso_privacidad_aceptado?: bool|int|string|null,
+     *     tutor?: array<string, mixed>|null
      * } $datos
      */
     public function registrar(Equipo $equipoDestino, array $datos, User $usuario): Jugador
@@ -71,7 +74,11 @@ class RegistroJugadorService
 
                 $archivos = $datos['documentos'] ?? [];
                 $fotografiaBase64 = $datos['fotografia_base64'] ?? null;
-                unset($datos['documentos'], $datos['fotografia_base64']);
+                $datosPrivacidad = [
+                    'aviso_privacidad_aceptado' => $datos['aviso_privacidad_aceptado'] ?? null,
+                    'tutor' => $datos['tutor'] ?? null,
+                ];
+                unset($datos['documentos'], $datos['fotografia_base64'], $datos['aviso_privacidad_aceptado'], $datos['tutor']);
 
                 $persona = $this->resolverPersona($datos);
                 $persona = Persona::query()
@@ -140,9 +147,17 @@ class RegistroJugadorService
                     ]);
                 }
 
+                // Edad mínima de la Liga (también la exige validar(), que comparten la renovación y la
+                // transferencia); aquí va antes para mostrar el error junto al dato que lo causa.
+                $this->reglaEdad->validarEdadMinimaLiga(
+                    $persona,
+                    isset($datos['persona_id']) && $datos['persona_id'] !== '' ? 'persona_id' : 'fecha_nacimiento',
+                );
                 $this->validarSaltoCategoria($persona, $equipoDestino);
                 // Reglas de edad de la categoría, compartidas con la renovación y la transferencia (HU-017).
                 $this->reglaEdad->validar($persona, $categoriaDestino, $temporadaDestino);
+                // Aviso de privacidad y consentimiento del tutor (HU-020): sin ellos no se crea la inscripción.
+                $privacidad = $this->consentimiento->exigir($persona, $categoriaDestino, $datosPrivacidad);
 
                 PersonaRol::query()->createOrFirst([
                     'persona_id' => $persona->getKey(),
@@ -155,6 +170,13 @@ class RegistroJugadorService
                     'dorsal' => $datos['dorsal'] ?? null,
                 ]);
 
+                $constancia = $this->consentimiento->registrar($jugador, $privacidad, $usuario, request()->ip());
+                // Sin el teléfono ni el correo del tutor: la bitácora no copia sus datos de contacto.
+                $this->auditoria->registrar('consentimiento_privacidad_registrado', $constancia, null, [
+                    'version_aviso' => $constancia->version_aviso,
+                    'requiere_tutor' => $constancia->requiere_tutor,
+                    'motivo_tutor' => $constancia->motivo_tutor,
+                ]);
 
                 $tipos = [
                     'ine' => 'INE',

@@ -137,6 +137,15 @@ class StoreJugadorRequest extends FormRequest
                     }
                 },
             ],
+            // HU-020: el aviso se muestra en todo registro; los datos del tutor los exige
+            // ConsentimientoPrivacidadService según la rama, la categoría y la edad.
+            'aviso_privacidad_aceptado' => ['required', 'accepted'],
+            'tutor' => ['sometimes', 'nullable', 'array'],
+            'tutor.nombre_completo' => ['nullable', 'string', 'min:5', 'max:200'],
+            'tutor.parentesco' => ['nullable', 'string', Rule::in((array) config('privacidad.parentescos_tutor'))],
+            'tutor.telefono' => ['nullable', 'string', 'regex:/^[0-9]{10}$/'],
+            'tutor.correo' => ['nullable', 'string', 'email', 'max:160'],
+            'tutor.consentimiento' => ['nullable', 'boolean'],
         ];
 
         if ($equipo instanceof Equipo) {
@@ -218,6 +227,14 @@ class StoreJugadorRequest extends FormRequest
             'documentos.comprobante.required' => 'Debes adjuntar el comprobante de domicilio.',
             'documentos.comprobante.mimes' => 'El comprobante de domicilio debe ser un archivo JPG, PNG o PDF.',
             'documentos.comprobante.max' => 'El comprobante de domicilio no debe superar los 10 MB.',
+            'aviso_privacidad_aceptado.required' => 'Debes mostrar el aviso de privacidad y confirmar que el jugador o su tutor lo leyó antes de guardar el registro.',
+            'aviso_privacidad_aceptado.accepted' => 'Debes mostrar el aviso de privacidad y confirmar que el jugador o su tutor lo leyó antes de guardar el registro.',
+            'tutor.nombre_completo.min' => 'Escribe el nombre completo del tutor.',
+            'tutor.nombre_completo.max' => 'El nombre del tutor no debe superar los 200 caracteres.',
+            'tutor.parentesco.in' => 'Selecciona un parentesco válido para el tutor.',
+            'tutor.telefono.regex' => 'El teléfono del tutor debe tener 10 dígitos.',
+            'tutor.correo.email' => 'El correo del tutor no es válido.',
+            'tutor.consentimiento.boolean' => 'El consentimiento del tutor no es válido.',
         ];
     }
 

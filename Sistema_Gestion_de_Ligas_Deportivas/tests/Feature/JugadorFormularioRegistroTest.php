@@ -25,11 +25,13 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Tests\Concerns\DatosPrivacidadJugador;
 use Tests\TestCase;
 
 class JugadorFormularioRegistroTest extends TestCase
 {
     use DatabaseTransactions;
+    use DatosPrivacidadJugador;
 
     protected function setUp(): void
     {
@@ -110,6 +112,7 @@ class JugadorFormularioRegistroTest extends TestCase
         try {
             app(RegistroJugadorService::class)->registrar($equipo, [
                 'persona_id' => $persona->id,
+                ...$this->privacidad(),
                 'documentos' => [
                     'ine' => UploadedFile::fake()->create('ine.pdf', 40, 'application/pdf'),
                 ],
@@ -339,7 +342,7 @@ class JugadorFormularioRegistroTest extends TestCase
         $persona = Persona::factory()->create([
             'nombre' => 'Jugador Formulario',
             'apellidos' => 'Prueba',
-            'fecha_nacimiento' => '2010-01-01',
+            'fecha_nacimiento' => '2006-01-01',
             'curp' => 'TEST010101HDFXXX01',
         ]);
         $datos = $this->datosFormulario($equipo, $temporada, $categoria, ['fotografia' => $this->imagenPng('foto.png')]);
@@ -362,7 +365,7 @@ class JugadorFormularioRegistroTest extends TestCase
         $persona = Persona::factory()->create([
             'nombre' => 'Persona Original',
             'apellidos' => 'Apellido Original',
-            'fecha_nacimiento' => '2010-01-01',
+            'fecha_nacimiento' => '2006-01-01',
             'curp' => 'TEST010101HDFXXX01',
         ]);
 
@@ -455,7 +458,7 @@ class JugadorFormularioRegistroTest extends TestCase
         DB::table('usuarios')->where('id', $delegado->id)->update(['club_id' => $otroClub->id]);
 
         try {
-            app(RegistroJugadorService::class)->registrar($equipo, ['persona_id' => $persona->id], $delegado);
+            app(RegistroJugadorService::class)->registrar($equipo, ['persona_id' => $persona->id] + $this->privacidad(), $delegado);
             $this->fail('El servicio debe rechazar el delegado cuyo club ya no es propietario del equipo.');
         } catch (AuthorizationException) {
             $this->assertDatabaseCount('jugadores_equipos', 0);
@@ -500,7 +503,7 @@ class JugadorFormularioRegistroTest extends TestCase
         return [
             'nombre' => 'Jugador Formulario',
             'apellidos' => 'Prueba',
-            'fecha_nacimiento' => '2010-01-01',
+            'fecha_nacimiento' => '2006-01-01',
             'curp' => 'TEST010101HDFXXX01',
             'temporada_id' => $temporada->id,
             'categoria_id' => $categoria->id,
@@ -511,6 +514,14 @@ class JugadorFormularioRegistroTest extends TestCase
                 'curp' => UploadedFile::fake()->create('curp.pdf', 80, 'application/pdf'),
                 'fotografia' => $fotografia['fotografia'] ?? null,
                 'comprobante' => UploadedFile::fake()->create('domicilio.pdf', 90, 'application/pdf'),
+            ],
+            // HU-020: jugador menor de una categoría Juvenil: aviso y consentimiento del tutor.
+            'aviso_privacidad_aceptado' => '1',
+            'tutor' => [
+                'nombre_completo' => 'Tutora Formulario Prueba',
+                'parentesco' => 'Madre',
+                'telefono' => '5512345678',
+                'consentimiento' => '1',
             ],
         ];
     }

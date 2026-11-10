@@ -292,7 +292,7 @@ class JugadorBajaRenovacionTest extends TestCase
         return Persona::query()->create([
             'nombre' => 'Jugador de prueba',
             'apellidos' => 'Baja renovación',
-            'fecha_nacimiento' => '2010-01-01',
+            'fecha_nacimiento' => '2006-01-01',
             'curp' => str()->upper(str()->random(18)),
         ]);
     }

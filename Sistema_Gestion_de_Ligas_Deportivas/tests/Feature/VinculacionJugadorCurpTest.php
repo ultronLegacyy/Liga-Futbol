@@ -207,7 +207,7 @@ class VinculacionJugadorCurpTest extends TestCase
         return Persona::query()->create([
             'nombre' => 'Jugador',
             'apellidos' => 'CURP Test',
-            'fecha_nacimiento' => '2010-01-01',
+            'fecha_nacimiento' => '2006-01-01',
             'curp' => $curp,
         ]);
     }

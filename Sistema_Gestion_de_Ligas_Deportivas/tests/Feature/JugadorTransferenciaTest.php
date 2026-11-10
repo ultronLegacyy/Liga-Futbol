@@ -22,11 +22,13 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use Spatie\Permission\Models\Role;
 use Illuminate\Validation\ValidationException;
+use Tests\Concerns\DatosPrivacidadJugador;
 use Tests\TestCase;
 
 class JugadorTransferenciaTest extends TestCase
 {
     use DatabaseTransactions;
+    use DatosPrivacidadJugador;
 
     protected function setUp(): void
     {
@@ -193,7 +195,7 @@ class JugadorTransferenciaTest extends TestCase
         $equipoOrigen->jugadores()->create(['persona_id' => $persona->id, 'estado_elegibilidad' => 'Baja', 'motivo_baja' => 'Retiro', 'fecha_baja' => GestionJugadorService::hoy()]);
 
         try {
-            app(RegistroJugadorService::class)->registrar($equipoDestino, ['persona_id' => $persona->id], $delegado);
+            app(RegistroJugadorService::class)->registrar($equipoDestino, ['persona_id' => $persona->id] + $this->privacidad(), $delegado);
             $this->fail('Una inscripción Baja debe bloquear otra inscripción en la misma temporada.');
         } catch (ValidationException $exception) {
             $this->assertArrayHasKey('persona_id', $exception->errors());
@@ -209,7 +211,7 @@ class JugadorTransferenciaTest extends TestCase
         $temporadaSiguiente = Temporada::factory()->activa()->create(['fecha_inicio' => now()->subMonths(3)->toDateString()]);
         $equipoSiguiente = $this->crearEquipo($clubOrigen, $temporadaSiguiente, 'Nuevo equipo después de transferencia', 2);
 
-        $nuevaInscripcion = app(RegistroJugadorService::class)->registrar($equipoSiguiente, ['persona_id' => $persona->id], $delegado);
+        $nuevaInscripcion = app(RegistroJugadorService::class)->registrar($equipoSiguiente, ['persona_id' => $persona->id] + $this->privacidad(), $delegado);
 
         $this->assertSame($persona->id, $nuevaInscripcion->persona_id);
         $this->assertSame($equipoSiguiente->id, $nuevaInscripcion->equipo_id);
@@ -503,7 +505,7 @@ class JugadorTransferenciaTest extends TestCase
         return Persona::query()->create([
             'nombre' => 'Jugador Transferencia',
             'apellidos' => 'Prueba HU-017',
-            'fecha_nacimiento' => '2010-01-01',
+            'fecha_nacimiento' => '2006-01-01',
             'curp' => str()->upper(str()->random(18)),
         ]);
     }

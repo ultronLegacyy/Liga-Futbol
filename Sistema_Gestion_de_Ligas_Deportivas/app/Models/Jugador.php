@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * @property \Illuminate\Support\Carbon|null $fecha_baja
@@ -38,6 +39,16 @@ class Jugador extends Model
     public function historialEstados(): HasMany
     {
         return $this->hasMany(HistorialEstadoJugador::class, 'jugador_id')->latest()->latest('id');
+    }
+
+    /**
+     * Constancia del aviso de privacidad y del consentimiento del tutor (HU-020).
+     *
+     * @return HasOne<ConsentimientoPrivacidadJugador, $this>
+     */
+    public function consentimientoPrivacidad(): HasOne
+    {
+        return $this->hasOne(ConsentimientoPrivacidadJugador::class, 'jugador_id');
     }
 
     /** @return BelongsTo<Persona, $this> */
