@@ -17,6 +17,7 @@ class RespaldoException extends RuntimeException
             config('database.connections.'.config('database.default').'.password'),
             config('database.administracion.password'),
             config('filesystems.disks.r2.secret'),
+            config('filesystems.disks.r2.key'),
         ], fn ($secreto): bool => is_string($secreto) && $secreto !== '');
 
         return trim(str_replace($secretos, '[oculto]', $texto));

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Respaldos\AlmacenRespaldos;
 use App\Services\Respaldos\CreadorRespaldo;
 use App\Services\Respaldos\RespaldoException;
 use Illuminate\Console\Command;
@@ -14,8 +15,16 @@ class CrearRespaldo extends Command
 
     protected $description = 'Crea un respaldo cifrado de la base y los documentos: diario (solo los documentos que cambiaron) o completo';
 
-    public function handle(CreadorRespaldo $creador): int
+    public function handle(CreadorRespaldo $creador, AlmacenRespaldos $almacen): int
     {
+        // En producción un disco local no cumple el criterio 3, pero el respaldo se crea igual
+        $aviso = $almacen->avisoDiscoLocal();
+
+        if ($aviso !== null) {
+            $this->warn($aviso);
+            Log::warning('Respaldo en un disco local en producción', ['disco' => $almacen->nombreDisco()]);
+        }
+
         try {
             $respaldo = $creador->crear((bool) $this->option('completo'));
         } catch (\Throwable $error) {

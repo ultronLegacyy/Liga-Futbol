@@ -46,7 +46,7 @@ class AlmacenRespaldos
     {
         return $this->ordenar(array_values(array_filter(
             $this->carpetas(),
-            fn (string $nombre): bool => $this->disco()->exists($nombre.'/'.self::MANIFIESTO)
+            fn (string $nombre): bool => $this->enDisco("revisar el respaldo {$nombre}", fn (): bool => $this->disco()->exists($nombre.'/'.self::MANIFIESTO))
         )));
     }
 
@@ -62,7 +62,30 @@ class AlmacenRespaldos
 
     public function existe(string $nombre): bool
     {
-        return preg_match(self::NOMBRE, $nombre) === 1 && $this->disco()->exists($nombre.'/'.self::MANIFIESTO);
+        return preg_match(self::NOMBRE, $nombre) === 1
+            && $this->enDisco("revisar el respaldo {$nombre}", fn (): bool => $this->disco()->exists($nombre.'/'.self::MANIFIESTO));
+    }
+
+    // Si ya hay una carpeta con ese nombre, terminada o a medias
+    public function ocupado(string $nombre): bool
+    {
+        return $this->enDisco("revisar el respaldo {$nombre}", fn (): bool => $this->disco()->exists($nombre));
+    }
+
+    // Criterio 3: un disco local deja el respaldo en el mismo servidor
+    public function fueraDelServidor(): bool
+    {
+        return config('filesystems.disks.'.$this->nombreDisco().'.driver') !== 'local';
+    }
+
+    // Aviso para producción cuando el respaldo no sale del servidor
+    public function avisoDiscoLocal(): ?string
+    {
+        if (! app()->environment('production') || $this->fueraDelServidor()) {
+            return null;
+        }
+
+        return "El disco de respaldos «{$this->nombreDisco()}» es local: en producción el respaldo debe quedar fuera del servidor (criterio 3). Configura RESPALDO_DISCO=r2.";
     }
 
     public function tipo(string $nombre): string
@@ -106,11 +129,18 @@ class AlmacenRespaldos
 
     public function descargar(string $nombre, string $parte, string $destino): void
     {
-        $entrada = $this->disco()->readStream($nombre.'/'.$parte);
+        $entrada = $this->enDisco("descargar {$parte} del respaldo {$nombre}", fn () => $this->disco()->readStream($nombre.'/'.$parte));
+
+        if (! is_resource($entrada)) {
+            throw new RespaldoException("No se pudo descargar {$parte} del respaldo {$nombre}.");
+        }
+
         $salida = fopen($destino, 'wb');
 
-        if (! is_resource($entrada) || $salida === false) {
-            throw new RespaldoException("No se pudo descargar {$parte} del respaldo {$nombre}.");
+        if ($salida === false) {
+            fclose($entrada);
+
+            throw new RespaldoException("No se pudo guardar {$parte} del respaldo {$nombre} en la carpeta temporal.");
         }
 
         try {
@@ -125,7 +155,7 @@ class AlmacenRespaldos
 
     public function borrar(string $nombre): void
     {
-        $this->disco()->deleteDirectory($nombre);
+        $this->enDisco("borrar el respaldo {$nombre}", fn (): bool => $this->disco()->deleteDirectory($nombre));
     }
 
     /**
@@ -156,9 +186,28 @@ class AlmacenRespaldos
     private function carpetas(): array
     {
         return array_values(array_filter(
-            $this->disco()->directories(),
+            $this->enDisco('consultar los respaldos', fn (): array => $this->disco()->directories()),
             fn (string $carpeta): bool => preg_match(self::NOMBRE, $carpeta) === 1
         ));
+    }
+
+    /**
+     * Los errores del disco (por ejemplo R2 sin conexión) llegan en inglés: se envuelven en español y sin credenciales.
+     *
+     * @template TResultado
+     *
+     * @param  \Closure(): TResultado  $operacion
+     * @return TResultado
+     */
+    private function enDisco(string $accion, \Closure $operacion): mixed
+    {
+        try {
+            return $operacion();
+        } catch (RespaldoException $error) {
+            throw $error;
+        } catch (\Throwable $error) {
+            throw new RespaldoException("No se pudo {$accion} en el disco «{$this->nombreDisco()}»: ".RespaldoException::sinSecretos($error->getMessage()), 0, $error);
+        }
     }
 
     /**

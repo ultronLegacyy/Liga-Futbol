@@ -30,6 +30,10 @@ class DepurarRespaldos extends Command
             $this->line("Borrado: {$nombre}");
         }
 
+        if ($resultado['temporales'] > 0) {
+            $this->line("Carpetas temporales viejas borradas: {$resultado['temporales']}");
+        }
+
         $this->info(count($resultado['borrados']).' respaldos borrados y '.count($resultado['conservados']).' conservados.');
         Log::info('Respaldos depurados', $resultado);
 

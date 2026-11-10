@@ -28,7 +28,7 @@ class RestaurarRespaldo extends Command
                 $base = $restaurador->baseDestino(true);
                 $this->warn("Esto reemplaza la base «{$base}» y los documentos de operación con el respaldo {$nombre}.");
 
-                // Sin terminal interactiva la respuesta es «no»
+                // Con -n (--no-interaction) la respuesta es «no»; la confirmación también llega por la entrada estándar
                 if (! $this->confirm('¿Seguro que quieres sobrescribir los datos de operación?', false)) {
                     $this->info('No se restauró nada.');
 

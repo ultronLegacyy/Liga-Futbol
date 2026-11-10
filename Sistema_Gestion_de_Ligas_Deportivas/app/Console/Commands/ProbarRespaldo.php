@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Respaldos\AlmacenRespaldos;
 use App\Services\Respaldos\ClienteMariaDb;
 use App\Services\Respaldos\RespaldoException;
 use App\Services\Respaldos\RestauradorRespaldo;
@@ -16,7 +17,7 @@ class ProbarRespaldo extends Command
 
     protected $description = 'Restaura el último respaldo en una base aparte, mide el RPO y el RTO, revisa las tablas principales y lo borra al final';
 
-    public function handle(RestauradorRespaldo $restaurador, ClienteMariaDb $mariadb): int
+    public function handle(RestauradorRespaldo $restaurador, ClienteMariaDb $mariadb, AlmacenRespaldos $almacen): int
     {
         $base = $restaurador->baseDestino(false);
         $inicio = hrtime(true);
@@ -51,6 +52,7 @@ class ProbarRespaldo extends Command
             $rpoHoras > $rpoMaximo ? "el respaldo tiene {$this->horas($rpoHoras)} (RPO > {$rpoMaximo} h)" : null,
             $rtoHoras > $rtoMaximo ? "la restauración tardó {$this->horas($rtoHoras)} (RTO > {$rtoMaximo} h)" : null,
             $vacias !== [] ? 'tablas sin filas: '.implode(', ', $vacias) : null,
+            $almacen->avisoDiscoLocal() !== null ? "el disco «{$almacen->nombreDisco()}» es local: el respaldo no queda fuera del servidor (criterio 3)" : null,
         ]);
 
         $contexto = ['respaldo' => $resultado['nombre'], 'rpo_horas' => round($rpoHoras, 2), 'rto_horas' => round($rtoHoras, 4), 'filas' => $filas];

@@ -38,7 +38,7 @@ class CreadorRespaldo
             $tipo = $completo ? 'completo' : 'diario';
             $nombre = $this->almacen->nombreNuevo($tipo);
 
-            if ($this->almacen->disco()->exists($nombre)) {
+            if ($this->almacen->ocupado($nombre)) {
                 throw new RespaldoException("Ya existe el respaldo {$nombre}.");
             }
 

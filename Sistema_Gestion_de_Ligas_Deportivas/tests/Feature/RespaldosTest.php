@@ -474,6 +474,98 @@ class RespaldosTest extends TestCase
         $this->assertStringContainsString('NO CUMPLE: la restauración de prueba falló. No hay respaldos en el disco «respaldos».', Artisan::output());
     }
 
+    // Si respaldo:crear muere a la mitad (kill -9), su carpeta temporal tiene el volcado sin cifrar: se borra al día siguiente
+    public function test_la_depuracion_borra_las_carpetas_temporales_de_mas_de_un_dia(): void
+    {
+        $vieja = new DirectorioTrabajo();
+        file_put_contents($vieja->ruta('base.sql.gz'), 'volcado sin cifrar');
+
+        $this->travelTo(CarbonImmutable::parse('2026-11-09 03:00:00', 'America/Mexico_City'));
+        $reciente = new DirectorioTrabajo();
+        file_put_contents($reciente->ruta('base.sql.gz'), 'respaldo en curso');
+        // Una carpeta que no es de DirectorioTrabajo no se toca
+        File::ensureDirectoryExists($this->temporal.'/trabajo/otra-carpeta');
+
+        $this->assertSame(0, Artisan::call('respaldo:depurar'));
+
+        $this->assertStringContainsString('Carpetas temporales viejas borradas: 1', Artisan::output());
+        $this->assertFileDoesNotExist($vieja->ruta('base.sql.gz'));
+        $this->assertFileExists($reciente->ruta('base.sql.gz'));
+        $this->assertDirectoryExists($this->temporal.'/trabajo/otra-carpeta');
+    }
+
+    // Criterio 3: en producción un disco local deja el respaldo en el mismo servidor
+    public function test_en_produccion_un_disco_local_avisa_al_crear_y_no_cumple_en_la_prueba(): void
+    {
+        $this->app['env'] = 'production';
+        Log::spy();
+
+        $salida = $this->crear(completo: true);
+
+        $this->assertStringContainsString('El disco de respaldos «respaldos» es local: en producción el respaldo debe quedar fuera del servidor (criterio 3). Configura RESPALDO_DISCO=r2.', $salida);
+        $this->assertSame(['completo-20261108-020000'], Storage::disk('respaldos')->directories());
+        Log::shouldHaveReceived('warning')->with('Respaldo en un disco local en producción', ['disco' => 'respaldos']);
+
+        $this->travelTo(CarbonImmutable::parse('2026-11-08 03:00:00', 'America/Mexico_City'));
+        $this->assertSame(1, Artisan::call('respaldo:probar'));
+        $this->assertStringContainsString('NO CUMPLE: el disco «respaldos» es local: el respaldo no queda fuera del servidor (criterio 3).', Artisan::output());
+    }
+
+    public function test_fuera_de_produccion_o_con_un_disco_remoto_no_hay_aviso(): void
+    {
+        $this->assertStringNotContainsString('es local', $this->crear(completo: true));
+
+        // Un disco de otro driver (como r2) sí queda fuera del servidor
+        $this->app['env'] = 'production';
+        config(['filesystems.disks.respaldos.driver' => 's3']);
+        $this->travelTo(CarbonImmutable::parse('2026-11-08 02:01:00', 'America/Mexico_City'));
+
+        $this->assertStringNotContainsString('es local', $this->crear(completo: true));
+        $this->assertSame(0, Artisan::call('respaldo:probar'));
+    }
+
+    // Los errores del disco (R2 sin conexión) llegan en inglés: se informan en español y sin credenciales
+    public function test_los_errores_del_disco_se_informan_en_espanol_y_sin_credenciales(): void
+    {
+        config(['filesystems.disks.r2.key' => 'AKIALLAVEDEPRUEBA', 'filesystems.disks.r2.secret' => 'secreto-r2-de-prueba']);
+        $disco = $this->discoQueFalla();
+        $disco->shouldReceive('directories')->andThrow(new RuntimeException("Unable to list contents for '', shallow listing. Credential AKIALLAVEDEPRUEBA / secreto-r2-de-prueba"));
+
+        $this->assertSame(1, Artisan::call('respaldo:restaurar'));
+        $salida = Artisan::output();
+        $this->assertStringContainsString('No se restauró el respaldo. No se pudo consultar los respaldos en el disco «respaldos»: Unable to list contents', $salida);
+        $this->assertStringNotContainsString('AKIALLAVEDEPRUEBA', $salida);
+        $this->assertStringNotContainsString('secreto-r2-de-prueba', $salida);
+
+        $this->assertSame(1, Artisan::call('respaldo:depurar'));
+        $this->assertStringContainsString('No se depuraron los respaldos. No se pudo consultar los respaldos en el disco «respaldos»', Artisan::output());
+    }
+
+    public function test_un_error_al_descargar_o_borrar_se_informa_en_espanol(): void
+    {
+        $this->crear(completo: true);
+        $disco = $this->discoQueFalla();
+        $disco->shouldReceive('readStream')->andThrow(new RuntimeException('Unable to read file from location: completo-20261108-020000/manifiesto.json.cifrado.'));
+        $disco->shouldReceive('deleteDirectory')->andThrow(new RuntimeException('Unable to delete directory located at: completo-20261108-020000.'));
+
+        $this->assertSame(1, Artisan::call('respaldo:restaurar'));
+        $this->assertStringContainsString('No se pudo descargar manifiesto.json.cifrado del respaldo completo-20261108-020000 en el disco «respaldos»: Unable to read file', Artisan::output());
+
+        $this->expectExceptionMessage('No se pudo borrar el respaldo completo-20261108-020000 en el disco «respaldos»: Unable to delete directory');
+        app(AlmacenRespaldos::class)->borrar('completo-20261108-020000');
+    }
+
+    // Disco de respaldos real (falso) al que cada prueba le hace fallar una operación
+    private function discoQueFalla(): Mockery\MockInterface
+    {
+        $falso = Storage::disk('respaldos');
+        $this->assertInstanceOf(FilesystemAdapter::class, $falso);
+        $disco = Mockery::mock(FilesystemAdapter::class, [$falso->getDriver(), $falso->getAdapter(), $falso->getConfig()])->makePartial();
+        Storage::set('respaldos', $disco);
+
+        return $disco;
+    }
+
     private function fingirProcesos(string $conteos = "3\t5\t13\t2\t4\t120"): void
     {
         $this->importado = null;

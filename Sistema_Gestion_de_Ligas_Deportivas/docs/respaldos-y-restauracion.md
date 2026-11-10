@@ -30,6 +30,10 @@ Cada respaldo es una carpeta con su tipo y su fecha, por ejemplo `diario-2026110
 
 El manifiesto se sube al final. Una carpeta sin manifiesto quedó a medias: no se usa para restaurar y `respaldo:depurar` la borra.
 
+Mientras se crea, el respaldo usa una carpeta temporal en `storage/app/respaldos-trabajo`, con el volcado todavía sin cifrar, y la borra al terminar. Si el proceso se interrumpe a la fuerza (`kill -9`), `respaldo:depurar` borra las carpetas temporales de más de un día.
+
+En producción, si `RESPALDO_DISCO` es un disco local, `respaldo:crear` avisa que el respaldo no sale del servidor, aunque lo crea igual, y `respaldo:probar` da «NO CUMPLE».
+
 ## La clave de cifrado
 
 > **Guarda `RESPALDO_CLAVE` fuera del servidor**, por ejemplo en el gestor de contraseñas de la liga, con acceso para al menos dos personas. Si el servidor se pierde, **sin la clave los respaldos no sirven**: nadie puede descifrarlos, ni siquiera nosotros.
@@ -96,7 +100,10 @@ Variables del `.env`. Las que están vacías toman el valor por defecto:
    php artisan respaldo:restaurar --operacion
    ```
 
-   Pide confirmación y queda en el log. Reemplaza las tablas de la base de operación y escribe los documentos en `storage/app/private`. Hay que correrlo en una terminal interactiva; sin ella, la respuesta es «no».
+   Pide confirmación y queda en el log y en la auditoría (`RESTAURACION_RESPALDO`). Reemplaza las tablas de la base de operación y escribe los documentos en `storage/app/private`. No borra los documentos que no vienen en el respaldo.
+
+   - Con `-n` (`--no-interaction`) la respuesta es «no» y no se restaura nada.
+   - La confirmación también puede llegar por la entrada estándar, por ejemplo `printf 'yes\n' | php artisan respaldo:restaurar --operacion`. Úsalo solo en un guion revisado: restaura sin preguntar.
 6. Corre `php artisan migrate --force` por si el código es más nuevo que el respaldo. Después entra al sistema y revisa los datos.
 
 Si el SHA-256 no coincide, el respaldo se alteró o se dañó: el comando no toca nada. Prueba con el respaldo anterior.
