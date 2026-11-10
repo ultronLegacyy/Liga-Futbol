@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdeudoClubController;
 use App\Http\Controllers\ArbitroController;
 use App\Http\Controllers\CanchaBloqueoController;
 use App\Http\Controllers\CanchaController;
@@ -10,14 +11,16 @@ use App\Http\Controllers\EquipoController;
 use App\Http\Controllers\ForcePasswordChangeController;
 use App\Http\Controllers\GeneradorEnfrentamientosController;
 use App\Http\Controllers\GrupoController;
+use App\Http\Controllers\HistorialEquipoController;
 use App\Http\Controllers\JornadaController;
 use App\Http\Controllers\JugadorController;
+use App\Http\Controllers\PagoController;
 use App\Http\Controllers\PartidoController;
 use App\Http\Controllers\PersonaController;
 use App\Http\Controllers\RecuperacionContrasenaController;
 use App\Http\Controllers\ReglaTemporadaController;
-use App\Http\Controllers\TemporadaController;
 use App\Http\Controllers\TarjetonDigitalController;
+use App\Http\Controllers\TemporadaController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\ForcePasswordChange;
 use Illuminate\Support\Facades\Route;
@@ -121,6 +124,10 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/personas/{persona}/roles', [PersonaController::class, 'asignarRol'])
             ->name('personas.roles.store');
 
+        // Historial de equipos por temporada (HU-015, RF-03.4)
+        Route::get('/historial-equipos', [HistorialEquipoController::class, 'index'])->name('equipos.historial.index');
+        Route::get('/historial-equipos/{equipo}', [HistorialEquipoController::class, 'show'])->name('equipos.historial.show');
+
         // Padrón de árbitros y su asignación a partidos programados (HU-026, RF-06.1)
         Route::get('/arbitros/asignaciones', [ArbitroController::class, 'asignaciones'])
             ->name('arbitros.asignaciones');
@@ -130,8 +137,18 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/partidos/{partido}/arbitro', [ArbitroController::class, 'asignar'])
             ->name('partidos.arbitro.update');
 
+        // Adeudos por club y temporada: quién está al corriente (HU-051, RF-13.2)
+        Route::get('/adeudos', [AdeudoClubController::class, 'index'])
+            ->name('adeudos.index');
+
         // Cuotas de inscripción y cargos de arbitraje y cancha por temporada (HU-050, RF-13.1)
         Route::resource('cargos', CargoFinancieroController::class)->only(['index', 'create', 'store', 'show']);
+
+        // Pagos de los cargos y sus comprobantes, en el disco privado (HU-051, RF-13.2)
+        Route::post('/cargos/{cargo}/pagos', [PagoController::class, 'store'])
+            ->name('cargos.pagos.store');
+        Route::get('/pagos/{pago}/comprobante', [PagoController::class, 'comprobante'])
+            ->name('pagos.comprobante');
 
         // Grupo de rutas de administracion de gobernanza y gestión de cuentas (S2-T13)
         Route::middleware(['role:Administrador General'])->prefix('admin')->name('admin.')->group(function () {
@@ -188,7 +205,21 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/equipos/{equipo}', [EquipoController::class, 'show'])->name('equipos.show');
         Route::post('/equipos', [EquipoController::class, 'store'])->name('equipos.store');
+        Route::get('/jugadores/create', [JugadorController::class, 'create'])->name('jugadores.create');
+        Route::post('/jugadores', [JugadorController::class, 'store'])->name('jugadores.store');
         Route::post('/equipos/{equipo}/jugadores', [JugadorController::class, 'store'])->name('equipos.jugadores.store');
+        Route::get('/jugadores/{jugador}/gestionar', [JugadorController::class, 'gestion'])->name('jugadores.gestion');
+        Route::get('/jugadores/vincular', [JugadorController::class, 'vincularForm'])->name('jugadores.vincular.form');
+        Route::post('/jugadores/vincular', [JugadorController::class, 'vincular'])
+            ->middleware('throttle:jugador-vinculacion')->name('jugadores.vincular');
+        Route::get('/jugadores/{jugador}', [JugadorController::class, 'show'])->name('jugadores.show');
+        Route::put('/jugadores/{jugador}', [JugadorController::class, 'update'])->name('jugadores.update');
+        Route::get('/jugadores/{jugador}/documentos/{documento}', [JugadorController::class, 'documento'])
+            ->name('jugadores.documentos.show');
+        Route::delete('/jugadores/{jugador}/vinculo', [JugadorController::class, 'desvincular'])
+            ->name('jugadores.vinculo.destroy');
+        Route::delete('/admin/jugadores/{usuario}/vinculo', [JugadorController::class, 'desvincularCuenta'])
+            ->name('admin.jugadores.vinculo.destroy');
         Route::put('/equipos/{equipo}', [EquipoController::class, 'update'])->name('equipos.update');
     });
 });

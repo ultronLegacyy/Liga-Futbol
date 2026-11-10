@@ -35,7 +35,9 @@
     </dl>
 
     <section aria-labelledby="titulo-roles">
-        <h3 id="titulo-roles" class="text-lg font-semibold text-white mb-3">Roles por temporada</h3>
+        {{-- Historial de la persona (HU-013 CA2 y HU-015 CA2): roles de cada temporada, de la más reciente a la más antigua --}}
+        <h3 id="titulo-roles" class="text-lg font-semibold text-white mb-1">Historial de roles por temporada</h3>
+        <p class="text-sm text-gray-400 mb-3">De la temporada más reciente a la más antigua.</p>
 
         @forelse ($rolesPorTemporada as $rolesDeTemporada)
             @php($temporada = $rolesDeTemporada->first()->temporada)
@@ -45,6 +47,11 @@
                     @if ($temporada->estado === 'cerrada')
                         <span class="ml-2 px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 border border-gray-600">Cerrada · solo consulta</span>
                     @endif
+                </p>
+                <p class="text-xs text-gray-400">
+                    {{ \Illuminate\Support\Carbon::parse($temporada->fecha_inicio)->format('d/m/Y') }}
+                    –
+                    {{ \Illuminate\Support\Carbon::parse($temporada->fecha_fin)->format('d/m/Y') }}
                 </p>
                 <ul class="mt-2 flex flex-wrap gap-2">
                     @foreach ($rolesDeTemporada as $rol)

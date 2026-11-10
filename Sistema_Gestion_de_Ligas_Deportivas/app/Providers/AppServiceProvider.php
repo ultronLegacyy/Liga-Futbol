@@ -12,11 +12,16 @@ use App\Models\DirectivoClub;
 use App\Models\Equipo;
 use App\Models\Grupo;
 use App\Models\Jornada;
+use App\Models\Jugador;
+use App\Models\Pago;
 use App\Models\Partido;
 use App\Models\Persona;
-use App\Models\Temporada;
 use App\Models\TarjetonDigital;
+use App\Models\Temporada;
 use App\Models\User;
+use App\Observers\ClubObserver;
+use App\Observers\DirectivoClubObserver;
+use App\Observers\EquipoObserver;
 use App\Policies\ArbitroPolicy;
 use App\Policies\BloqueoCanchaPolicy;
 use App\Policies\CanchaPolicy;
@@ -26,16 +31,18 @@ use App\Policies\ClubPolicy;
 use App\Policies\EquipoPolicy;
 use App\Policies\GrupoPolicy;
 use App\Policies\JornadaPolicy;
+use App\Policies\JugadorPolicy;
+use App\Policies\PagoPolicy;
 use App\Policies\PartidoPolicy;
 use App\Policies\PersonaPolicy;
-use App\Policies\TemporadaPolicy;
 use App\Policies\TarjetonDigitalPolicy;
+use App\Policies\TemporadaPolicy;
 use App\Policies\UserPolicy;
 use App\Services\AuditService;
-use App\Observers\ClubObserver;
-use App\Observers\DirectivoClubObserver;
-use App\Observers\EquipoObserver;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -63,12 +70,20 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(BloqueoCancha::class, BloqueoCanchaPolicy::class);
         Gate::policy(Categoria::class, CategoriaPolicy::class);
         Gate::policy(Grupo::class, GrupoPolicy::class);
+        Gate::policy(Jornada::class, JornadaPolicy::class);
         Gate::policy(Persona::class, PersonaPolicy::class);
         Gate::policy(Arbitro::class, ArbitroPolicy::class);
         Gate::policy(TarjetonDigital::class, TarjetonDigitalPolicy::class);
-        Gate::policy(Jornada::class, JornadaPolicy::class);
+        Gate::policy(Jugador::class, JugadorPolicy::class);
         Gate::policy(Partido::class, PartidoPolicy::class);
         Gate::policy(CargoFinanciero::class, CargoFinancieroPolicy::class);
+        Gate::policy(Pago::class, PagoPolicy::class);
+
+        RateLimiter::for('jugador-vinculacion', fn (Request $request): Limit => Limit::perMinute(5)
+            ->by(($request->user()?->getAuthIdentifier() ?? 'anonimo').'|'.$request->ip())
+            ->response(fn (Request $request, array $headers) => response()->json([
+                'mensaje' => 'Si los datos corresponden a un registro elegible, la cuenta quedará vinculada.',
+            ], 200, $headers)));
 
         Club::observe(ClubObserver::class);
         DirectivoClub::observe(DirectivoClubObserver::class);

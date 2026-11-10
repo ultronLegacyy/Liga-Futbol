@@ -7,13 +7,17 @@ use Database\Factories\TemporadaFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Temporada extends Model
 {
+    use Auditable;
+
     /** @use HasFactory<TemporadaFactory> */
     use HasFactory;
-    use Auditable;
+
     protected $table = 'temporadas';
+
     protected $fillable = ['liga_id', 'nombre', 'fecha_inicio', 'fecha_fin', 'estado'];
 
     // Convocatorias publicadas para la temporada
@@ -41,6 +45,12 @@ class Temporada extends Model
     public function equipos(): HasMany
     {
         return $this->hasMany(Equipo::class);
+    }
+
+    /** @return HasManyThrough<Jugador, Equipo, $this> */
+    public function jugadores(): HasManyThrough
+    {
+        return $this->hasManyThrough(Jugador::class, Equipo::class, 'temporada_id', 'equipo_id', 'id', 'id');
     }
 
     /** @return HasMany<TarjetonDigital, $this> */

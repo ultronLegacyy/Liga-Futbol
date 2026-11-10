@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\Auditable;
 use Database\Factories\CargoFinancieroFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -127,6 +128,32 @@ class CargoFinanciero extends Model
         }
 
         return $this->estado;
+    }
+
+    /**
+     * Filtra por el estado que se muestra, con la misma regla de estadoMostrado(): Vencido si no está pagado,
+     * tiene saldo y el vencimiento es anterior a hoy en America/Mexico_City; si no, el estado guardado.
+     *
+     * @param  Builder<CargoFinanciero>  $query
+     * @return Builder<CargoFinanciero>
+     */
+    public function scopeConEstadoMostrado(Builder $query, string $estado): Builder
+    {
+        $hoy = now('America/Mexico_City')->toDateString();
+        $tabla = $this->getTable();
+
+        $vencidoConSaldo = function (Builder $consulta) use ($hoy, $tabla): void {
+            $consulta->where($tabla.'.estado', '!=', 'Pagado')
+                ->where($tabla.'.vencimiento', '<', $hoy)
+                ->whereRaw($tabla.'.monto > (select coalesce(sum(pagos.monto), 0) from pagos where pagos.cargo_id = '.$tabla.'.id)');
+        };
+
+        return match ($estado) {
+            'Vencido' => $query->where(fn (Builder $consulta) => $consulta->where($tabla.'.estado', 'Vencido')->orWhere($vencidoConSaldo)),
+            'Pendiente' => $query->where($tabla.'.estado', 'Pendiente')->whereNot($vencidoConSaldo),
+            'Pagado' => $query->where($tabla.'.estado', 'Pagado'),
+            default => $query,
+        };
     }
 
     // Dinero en centavos enteros: decimal(10,2) cabe en un int y no se pierden decimales

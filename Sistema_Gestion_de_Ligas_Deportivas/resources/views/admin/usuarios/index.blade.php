@@ -66,6 +66,17 @@
                                     Editar<span class="sr-only"> {{ $usuario->name }}</span>
                                 </a>
                             @endcan
+                            @if (auth()->user()->hasRole('Administrador General') && $usuario->hasRole('Jugador') && $usuario->persona_id !== null)
+                                <form action="{{ route('admin.jugadores.vinculo.destroy', $usuario) }}"
+                                      method="POST"
+                                      class="inline formulario-desvinculacion">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="text-orange-400 hover:underline focus:outline-none focus:ring-2 focus:ring-orange-400 rounded">
+                                        Desvincular cuenta
+                                    </button>
+                                </form>
+                            @endif
                             @can('toggleStatus', $usuario)
                                 <a href="{{ route('admin.usuarios.estado', $usuario) }}" class="{{ $usuario->estatus === 'activo' ? 'text-red-400 focus:ring-red-400' : 'text-green-400 focus:ring-green-400' }} hover:underline focus:outline-none focus:ring-2 rounded">
                                     {{ $usuario->estatus === 'activo' ? 'Desactivar' : 'Reactivar' }}<span class="sr-only"> {{ $usuario->name }}</span>
@@ -82,4 +93,38 @@
         </table>
     </div>
 </div>
+<script>
+document.querySelectorAll('.formulario-desvinculacion').forEach((formulario) => {
+    formulario.addEventListener('submit', async (evento) => {
+        evento.preventDefault();
+
+        if (!window.confirm('¿Confirmas que deseas desvincular esta cuenta de jugador? Se desvincularán también otras cuentas asociadas a la misma persona. No se eliminarán los registros deportivos.')) {
+            return;
+        }
+
+        const boton = formulario.querySelector('button[type="submit"]');
+        boton.disabled = true;
+
+        try {
+            const respuesta = await fetch(formulario.action, {
+                method: 'DELETE',
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': formulario.querySelector('[name="_token"]').value
+                }
+            });
+
+            if (!respuesta.ok) {
+                throw new Error('Error al desvincular.');
+            }
+
+            window.location.reload();
+        } catch (error) {
+            alert('No fue posible desvincular la cuenta. Intenta nuevamente.');
+            boton.disabled = false;
+        }
+    });
+});
+</script>
 @endsection
