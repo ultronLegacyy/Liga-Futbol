@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Club;
 use App\Models\Equipo;
+use App\Models\HistorialEstadoJugador;
 use App\Models\HistorialTransferenciaJugador;
 use App\Models\Jugador;
 use App\Models\Persona;
@@ -46,17 +47,18 @@ class GestionJugadorService
         return $this->auditoria->conMotivo('Baja de jugador: '.trim($motivo), function () use ($id, $motivo, $fecha, $usuario): Jugador {
             [$jugador, , $usuario] = $this->bloquearContexto($id, [], $usuario);
             Gate::forUser($usuario)->authorize('deactivate', $jugador);
-            $this->aplicarBaja($jugador, $motivo, $fecha);
+            $this->aplicarBaja($jugador, $motivo, $fecha, $usuario);
 
             return $jugador;
         });
     }
 
     /**
-     * Regla única de baja. Exige la inscripción ya bloqueada con bloquearContexto().
-     * El trait Auditable de Jugador deja la auditoría con el motivo de conMotivo().
+     * Regla única de baja para HU-017 y HU-018. Exige la inscripción ya bloqueada con
+     * bloquearContexto(). El trait Auditable de Jugador deja la auditoría con el motivo de
+     * conMotivo(), y el cambio queda en el historial de estados con quién y por qué.
      */
-    public function aplicarBaja(Jugador $jugador, string $motivo, string $fecha): void
+    public function aplicarBaja(Jugador $jugador, string $motivo, string $fecha, User $usuario): void
     {
         if ($jugador->estado_elegibilidad !== 'Activo') {
             throw ValidationException::withMessages(['jugador' => 'Solo se puede dar de baja a un jugador activo.']);
@@ -80,6 +82,7 @@ class GestionJugadorService
         }
 
         $jugador->forceFill(['estado_elegibilidad' => 'Baja', 'motivo_baja' => trim($motivo), 'fecha_baja' => $fecha])->save();
+        HistorialEstadoJugador::registrar($jugador, 'Activo', 'Baja', $motivo, $usuario);
     }
 
     /** HU-017, criterio 2: la renovación conserva la identidad y crea el vínculo en la nueva temporada. */
@@ -206,6 +209,7 @@ class GestionJugadorService
             if ($origenEnTemporadaActiva) {
                 // HU-018 define 4 estados: el origen pasa a Baja y el motivo identifica la transferencia.
                 $origen->forceFill(['estado_elegibilidad' => 'Baja', 'motivo_baja' => $motivoBaja, 'fecha_baja' => $fechaBaja])->save();
+                HistorialEstadoJugador::registrar($origen, 'Activo', 'Baja', $motivoBaja, $usuario);
             }
 
             $jugadorDestino = $destino->jugadores()->create(['persona_id' => $origen->persona_id, 'dorsal' => $numero, 'estado_elegibilidad' => 'Activo']);
@@ -285,7 +289,7 @@ class GestionJugadorService
         return [$jugadorBloqueado, $equipos, $usuarioBloqueado];
     }
 
-    private function temporadaDe(Jugador $jugador): Temporada
+    public function temporadaDe(Jugador $jugador): Temporada
     {
         $temporada = Temporada::query()->find($jugador->equipo->temporada_id);
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreJugadorRequest;
 use App\Http\Requests\BajaJugadorRequest;
+use App\Http\Requests\CambiarEstadoJugadorRequest;
 use App\Http\Requests\RenovarJugadorRequest;
 use App\Http\Requests\TransferirJugadorRequest;
 use App\Http\Requests\VincularJugadorRequest;
@@ -11,6 +12,7 @@ use App\Models\DocumentoPersona;
 use App\Models\Equipo;
 use App\Models\Jugador;
 use App\Models\User;
+use App\Services\EstadoJugadorService;
 use App\Services\RegistroJugadorService;
 use App\Services\GestionJugadorService;
 use App\Services\VinculacionJugadorService;
@@ -28,8 +30,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class JugadorController extends Controller
 {
     /**
-     * Listado de jugadores para llegar a la ficha (HU-017): el Delegado y el Presidente del
-     * Club ven solo los de su club; el Administrador General ve todos. Búsqueda por nombre o CURP.
+     * Listado de jugadores para llegar a la ficha (HU-017 y HU-018): el Delegado y el Presidente
+     * del Club ven solo los de su club; el Secretario y el Administrador General ven todos.
+     * Búsqueda por nombre o CURP.
      */
     public function index(Request $request): View
     {
@@ -37,7 +40,7 @@ class JugadorController extends Controller
         $usuario = $request->user();
         abort_unless($usuario instanceof User, 401);
         $busqueda = trim((string) $request->query('q', ''));
-        $soloSuClub = ! $usuario->hasRole('Administrador General');
+        $soloSuClub = ! $usuario->hasAnyRole(['Administrador General', 'Secretario']);
 
         $jugadores = Jugador::query()
             ->with(['persona', 'equipo.club', 'equipo.temporada', 'equipo.grupo.categoria'])
@@ -195,6 +198,8 @@ class JugadorController extends Controller
                 'equipo' => $jugador->equipo->nombre,
                 'categoria' => $jugador->equipo->grupo->categoria->nombre,
                 'temporada' => $jugador->equipo->temporada_id,
+                // HU-018, criterio 1: la consulta muestra uno de los 4 estados.
+                'estado' => $jugador->estado_elegibilidad,
                 'documentos' => $jugador->persona->documentos->map(fn (DocumentoPersona $documento): array => [
                     'id' => $documento->id,
                     'tipo' => $documento->tipo,
@@ -204,10 +209,30 @@ class JugadorController extends Controller
         ]);
     }
 
+    /** HU-018: cambio de estado con motivo obligatorio; queda en el historial con quién y por qué. */
+    public function cambiarEstado(CambiarEstadoJugadorRequest $request, Jugador $jugador, EstadoJugadorService $estados): JsonResponse|RedirectResponse
+    {
+        $usuario = $request->user();
+        abort_unless($usuario instanceof User, 401);
+        /** @var array{estado_elegibilidad: string, motivo: string, fecha_baja?: string|null} $datos */
+        $datos = $request->validated();
+        $jugador = $estados->cambiar($jugador, $datos['estado_elegibilidad'], $datos['motivo'], $usuario, $datos['fecha_baja'] ?? null);
+        $mensaje = 'El estado del jugador fue actualizado.';
+
+        if (! $request->expectsJson()) {
+            return redirect()->route('jugadores.gestion', $jugador)->with('success', $mensaje);
+        }
+
+        return response()->json([
+            'mensaje' => $mensaje,
+            'jugador' => ['id' => $jugador->getKey(), 'estado_elegibilidad' => $jugador->estado_elegibilidad],
+        ]);
+    }
+
     public function gestion(Jugador $jugador): View
     {
         Gate::authorize('view', $jugador);
-        $jugador->load(['persona.documentos', 'equipo.grupo.categoria.temporada', 'transferenciasOrigen.clubDestino', 'transferenciasOrigen.equipoDestino']);
+        $jugador->load(['persona.documentos', 'equipo.grupo.categoria.temporada', 'transferenciasOrigen.clubDestino', 'transferenciasOrigen.equipoDestino', 'historialEstados.usuario']);
         $clubId = $jugador->equipo->club_id;
         $temporadaId = $jugador->equipo->temporada_id;
         $equiposRenovacion = Equipo::query()->with(['temporada', 'grupo.categoria'])->where('club_id', $clubId)->whereHas('temporada', fn (Builder $query): Builder => $query->where('estado', 'activa')->whereKeyNot($temporadaId))->get();

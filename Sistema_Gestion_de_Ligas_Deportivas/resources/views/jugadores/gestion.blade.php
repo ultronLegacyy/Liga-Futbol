@@ -47,6 +47,38 @@
         <p class="rounded-lg border border-red-800 bg-red-950/40 p-4 text-sm text-red-100">Baja registrada {{ $jugador->fecha_baja?->format('d/m/Y') }}: {{ $jugador->motivo_baja }}</p>
     @endif
     @if ($jugador->estado_elegibilidad !== 'Baja')
+        @can('changeStatus', $jugador)
+            <section class="rounded-xl border border-gray-700 bg-gray-800 p-5 sm:p-7" aria-labelledby="cambio-estado-titulo">
+                <h2 id="cambio-estado-titulo" class="text-lg font-semibold text-white">Cambiar estado</h2>
+                <p class="mt-1 text-sm text-gray-300">El motivo es obligatorio. El cambio quedará en el historial con tu usuario y la fecha.</p>
+                <form method="POST" action="{{ route('jugadores.estado.update', $jugador) }}" class="mt-4 space-y-4">
+                    @csrf
+                    @method('PUT')
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <label for="estado_elegibilidad" class="mb-1 block text-sm font-medium text-gray-200">Nuevo estado</label>
+                            <select id="estado_elegibilidad" name="estado_elegibilidad" required class="w-full rounded-lg border border-gray-600 bg-gray-900 p-2 text-white">
+                                <option value="">Selecciona un estado</option>
+                                @foreach (\App\Models\Jugador::ESTADOS_ELEGIBILIDAD as $estado)
+                                    @if ($estado !== $jugador->estado_elegibilidad)
+                                        <option value="{{ $estado }}" @selected(old('estado_elegibilidad') === $estado)>{{ $estado }}</option>
+                                    @endif
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label for="estado_fecha_baja" class="mb-1 block text-sm font-medium text-gray-200">Fecha de baja (solo para Baja)</label>
+                            <input id="estado_fecha_baja" name="fecha_baja" type="date" min="{{ \Illuminate\Support\Carbon::parse($jugador->equipo->grupo->categoria->temporada->fecha_inicio)->toDateString() }}" max="{{ \App\Services\GestionJugadorService::hoy() }}" class="w-full rounded-lg border border-gray-600 bg-gray-900 p-2 text-white">
+                        </div>
+                    </div>
+                    <div>
+                        <label for="motivo_estado" class="mb-1 block text-sm font-medium text-gray-200">Motivo</label>
+                        <textarea id="motivo_estado" name="motivo" rows="3" required minlength="3" maxlength="1000" class="w-full rounded-lg border border-gray-600 bg-gray-900 p-3 text-white"></textarea>
+                    </div>
+                    <button type="submit" class="rounded-lg bg-emerald-700 px-4 py-2 font-semibold text-white hover:bg-emerald-600">Guardar cambio de estado</button>
+                </form>
+            </section>
+        @endcan
         @can('deactivate', $jugador)
             @if ($jugador->estado_elegibilidad === 'Activo')
                 <section class="rounded-xl border border-gray-700 bg-gray-800 p-5 sm:p-7">
@@ -80,7 +112,22 @@
         @endcan
     @endif
     @if ($jugador->transferenciasOrigen->isNotEmpty())
-        <section class="rounded-xl border border-gray-700 bg-gray-800 p-5 sm:p-7"><h2 class="text-lg font-semibold text-white">Historial de transferencias</h2><ul class="mt-3 space-y-2">@foreach ($jugador->transferenciasOrigen as $transferencia)<li class="text-sm text-gray-200">{{ $transferencia->created_at?->format('d/m/Y H:i') }} · destino {{ $transferencia->clubDestino->nombre }} / {{ $transferencia->equipoDestino->nombre }}</li>@endforeach</ul></section>
+        <section class="rounded-xl border border-gray-700 bg-gray-800 p-5 sm:p-7"><h2 class="text-lg font-semibold text-white">Historial de transferencias</h2><ul class="mt-3 space-y-2">@foreach ($jugador->transferenciasOrigen as $transferencia)<li class="text-sm text-gray-200">{{ $transferencia->created_at?->timezone(\App\Services\GestionJugadorService::ZONA_HORARIA)->format('d/m/Y H:i') }} · destino {{ $transferencia->clubDestino->nombre }} / {{ $transferencia->equipoDestino->nombre }}</li>@endforeach</ul></section>
     @endif
+
+    <section class="rounded-xl border border-gray-700 bg-gray-800 p-5 sm:p-7" aria-labelledby="historial-estados-titulo">
+        <h2 id="historial-estados-titulo" class="text-lg font-semibold text-white">Historial de estados</h2>
+        <ul class="mt-3 space-y-3">
+            @forelse ($jugador->historialEstados as $cambio)
+                <li class="rounded-lg border border-gray-700 p-3 text-sm text-gray-200">
+                    <p class="font-semibold text-white">{{ $cambio->estado_anterior ?? 'Sin estado previo' }} → {{ $cambio->estado_nuevo }}</p>
+                    <p class="mt-1">Motivo: {{ $cambio->motivo }}</p>
+                    <p class="mt-1 text-gray-400">{{ $cambio->usuario->name }} · {{ $cambio->created_at?->timezone(\App\Services\GestionJugadorService::ZONA_HORARIA)->format('d/m/Y H:i') }}</p>
+                </li>
+            @empty
+                <li class="text-sm text-gray-300">Aún no hay cambios de estado registrados.</li>
+            @endforelse
+        </ul>
+    </section>
 </main>
 @endsection
