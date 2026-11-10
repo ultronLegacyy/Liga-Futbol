@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AdeudoClubController;
 use App\Http\Controllers\ArbitroController;
+use App\Http\Controllers\AsambleaController;
 use App\Http\Controllers\CanchaBloqueoController;
 use App\Http\Controllers\CanchaController;
 use App\Http\Controllers\CargoFinancieroController;
@@ -136,6 +137,19 @@ Route::middleware(['auth'])->group(function () {
             ->name('partidos.arbitro.edit');
         Route::put('/partidos/{partido}/arbitro', [ArbitroController::class, 'asignar'])
             ->name('partidos.arbitro.update');
+
+        // Asambleas de delegados: convocatoria y asistencia (HU-053), acuerdos y comunicados (HU-054), RF-14
+        Route::resource('asambleas', AsambleaController::class)->only(['index', 'create', 'store', 'show']);
+        Route::get('/asambleas/{asamblea}/asistencia', [AsambleaController::class, 'editarAsistencia'])
+            ->name('asambleas.asistencia.edit');
+        Route::put('/asambleas/{asamblea}/asistencia', [AsambleaController::class, 'guardarAsistencia'])
+            ->name('asambleas.asistencia.update');
+        Route::post('/asambleas/{asamblea}/acuerdos', [AsambleaController::class, 'guardarAcuerdo'])
+            ->name('asambleas.acuerdos.store');
+        Route::post('/asambleas/{asamblea}/acuerdos/{acuerdo}/regla-permanente', [AsambleaController::class, 'autorizarAcuerdo'])
+            ->name('asambleas.acuerdos.autorizar');
+        Route::post('/asambleas/{asamblea}/comunicados', [AsambleaController::class, 'guardarComunicado'])
+            ->name('asambleas.comunicados.store');
 
         // Adeudos por club y temporada: quién está al corriente (HU-051, RF-13.2)
         Route::get('/adeudos', [AdeudoClubController::class, 'index'])
