@@ -149,6 +149,39 @@ class PermisosRolTest extends TestCase
         $this->actingAs($this->administrador)->get(route('admin.roles.show', $publico->id))->assertNotFound();
     }
 
+    // Un id que no es número no coincide con ninguna ruta de roles: 404, no 405 en inglés
+    public function test_un_id_no_numerico_responde_404(): void
+    {
+        $this->actingAs($this->administrador)->get('/admin/roles/abc')->assertNotFound();
+        $this->actingAs($this->administrador)->post('/admin/roles/abc')->assertNotFound();
+        $this->actingAs($this->administrador)->put('/admin/roles/abc/permisos')->assertNotFound();
+        $this->actingAs($this->administrador)->put('/admin/roles/1/permisos/abc')->assertNotFound();
+    }
+
+    // El enlace «Roles y permisos» del menú solo lo ve el Administrador General
+    public function test_el_enlace_del_menu_solo_lo_ve_el_administrador_general(): void
+    {
+        $enlace = 'href="'.route('admin.roles.index').'"';
+
+        $this->actingAs($this->administrador)->get(route('personas.index'))
+            ->assertOk()
+            ->assertSee($enlace, false)
+            ->assertSee('Roles y permisos');
+
+        $this->actingAs($this->crearUsuario('Secretario'))->get(route('personas.index'))
+            ->assertOk()
+            ->assertDontSee($enlace, false)
+            ->assertDontSee('Roles y permisos');
+    }
+
+    // El cambio en errors/403 no tapa los mensajes propios de las políticas (Response::deny)
+    public function test_la_pantalla_403_respeta_el_mensaje_de_una_politica(): void
+    {
+        $this->actingAs($this->crearUsuario('Tesorero'))->get(route('jugadores.index'))
+            ->assertForbidden()
+            ->assertSee('No cuenta con autorización para consultar el listado de jugadores.');
+    }
+
     private function crearUsuario(string $rol): User
     {
         $usuario = User::create([

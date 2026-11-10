@@ -9,7 +9,9 @@ use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\EquipoController;
 use App\Http\Controllers\ForcePasswordChangeController;
+use App\Http\Controllers\GeneradorEnfrentamientosController;
 use App\Http\Controllers\GrupoController;
+use App\Http\Controllers\HistorialEquipoController;
 use App\Http\Controllers\JornadaController;
 use App\Http\Controllers\JugadorController;
 use App\Http\Controllers\PagoController;
@@ -105,6 +107,16 @@ Route::middleware(['auth'])->group(function () {
         Route::match(['put', 'patch'], '/jornadas/{jornada}/descanso', [JornadaController::class, 'actualizarDescanso'])
             ->name('jornadas.descanso.update');
 
+        // Generación automática de rol regular y enfrentamientos (HU-032, RF-07.1)
+        Route::get('/grupos/{grupo}/generar-rol', [GeneradorEnfrentamientosController::class, 'configurar'])
+            ->name('grupos.generar-rol');
+        Route::post('/grupos/{grupo}/previsualizar-rol', [GeneradorEnfrentamientosController::class, 'previsualizar'])
+            ->name('grupos.previsualizar-rol');
+        Route::post('/grupos/{grupo}/confirmar-rol', [GeneradorEnfrentamientosController::class, 'confirmar'])
+            ->name('grupos.confirmar-rol');
+        Route::post('/jornadas/{jornada}/generar-partidos', [GeneradorEnfrentamientosController::class, 'generarJornada'])
+            ->name('jornadas.generar-partidos');
+
         // Alta manual y reprogramación de partidos en jornadas (HU-027, RF-06.1)
         Route::resource('jornadas.partidos', PartidoController::class)->shallow()->only(['create', 'store', 'show', 'edit', 'update', 'destroy']);
 
@@ -112,6 +124,10 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('personas', PersonaController::class)->only(['index', 'create', 'store', 'show']);
         Route::post('/personas/{persona}/roles', [PersonaController::class, 'asignarRol'])
             ->name('personas.roles.store');
+
+        // Historial de equipos por temporada (HU-015, RF-03.4)
+        Route::get('/historial-equipos', [HistorialEquipoController::class, 'index'])->name('equipos.historial.index');
+        Route::get('/historial-equipos/{equipo}', [HistorialEquipoController::class, 'show'])->name('equipos.historial.show');
 
         // Padrón de árbitros y su asignación a partidos programados (HU-026, RF-06.1)
         Route::get('/arbitros/asignaciones', [ArbitroController::class, 'asignaciones'])
@@ -162,9 +178,9 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/roles', [RolPermisoController::class, 'index'])->name('roles.index');
             Route::get('/roles/{rol}', [RolPermisoController::class, 'show'])->whereNumber('rol')->name('roles.show');
             Route::match(['post', 'put', 'patch', 'delete'], '/roles/{rol?}', [RolPermisoController::class, 'rechazarCambio'])
-                ->name('roles.cambio');
+                ->whereNumber('rol')->name('roles.cambio');
             Route::match(['post', 'put', 'patch', 'delete'], '/roles/{rol}/permisos/{permiso?}', [RolPermisoController::class, 'rechazarCambio'])
-                ->name('roles.permisos.cambio');
+                ->whereNumber(['rol', 'permiso'])->name('roles.permisos.cambio');
         });
 
         // Grupo de rutas operativas protegidas por permiso
@@ -198,11 +214,16 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/equipos/{equipo}', [EquipoController::class, 'show'])->name('equipos.show');
         Route::post('/equipos', [EquipoController::class, 'store'])->name('equipos.store');
+        Route::get('/jugadores', [JugadorController::class, 'index'])->name('jugadores.index');
         Route::get('/jugadores/create', [JugadorController::class, 'create'])->name('jugadores.create');
         Route::post('/jugadores', [JugadorController::class, 'store'])->name('jugadores.store');
         Route::post('/equipos/{equipo}/jugadores', [JugadorController::class, 'store'])->name('equipos.jugadores.store');
         Route::get('/jugadores/{jugador}/gestionar', [JugadorController::class, 'gestion'])->name('jugadores.gestion');
         Route::get('/jugadores/vincular', [JugadorController::class, 'vincularForm'])->name('jugadores.vincular.form');
+        Route::post('/jugadores/{jugador}/baja', [JugadorController::class, 'darDeBaja'])->name('jugadores.baja');
+        Route::post('/jugadores/{jugador}/renovar', [JugadorController::class, 'renovar'])->name('jugadores.renovar');
+        Route::post('/jugadores/{jugador}/transferir', [JugadorController::class, 'transferir'])->name('jugadores.transferir');
+        Route::put('/jugadores/{jugador}/estado', [JugadorController::class, 'cambiarEstado'])->name('jugadores.estado.update');
         Route::post('/jugadores/vincular', [JugadorController::class, 'vincular'])
             ->middleware('throttle:jugador-vinculacion')->name('jugadores.vincular');
         Route::get('/jugadores/{jugador}', [JugadorController::class, 'show'])->name('jugadores.show');

@@ -27,6 +27,11 @@
             <a href="{{ route('admin.usuarios.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white">
                 Usuarios
             </a>
+            @can('viewAny', App\Models\Jugador::class)
+                <a href="{{ route('jugadores.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white">
+                    Jugadores
+                </a>
+            @endcan
             {{-- Permisos de cada rol en solo lectura (HU-081) --}}
             @role('Administrador General')
                 <a href="{{ route('admin.roles.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white">
@@ -56,6 +61,11 @@
             @can('viewAny', App\Models\Persona::class)
                 <a href="{{ route('personas.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white">
                     Personas
+                </a>
+            @endcan
+            @can('viewAnyHistorial', App\Models\Equipo::class)
+                <a href="{{ route('equipos.historial.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white">
+                    Historial de equipos
                 </a>
             @endcan
             @can('viewAny', App\Models\Arbitro::class)
