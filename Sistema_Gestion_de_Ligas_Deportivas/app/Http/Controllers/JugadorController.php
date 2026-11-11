@@ -12,15 +12,18 @@ use App\Models\DocumentoPersona;
 use App\Models\Equipo;
 use App\Models\Jugador;
 use App\Models\User;
+use App\Services\AuditService;
 use App\Services\EstadoJugadorService;
 use App\Services\RegistroJugadorService;
 use App\Services\GestionJugadorService;
+use App\Services\HistorialCambiosJugadorService;
 use App\Services\VinculacionJugadorService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -250,23 +253,48 @@ class JugadorController extends Controller
         $extension = pathinfo($documento->ruta_storage, PATHINFO_EXTENSION);
         $nombre = Str::slug($documento->tipo.'-'.$jugador->persona_id).($extension !== '' ? '.'.$extension : '');
 
+        // HU-022 CA1 (RNF-30): ni buscadores ni cachés compartidas guardan el documento
         return Storage::disk('private')->download($documento->ruta_storage, $nombre, [
             'X-Robots-Tag' => 'noindex, nofollow, noarchive',
+            'Cache-Control' => 'private, no-store, max-age=0',
         ]);
     }
 
-    public function update(Request $request, Jugador $jugador): JsonResponse
+    /**
+     * HU-022 CA2: todo cambio a los datos del jugador pide motivo y queda en su historial
+     * con usuario, fecha y motivo; el cambio y su registro se guardan en una sola transacción.
+     */
+    public function update(Request $request, Jugador $jugador, AuditService $auditoria): JsonResponse
     {
         Gate::authorize('update', $jugador);
         $datos = $request->validate([
             'dorsal' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:99'],
+            'motivo' => ['required', 'string', 'min:3', 'max:1000'],
+        ], [
+            'motivo.required' => 'Escribe el motivo del cambio; quedará en el historial del jugador.',
+            'motivo.min' => 'El motivo debe tener al menos 3 caracteres.',
+            'motivo.max' => 'El motivo no debe superar los 1000 caracteres.',
         ]);
+        $cambios = Arr::except($datos, ['motivo']);
 
-        if ($datos !== []) {
-            $jugador->update($datos);
+        if ($cambios !== []) {
+            $auditoria->conMotivo('Cambio de datos del jugador: '.trim($datos['motivo']), fn () => $jugador->update($cambios));
         }
 
         return response()->json(['mensaje' => 'Los datos del jugador fueron actualizados.']);
+    }
+
+    /** HU-022 CA2: historial de cambios de los datos del jugador, sobre la bitácora de HU-004. */
+    public function historial(Jugador $jugador, HistorialCambiosJugadorService $historial): View
+    {
+        Gate::authorize('view', $jugador);
+        $jugador->load(['persona', 'equipo']);
+
+        return view('jugadores.historial', [
+            'jugador' => $jugador,
+            'registros' => $historial->de($jugador),
+            'historial' => $historial,
+        ]);
     }
 
     public function desvincular(Jugador $jugador, VinculacionJugadorService $vinculacion): JsonResponse

@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {{-- HU-022 (RNF-30): las pantallas internas tienen datos personales y no se indexan --}}
+    <meta name="robots" content="noindex, nofollow, noarchive">
     <title>@yield('title', 'Sistema de Gestión de Ligas Deportivas')</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
