@@ -32,6 +32,12 @@
                     Jugadores
                 </a>
             @endcan
+            {{-- Permisos de cada rol en solo lectura (HU-081) --}}
+            @role('Administrador General')
+                <a href="{{ route('admin.roles.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white">
+                    Roles y permisos
+                </a>
+            @endrole
             @can('jugadores.crear')
                 <a href="{{ route('jugadores.create') }}" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white">
                     Registrar jugadores
