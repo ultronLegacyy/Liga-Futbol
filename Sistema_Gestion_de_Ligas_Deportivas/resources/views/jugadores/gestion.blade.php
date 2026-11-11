@@ -26,6 +26,8 @@
         <h2 id="jugador-titulo" class="text-xl font-bold text-white">{{ $jugador->persona->nombre }} {{ $jugador->persona->apellidos }}</h2>
         <p class="mt-1 text-sm text-gray-300">{{ $jugador->equipo->nombre }} · {{ $jugador->equipo->grupo->categoria->nombre }} · {{ $jugador->equipo->temporada->nombre }}</p>
         <p class="mt-4 text-sm text-gray-200">Estado actual: <span class="font-semibold">{{ $jugador->estado_elegibilidad }}</span></p>
+        {{-- HU-022 CA2: quién cambió los datos del jugador, cuándo y por qué --}}
+        <a href="{{ route('jugadores.historial', $jugador) }}" class="mt-3 inline-flex text-sm text-emerald-300 underline">Ver historial de cambios</a>
 
         @can('jugadores.crear')
             <a href="{{ route('jugadores.create') }}" class="mt-5 inline-flex rounded-lg border border-gray-600 px-4 py-2 text-sm font-semibold text-gray-200 hover:bg-gray-700">Registrar otro jugador</a>

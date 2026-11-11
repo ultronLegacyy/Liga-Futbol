@@ -1,2 +1,9 @@
+# HU-022 (RNF-30): las secciones con datos personales no se indexan.
+# Todas piden sesión; esto solo evita que un buscador intente rastrearlas.
 User-agent: *
-Disallow:
+Disallow: /jugadores
+Disallow: /personas
+Disallow: /admin
+Disallow: /equipos
+Disallow: /clubes
+Disallow: /storage
