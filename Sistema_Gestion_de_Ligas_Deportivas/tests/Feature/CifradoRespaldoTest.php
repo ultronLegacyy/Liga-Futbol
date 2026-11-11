@@ -6,9 +6,11 @@ use App\Services\Respaldos\CifradoRespaldo;
 use App\Services\Respaldos\RespaldoException;
 use Illuminate\Support\Facades\File;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use Tests\TestCase;
 
 // HU-009 (SCRUM-174): cifrado por bloques de los respaldos con Sodium secretstream (D-036)
+#[RequiresPhpExtension('sodium')]
 class CifradoRespaldoTest extends TestCase
 {
     private string $carpeta;

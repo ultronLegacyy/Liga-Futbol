@@ -19,10 +19,12 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
 use Mockery;
+use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use RuntimeException;
 use Tests\TestCase;
 
 // HU-009 (SCRUM-174 a SCRUM-176): crear, programar, depurar, restaurar y probar los respaldos cifrados (RNF-23)
+#[RequiresPhpExtension('sodium')]
 class RespaldosTest extends TestCase
 {
     // La restauración deja su registro en auditoria_logs
