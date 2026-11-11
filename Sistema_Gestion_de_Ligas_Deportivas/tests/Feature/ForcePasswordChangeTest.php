@@ -100,7 +100,7 @@ class ForcePasswordChangeTest extends TestCase
 
     public function test_tesorero_que_cambia_contrasena_es_redirigido_a_cargos_sin_error_403(): void
     {
-        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'Tesorero', 'guard_name' => 'web']);
+        $this->seed(\Database\Seeders\RoleAndPermissionSeeder::class);
 
         $tesorero = User::factory()->create([
             'requires_password_change' => true,
@@ -121,5 +121,12 @@ class ForcePasswordChangeTest extends TestCase
             'id' => $tesorero->id,
             'requires_password_change' => 0,
         ]);
+
+        // Verificamos que al seguir la redirección a cargos.index cargue con status 200 y muestre su vista financiera
+        $vista = $this->actingAs($tesorero->fresh())->get(route('cargos.index'));
+        $vista->assertStatus(200);
+        $vista->assertSee('Cuotas y cargos');
+        $vista->assertDontSee('Gobernanza');
+        $vista->assertDontSee('Roles y permisos');
     }
 }
