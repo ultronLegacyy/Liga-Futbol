@@ -66,6 +66,46 @@
         @endforelse
     </section>
 
+    <section aria-labelledby="titulo-equipos">
+        {{-- HU-084 CA1: equipo y categoría de la persona en cada temporada como jugador --}}
+        <h3 id="titulo-equipos" class="text-lg font-semibold text-white mb-1">Equipos por temporada</h3>
+        <p class="text-sm text-gray-400 mb-3">Equipos en los que estuvo inscrita como jugador, de la temporada más reciente a la más antigua.</p>
+
+        @if ($equiposPorTemporada->isEmpty())
+            <p class="text-sm text-gray-400">La persona aún no ha estado inscrita como jugador en ningún equipo.</p>
+        @else
+            <x-table caption="Equipos de {{ $persona->nombre }} {{ $persona->apellidos }} por temporada">
+                <thead class="bg-gray-700/50 text-gray-200 uppercase text-xs">
+                    <tr>
+                        <th scope="col" class="px-4 py-3">Temporada</th>
+                        <th scope="col" class="px-4 py-3">Equipo</th>
+                        <th scope="col" class="px-4 py-3">Categoría</th>
+                        <th scope="col" class="px-4 py-3">Estado</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-700">
+                    @foreach ($equiposPorTemporada as $inscripcion)
+                        @php($grupo = $inscripcion->equipo->grupo)
+                        <tr>
+                            <td class="px-4 py-3">
+                                <span class="text-white">{{ $grupo->temporada->nombre }}</span>
+                                @if ($grupo->temporada->estado === 'cerrada')
+                                    <span class="ml-1 px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 border border-gray-600">Cerrada</span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="text-white">{{ $inscripcion->equipo->nombre }}</span>
+                                <span class="block text-xs text-gray-400">{{ $inscripcion->equipo->club->nombre }}</span>
+                            </td>
+                            <td class="px-4 py-3">{{ $grupo->categoria->nombre }}</td>
+                            <td class="px-4 py-3">{{ $inscripcion->estado_elegibilidad }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </x-table>
+        @endif
+    </section>
+
     @can('create', App\Models\Persona::class)
         <section aria-labelledby="titulo-asignar" class="border-t border-gray-700 pt-6">
             <h3 id="titulo-asignar" class="text-lg font-semibold text-white mb-1">Asignar otro rol</h3>

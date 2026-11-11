@@ -93,6 +93,33 @@ class Persona extends Model
             ->groupBy('temporada_id');
     }
 
+    /**
+     * Equipos en los que la persona estuvo inscrita como jugador, con su categoría y temporada (HU-084, CA1).
+     * La temporada y la categoría salen del grupo del equipo, como en el historial de equipos (HU-015).
+     * Va de la temporada más reciente a la más antigua; en una temporada con transferencia aparecen los dos equipos.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, Jugador>
+     */
+    public function equiposPorTemporada()
+    {
+        return $this->inscripciones()
+            ->select('jugadores_equipos.*')
+            ->join('equipos', 'equipos.id', '=', 'jugadores_equipos.equipo_id')
+            ->join('grupos', 'grupos.id', '=', 'equipos.grupo_id')
+            ->join('temporadas', 'temporadas.id', '=', 'grupos.temporada_id')
+            ->with([
+                'equipo:id,club_id,grupo_id,nombre',
+                'equipo.club:id,nombre',
+                'equipo.grupo:id,categoria_id,temporada_id,nombre',
+                'equipo.grupo.categoria:id,nombre',
+                'equipo.grupo.temporada:id,nombre,fecha_inicio,fecha_fin,estado',
+            ])
+            ->orderByDesc('temporadas.fecha_inicio')
+            ->orderByDesc('temporadas.id')
+            ->orderByDesc('jugadores_equipos.id')
+            ->get();
+    }
+
     // Cuotas y cargos financieros (HU-050)
     /** @return HasMany<CargoFinanciero, $this> */
     public function cargos(): HasMany
