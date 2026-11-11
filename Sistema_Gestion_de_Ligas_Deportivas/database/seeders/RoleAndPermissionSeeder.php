@@ -178,7 +178,7 @@ class RoleAndPermissionSeeder extends Seeder
 
         // 3. Asignacion consolidada de permisos al Administrador General (salvo cedulas.firmar segun matriz)
         $permisosAdmin = array_values(array_filter($catalogoPermisos, fn (string $permiso): bool => $permiso !== 'cedulas.firmar'));
-        $rolesCreados['Administrador General']->syncPermissions($permisosAdmin);
+        $this->sincronizar($rolesCreados['Administrador General'], $permisosAdmin);
 
         // 4. Asignacion granular para los 4 roles de Gobernanza (S2-T10 / HU-071)
         // Rol Presidente: maxima autoridad institucional, supervision de torneos y finanzas ejecutivas (sin gestion de cuentas ni canchas operativas)
@@ -200,7 +200,7 @@ class RoleAndPermissionSeeder extends Seeder
             'campos.ver',
             'finanzas.reportes',
         ];
-        $rolesCreados['Presidente']->syncPermissions($permisosPresidente);
+        $this->sincronizar($rolesCreados['Presidente'], $permisosPresidente);
 
         // Rol Secretario: fe publica, convocatorias, padron y supervision documental etaria (sin registro de clubes ni equipos, facultad de Delegado de Club)
         $permisosSecretario = [
@@ -223,7 +223,7 @@ class RoleAndPermissionSeeder extends Seeder
             'personas.editar',
             'campos.ver',
         ];
-        $rolesCreados['Secretario']->syncPermissions($permisosSecretario);
+        $this->sincronizar($rolesCreados['Secretario'], $permisosSecretario);
 
         // Rol Tesorero: administracion financiera, cargos, pagos y reportes (aislamiento total de disciplina y competicion)
         $permisosTesorero = [
@@ -233,7 +233,7 @@ class RoleAndPermissionSeeder extends Seeder
             'finanzas.pagos_validar',
             'finanzas.reportes',
         ];
-        $rolesCreados['Tesorero']->syncPermissions($permisosTesorero);
+        $this->sincronizar($rolesCreados['Tesorero'], $permisosTesorero);
 
         // Rol Comision de la Rama Infantil: categorias menores, control estricto de edad y acreditacion infantil (PA-17)
         $permisosComisionInfantil = [
@@ -248,7 +248,7 @@ class RoleAndPermissionSeeder extends Seeder
             'jugadores.validar_edad',
             'campos.ver',
         ];
-        $rolesCreados['Comision de la Rama Infantil']->syncPermissions($permisosComisionInfantil);
+        $this->sincronizar($rolesCreados['Comision de la Rama Infantil'], $permisosComisionInfantil);
 
         // 5. Asignacion granular para los 5 roles Operativos Deportivos (HU-072 / SCRUM-15 / S2-T16)
         // Rol Programador de Partidos: logistica de campos, bloqueos, programacion de jornadas y validacion de resultados
@@ -272,7 +272,7 @@ class RoleAndPermissionSeeder extends Seeder
             'cedulas.ver',
             'resultados.validar',
         ];
-        $rolesCreados['Programador de Partidos']->syncPermissions($permisosProgramador);
+        $this->sincronizar($rolesCreados['Programador de Partidos'], $permisosProgramador);
 
         // Rol Capturista: captura de cedulas fisicas y resultados en sede de la liga (sin facultades sancionatorias ni de programacion)
         $permisosCapturista = [
@@ -288,7 +288,7 @@ class RoleAndPermissionSeeder extends Seeder
             'cedulas.ver',
             'cedulas.capturar',
         ];
-        $rolesCreados['Capturista']->syncPermissions($permisosCapturista);
+        $this->sincronizar($rolesCreados['Capturista'], $permisosCapturista);
 
         // Rol Arbitro en Campo: validacion en terreno, captura y firma de cedula digital (sin dictaminar sanciones)
         $permisosArbitroCampo = [
@@ -305,7 +305,7 @@ class RoleAndPermissionSeeder extends Seeder
             'cedulas.firmar',
             'disciplina.ver',
         ];
-        $rolesCreados['Árbitro en Campo']->syncPermissions($permisosArbitroCampo);
+        $this->sincronizar($rolesCreados['Árbitro en Campo'], $permisosArbitroCampo);
 
         // Rol Comision Arbitral: administracion del padron de arbitros y colegios, y asignacion de ternas arbitrales
         $permisosComisionArbitral = [
@@ -322,7 +322,7 @@ class RoleAndPermissionSeeder extends Seeder
             'partidos.ver',
             'cedulas.ver',
         ];
-        $rolesCreados['Comisión Arbitral']->syncPermissions($permisosComisionArbitral);
+        $this->sincronizar($rolesCreados['Comisión Arbitral'], $permisosComisionArbitral);
 
         // Rol Tribunal de Penas: organo sancionador autonomo, resolucion de incidentes, expedientes y sanciones oficiales
         $permisosTribunalPenas = [
@@ -339,7 +339,7 @@ class RoleAndPermissionSeeder extends Seeder
             'disciplina.expedientes',
             'disciplina.sancionar',
         ];
-        $rolesCreados['Tribunal de Penas']->syncPermissions($permisosTribunalPenas);
+        $this->sincronizar($rolesCreados['Tribunal de Penas'], $permisosTribunalPenas);
 
         // 6. Asignacion granular para roles de Clubes y Jugadores (HU-073 / SCRUM-16 / S2-T21)
         // Rol Presidente del Club (Directivo de Club): representacion institucional, tarjeton digital, administracion de club y consulta deportiva
@@ -355,7 +355,7 @@ class RoleAndPermissionSeeder extends Seeder
             'jugadores.ver',
             'campos.ver',
         ];
-        $rolesCreados['Presidente del Club']->syncPermissions($permisosPresidenteClub);
+        $this->sincronizar($rolesCreados['Presidente del Club'], $permisosPresidenteClub);
 
         // Rol Delegado del Club (Titular / Suplente): enlace operativo, altas de jugadores, registro de equipos y consulta deportiva
         $permisosDelegadoClub = [
@@ -373,7 +373,7 @@ class RoleAndPermissionSeeder extends Seeder
             'jugadores.transferir',
             'campos.ver',
         ];
-        $rolesCreados['Delegado del Club']->syncPermissions($permisosDelegadoClub);
+        $this->sincronizar($rolesCreados['Delegado del Club'], $permisosDelegadoClub);
 
         // Rol Jugador: consulta exclusiva de perfil deportivo, credencial digital, partidos y estado disciplinario
         $permisosJugador = [
@@ -384,7 +384,7 @@ class RoleAndPermissionSeeder extends Seeder
             'jugadores.ver',
             'campos.ver',
         ];
-        $rolesCreados['Jugador']->syncPermissions($permisosJugador);
+        $this->sincronizar($rolesCreados['Jugador'], $permisosJugador);
 
         // 7. Asignacion automatica de roles a los usuarios iniciales del sistema si existen
         $adminUser = User::where('email', 'admin@ligafutbol.com')->first();
@@ -461,5 +461,20 @@ class RoleAndPermissionSeeder extends Seeder
         if ($tribunalUser && ! $tribunalUser->hasRole('Tribunal de Penas')) {
             $tribunalUser->assignRole('Tribunal de Penas');
         }
+    }
+
+    /**
+     * Asigna los permisos base del rol, salvo que el Administrador General ya los haya editado (HU-083, CA4):
+     * en ese caso se conservan tal como los dejó, aunque se vuelva a ejecutar la carga inicial.
+     *
+     * @param  list<string>  $permisos
+     */
+    private function sincronizar(Role $rol, array $permisos): void
+    {
+        if ($rol->getAttribute('permisos_editados_en') !== null) {
+            return;
+        }
+
+        $rol->syncPermissions($permisos);
     }
 }

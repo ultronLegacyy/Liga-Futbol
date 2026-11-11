@@ -82,7 +82,7 @@ class PermisosRolTest extends TestCase
         $this->actingAs($this->crearUsuario('Tesorero'))->get(route('personas.index'))->assertForbidden();
     }
 
-    // CA3: la pantalla no ofrece controles para cambiar permisos
+    // CA3: el detalle sigue siendo de consulta; desde HU-083 solo enlaza al formulario de edición
     public function test_el_detalle_es_de_solo_lectura(): void
     {
         $rol = Role::findByName('Secretario');
@@ -93,20 +93,24 @@ class PermisosRolTest extends TestCase
             ->assertSee('Solo consulta')
             ->assertDontSee('type="checkbox"', false)
             ->assertDontSee('name="permisos', false)
-            ->assertDontSee(route('admin.roles.cambio', $rol->id), false);
+            ->assertDontSee('action="'.route('admin.roles.permisos.update', $rol->id).'"', false)
+            ->assertSee('href="'.route('admin.roles.edit', $rol->id).'"', false);
     }
 
-    // CA3: un cambio por petición directa se rechaza y los permisos no cambian
+    // CA3: crear, renombrar o borrar roles por petición directa se rechaza y nada cambia.
+    // Desde HU-083, PUT /admin/roles/{rol}/permisos es la edición (se prueba en EditarPermisosRolTest)
     public function test_un_cambio_por_peticion_directa_se_rechaza(): void
     {
         $rol = Role::findByName('Tesorero');
         $antes = $rol->permissions()->pluck('name')->sort()->values()->all();
         $intento = ['permisos' => ['usuarios.ver', 'usuarios.crear'], 'permissions' => ['usuarios.ver'], 'name' => 'Otro nombre'];
 
-        $aviso = 'Los permisos de los roles son fijos en esta versión';
+        $aviso = 'Los roles del catálogo son fijos';
 
         foreach (['post', 'put', 'patch', 'delete'] as $metodo) {
             $this->actingAs($this->administrador)->{$metodo}('/admin/roles/'.$rol->id, $intento)->assertForbidden()->assertSee($aviso);
+        }
+        foreach (['post', 'patch', 'delete'] as $metodo) {
             $this->actingAs($this->administrador)->{$metodo}('/admin/roles/'.$rol->id.'/permisos', $intento)->assertForbidden()->assertSee($aviso);
         }
         $this->actingAs($this->administrador)->post('/admin/roles', ['name' => 'Rol nuevo'])->assertForbidden()->assertSee($aviso);
