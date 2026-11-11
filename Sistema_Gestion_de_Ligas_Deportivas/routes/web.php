@@ -174,9 +174,12 @@ Route::middleware(['auth'])->group(function () {
             Route::put('/usuarios/{usuario}', [UserController::class, 'update'])->name('usuarios.update');
             Route::patch('/usuarios/{usuario}/toggle-status', [UserController::class, 'toggleStatus'])->name('usuarios.toggleStatus');
 
-            // Permisos de cada rol en solo lectura (HU-081, RF-12.1); cualquier cambio se rechaza (CA3)
+            // Permisos de cada rol: consulta (HU-081) y edición (HU-083), RF-12.1; crear, renombrar o borrar roles se rechaza
             Route::get('/roles', [RolPermisoController::class, 'index'])->name('roles.index');
             Route::get('/roles/{rol}', [RolPermisoController::class, 'show'])->whereNumber('rol')->name('roles.show');
+            // HU-083: edición de los permisos de un rol (va antes de las rutas que rechazan cambios)
+            Route::get('/roles/{rol}/editar', [RolPermisoController::class, 'edit'])->whereNumber('rol')->name('roles.edit');
+            Route::put('/roles/{rol}/permisos', [RolPermisoController::class, 'update'])->whereNumber('rol')->name('roles.permisos.update');
             Route::match(['post', 'put', 'patch', 'delete'], '/roles/{rol?}', [RolPermisoController::class, 'rechazarCambio'])
                 ->whereNumber('rol')->name('roles.cambio');
             Route::match(['post', 'put', 'patch', 'delete'], '/roles/{rol}/permisos/{permiso?}', [RolPermisoController::class, 'rechazarCambio'])
