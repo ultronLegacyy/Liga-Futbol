@@ -2,6 +2,7 @@
 
 namespace App\Http\Responses;
 
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 use Symfony\Component\HttpFoundation\Response;
@@ -24,7 +25,18 @@ class LoginResponse implements LoginResponseContract
             ], 200);
         }
 
-        // Redireccion al destino previsto o a la ruta principal tras autenticacion
-        return redirect()->intended(config('fortify.home', '/'));
+        $usuario = auth()->user();
+        $destino = $this->obtenerRutaPorRol($usuario instanceof User ? $usuario : null);
+
+        // Redireccion al destino previsto o a la ruta calculada por rol tras autenticacion
+        return redirect()->intended($destino);
+    }
+
+    /**
+     * Determina la ruta de aterrizaje inicial tras el inicio de sesion segun el rol del usuario.
+     */
+    private function obtenerRutaPorRol(?User $user): string
+    {
+        return $user?->rutaInicio() ?? (string) config('fortify.home', '/');
     }
 }

@@ -97,4 +97,29 @@ class ForcePasswordChangeTest extends TestCase
             'password_confirmation' => $password8
         ])->assertSessionHasNoErrors();
     }
+
+    public function test_tesorero_que_cambia_contrasena_es_redirigido_a_cargos_sin_error_403(): void
+    {
+        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'Tesorero', 'guard_name' => 'web']);
+
+        $tesorero = User::factory()->create([
+            'requires_password_change' => true,
+            'estatus' => 'activo',
+            'rol' => 'Tesorero',
+        ]);
+        $tesorero->assignRole('Tesorero');
+
+        $this->actingAs($tesorero);
+
+        $response = $this->post(route('password.force-change.update'), [
+            'password' => 'ContrasenaValida123!',
+            'password_confirmation' => 'ContrasenaValida123!',
+        ]);
+
+        $response->assertRedirect(route('cargos.index'));
+        $this->assertDatabaseHas('usuarios', [
+            'id' => $tesorero->id,
+            'requires_password_change' => 0,
+        ]);
+    }
 }

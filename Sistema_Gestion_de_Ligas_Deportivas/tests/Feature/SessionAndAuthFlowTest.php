@@ -221,4 +221,26 @@ class SessionAndAuthFlowTest extends TestCase
         $this->assertGuest();
         $respuesta->assertRedirect(route('login'));
     }
+
+    public function test_usuario_con_rol_tesorero_es_redirigido_al_modulo_de_cargos_sin_error_403(): void
+    {
+        Role::firstOrCreate(['name' => 'Tesorero', 'guard_name' => 'web']);
+
+        $tesorero = User::create([
+            'name' => 'Tesorero Municipal',
+            'email' => 'tesorero@liga.com',
+            'password' => Hash::make('secreto123'),
+            'estatus' => 'activo',
+            'rol' => 'Tesorero',
+        ]);
+        $tesorero->assignRole('Tesorero');
+
+        $respuesta = $this->post('/login', [
+            'email' => 'tesorero@liga.com',
+            'password' => 'secreto123',
+        ]);
+
+        $this->assertAuthenticatedAs($tesorero);
+        $respuesta->assertRedirect(route('cargos.index'));
+    }
 }

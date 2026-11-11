@@ -94,6 +94,51 @@ class User extends Authenticatable
     }
 
     /**
+     * Determina la ruta de inicio o módulo principal según los roles asignados al usuario.
+     */
+    public function rutaInicio(): string
+    {
+        if ($this->hasRole('Administrador General') || $this->rol === 'Administrador General') {
+            return (string) config('fortify.home', '/admin/dashboard');
+        }
+
+        if ($this->hasRole('Tesorero') || $this->rol === 'Tesorero') {
+            return route('cargos.index');
+        }
+
+        if ($this->hasRole('Secretario') || $this->rol === 'Secretario') {
+            return route('personas.index');
+        }
+
+        if ($this->hasRole('Programador de Partidos')) {
+            return route('canchas.index');
+        }
+
+        if ($this->hasRole('Delegado del Club') || $this->rol === 'Directivo Club') {
+            return route('jugadores.create');
+        }
+
+        if ($this->hasRole('Jugador') || $this->rol === 'Jugador') {
+            return route('jugadores.vincular.form');
+        }
+
+        if (
+            $this->hasRole('Comisión Arbitral')
+            || $this->hasRole('Árbitro en Campo')
+            || $this->rol === 'Arbitro'
+            || $this->rol === 'Comision Arbitral'
+        ) {
+            return route('arbitros.index');
+        }
+
+        if ($this->can('temporadas.ver')) {
+            return route('temporadas.index');
+        }
+
+        return (string) config('fortify.home', '/');
+    }
+
+    /**
      * Envía el enlace de recuperación de contraseña con el correo del sistema (HU-003).
      */
     public function sendPasswordResetNotification(#[\SensitiveParameter] $token): void
