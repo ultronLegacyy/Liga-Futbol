@@ -18,7 +18,7 @@
         </div>
 
         <nav class="flex-1 p-4 space-y-1">
-            @if(auth()->user()?->hasRole('Administrador General') || auth()->user()?->rol === 'Administrador General')
+            @role('Administrador General')
                 <a href="{{ route('admin.dashboard') }}" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-lg {{ request()->routeIs('admin.dashboard') ? 'bg-green-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white' }}">
                     Dashboard
                 </a>
@@ -31,7 +31,7 @@
                 <a href="{{ route('admin.roles.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-lg {{ request()->routeIs('admin.roles.*') ? 'bg-green-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white' }}">
                     Roles y permisos
                 </a>
-            @endif
+            @endrole
             @can('viewAny', App\Models\Jugador::class)
                 <a href="{{ route('jugadores.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-lg {{ request()->routeIs('jugadores.index') ? 'bg-green-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white' }}">
                     Jugadores
@@ -100,7 +100,7 @@
             <div class="flex items-center gap-3">
                 <span class="text-sm text-gray-300">{{ auth()->user()->name ?? 'Usuario' }}</span>
                 <span class="px-2 py-1 text-xs bg-green-500/20 text-green-400 border border-green-500/30 rounded">
-                    {{ auth()->user()?->getRoleNames()?->first() ?? auth()->user()?->rol ?? 'Sin Rol' }}
+                    {{ auth()->user()?->getRoleNames()->first() ?? 'Sin Rol' }}
                 </span>
             </div>
         </header>

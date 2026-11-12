@@ -95,47 +95,66 @@ class User extends Authenticatable
 
     /**
      * Determina la ruta de inicio o módulo principal según los roles asignados al usuario.
+     * Implementa la redirección de aterrizaje para HU-071, HU-072 y HU-073 (Criterio 1)
+     * y HU-080 (Criterio 3 tras el cambio obligatorio de contraseña).
+     *
+     * @return string URL absoluta del módulo autorizado para el rol del usuario.
      */
     public function rutaInicio(): string
     {
-        if ($this->hasRole('Administrador General') || $this->rol === 'Administrador General') {
-            return (string) config('fortify.home', '/admin/dashboard');
+        // Administrador General: acceso al panel central administrativo
+        if ($this->hasRole('Administrador General')) {
+            return route('admin.dashboard');
         }
 
-        if ($this->hasRole('Tesorero') || $this->rol === 'Tesorero') {
+        // HU-071 (Roles de Gobernanza):
+        // Tesorero: consulta y administración financiera
+        if ($this->hasRole('Tesorero')) {
             return route('cargos.index');
         }
 
-        if ($this->hasRole('Secretario') || $this->rol === 'Secretario') {
+        // Secretario: administración del padrón general de personas
+        if ($this->hasRole('Secretario')) {
             return route('personas.index');
         }
 
+        // HU-072 (Roles Operativos y Disciplinarios):
+        // Programador de Partidos: gestión de disponibilidad de canchas y sedes
         if ($this->hasRole('Programador de Partidos')) {
             return route('canchas.index');
         }
 
-        if ($this->hasRole('Delegado del Club') || $this->rol === 'Directivo Club') {
-            return route('jugadores.create');
-        }
-
-        if ($this->hasRole('Jugador') || $this->rol === 'Jugador') {
-            return route('jugadores.vincular.form');
-        }
-
-        if (
-            $this->hasRole('Comisión Arbitral')
-            || $this->hasRole('Árbitro en Campo')
-            || $this->rol === 'Arbitro'
-            || $this->rol === 'Comision Arbitral'
-        ) {
+        // Árbitro en Campo y Comisión Arbitral: padrón de colegiados arbitrales
+        if ($this->hasRole('Comisión Arbitral') || $this->hasRole('Árbitro en Campo')) {
             return route('arbitros.index');
         }
 
-        if ($this->can('temporadas.ver')) {
+        // HU-073 (Roles de Clubes y Jugadores):
+        // Delegado del Club: formulario de alta de jugadores si tiene club vinculado;
+        // en caso de que club_id sea nulo (pendiente de vinculación PA-19), redirige a temporadas para evitar HTTP 403
+        if ($this->hasRole('Delegado del Club')) {
+            return $this->club_id !== null ? route('jugadores.create') : route('temporadas.index');
+        }
+
+        // Jugador: vinculación de cuenta por CURP
+        if ($this->hasRole('Jugador')) {
+            return route('jugadores.vincular.form');
+        }
+
+        // Roles con visualización de temporadas (Presidente, Rama Infantil, Capturista, Tribunal de Penas, Presidente del Club)
+        if (
+            $this->hasRole('Presidente')
+            || $this->hasRole('Comision de la Rama Infantil')
+            || $this->hasRole('Comisión de la Rama Infantil')
+            || $this->hasRole('Capturista')
+            || $this->hasRole('Tribunal de Penas')
+            || $this->hasRole('Presidente del Club')
+            || $this->can('temporadas.ver')
+        ) {
             return route('temporadas.index');
         }
 
-        return (string) config('fortify.home', '/');
+        return route('admin.dashboard');
     }
 
     /**

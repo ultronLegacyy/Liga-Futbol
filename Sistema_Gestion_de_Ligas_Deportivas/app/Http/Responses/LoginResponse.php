@@ -26,17 +26,18 @@ class LoginResponse implements LoginResponseContract
         }
 
         $usuario = auth()->user();
-        $destino = $this->obtenerRutaPorRol($usuario instanceof User ? $usuario : null);
+        $destino = $usuario instanceof User ? $usuario->rutaInicio() : (string) config('fortify.home', '/admin/dashboard');
+
+        // HU-071, HU-072, HU-073 (Criterio 1): Si la URL prevista requiere rol de Administrador General
+        // y el usuario autenticado no posee dicho rol, se limpia el destino previsto para evitar error 403.
+        $urlPrevia = session()->get('url.intended');
+        if ($urlPrevia && str_contains($urlPrevia, '/admin') && ! ($usuario instanceof User && $usuario->hasRole('Administrador General'))) {
+            session()->forget('url.intended');
+
+            return redirect($destino);
+        }
 
         // Redireccion al destino previsto o a la ruta calculada por rol tras autenticacion
         return redirect()->intended($destino);
-    }
-
-    /**
-     * Determina la ruta de aterrizaje inicial tras el inicio de sesion segun el rol del usuario.
-     */
-    private function obtenerRutaPorRol(?User $user): string
-    {
-        return $user?->rutaInicio() ?? (string) config('fortify.home', '/');
     }
 }
