@@ -2,6 +2,7 @@
 
 namespace App\Http\Responses;
 
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 use Symfony\Component\HttpFoundation\Response;
@@ -24,7 +25,19 @@ class LoginResponse implements LoginResponseContract
             ], 200);
         }
 
-        // Redireccion al destino previsto o a la ruta principal tras autenticacion
-        return redirect()->intended(config('fortify.home', '/'));
+        $usuario = auth()->user();
+        $destino = $usuario instanceof User ? $usuario->rutaInicio() : (string) config('fortify.home', '/admin/dashboard');
+
+        // HU-071, HU-072, HU-073 (Criterio 1): Si la URL prevista requiere rol de Administrador General
+        // y el usuario autenticado no posee dicho rol, se limpia el destino previsto para evitar error 403.
+        $urlPrevia = session()->get('url.intended');
+        if ($urlPrevia && str_contains($urlPrevia, '/admin') && ! ($usuario instanceof User && $usuario->hasRole('Administrador General'))) {
+            session()->forget('url.intended');
+
+            return redirect($destino);
+        }
+
+        // Redireccion al destino previsto o a la ruta calculada por rol tras autenticacion
+        return redirect()->intended($destino);
     }
 }

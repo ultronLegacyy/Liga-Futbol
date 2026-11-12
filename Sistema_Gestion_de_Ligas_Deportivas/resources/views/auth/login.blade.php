@@ -316,6 +316,18 @@
                 </div>
             @endif
 
+            {{-- Indicador de sesión activa para usuarios autenticados --}}
+            @auth
+                <div class="alert alert-status" role="status" style="margin-bottom: 20px;">
+                    <div>Sesión activa como <strong>{{ auth()->user()->name }}</strong>.</div>
+                    <div style="margin-top: 6px;">
+                        <a href="{{ auth()->user() instanceof \App\Models\User ? auth()->user()->rutaInicio() : url('/') }}" style="color: var(--verde-claro); font-weight: 600; text-decoration: underline;">
+                            Ir a mi panel &rarr;
+                        </a>
+                    </div>
+                </div>
+            @endauth
+
             {{-- Errores de validación o autenticación --}}
             @if ($errors->any())
                 <div class="alert alert-danger" role="alert">

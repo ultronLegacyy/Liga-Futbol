@@ -27,8 +27,8 @@ use App\Http\Middleware\ForcePasswordChange;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
-});
+    return view('auth.login');
+})->name('inicio');
 
 // Recuperación de contraseña por correo (HU-003). Cada envío tiene su propio contador de intentos por IP
 Route::middleware(['guest'])->group(function () {
