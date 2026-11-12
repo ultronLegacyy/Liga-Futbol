@@ -20,7 +20,7 @@ trait CreaPartidoConCedula
 {
     private int $consecutivo = 0;
 
-    private function partidoConArbitro(?Arbitro $arbitro = null): Partido
+    private function partidoConArbitro(?Arbitro $arbitro = null, string $hora = '10:00:00'): Partido
     {
         $temporada = Temporada::factory()->activa()->create();
         $grupo = Grupo::factory()->create(['categoria_id' => Categoria::factory()->create(['temporada_id' => $temporada->id])->id]);
@@ -32,7 +32,7 @@ trait CreaPartidoConCedula
             'equipo_visitante_id' => $this->equipo($grupo)->id,
             'arbitro_id' => ($arbitro ?? $this->arbitro())->id,
             'fecha_partido' => '2026-11-14',
-            'hora_partido' => '10:00:00',
+            'hora_partido' => $hora,
             'estado' => 'programado',
         ]);
     }
