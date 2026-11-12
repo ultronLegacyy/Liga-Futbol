@@ -5,6 +5,7 @@ use App\Http\Controllers\ArbitroController;
 use App\Http\Controllers\CanchaBloqueoController;
 use App\Http\Controllers\CanchaController;
 use App\Http\Controllers\CargoFinancieroController;
+use App\Http\Controllers\CedulaController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\EquipoController;
@@ -133,6 +134,11 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/arbitros/asignaciones', [ArbitroController::class, 'asignaciones'])
             ->name('arbitros.asignaciones');
         Route::resource('arbitros', ArbitroController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+        // Cédula arbitral del partido: el Árbitro en Campo solo entra a sus partidos (HU-036, RNF-29)
+        Route::get('/partidos/{partido}/cedula', [CedulaController::class, 'show'])
+            ->whereNumber('partido')
+            ->name('cedulas.show');
+
         Route::get('/partidos/{partido}/arbitro', [ArbitroController::class, 'editarAsignacion'])
             ->name('partidos.arbitro.edit');
         Route::put('/partidos/{partido}/arbitro', [ArbitroController::class, 'asignar'])
