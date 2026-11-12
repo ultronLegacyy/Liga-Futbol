@@ -18,11 +18,56 @@
         · Árbitro: {{ $partido->arbitro?->persona ? $partido->arbitro->persona->nombre.' '.$partido->arbitro->persona->apellidos : 'Sin asignar' }}
     </p>
 
+    @if (session('success'))
+        <x-alert type="success" :message="session('success')" />
+    @endif
+    @if ($errors->any())
+        <x-alert type="error" :message="$errors->first()" />
+    @endif
+
     @if (! $cedula)
         <x-alert type="info" message="El árbitro todavía no abre la cédula de este partido." />
+
+        @if ($puedeAbrir)
+            <form method="POST" action="{{ route('cedulas.abrir', $partido) }}" class="my-6">
+                @csrf
+                <button type="submit" class="w-full sm:w-auto min-h-12 px-6 py-3 text-base font-semibold text-white bg-green-600 hover:bg-green-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400">
+                    Abrir cédula
+                </button>
+            </form>
+        @elseif (! $estadoPermitido)
+            <p class="text-sm text-gray-400 my-4">La cédula solo se abre cuando el partido está programado, confirmado o en juego. Estado actual: {{ $partido->estado }}.</p>
+        @endif
+
+        {{-- Plantilla vigente: la alineación se precarga con ella al abrir la cédula --}}
+        <h3 class="text-lg font-semibold text-white mt-6 mb-3">Plantilla vigente</h3>
+        <div class="grid gap-6 md:grid-cols-2">
+            @foreach ($equipos as $equipoId => $equipoNombre)
+                @php($jugadores = $plantilla?->where('equipo_id', $equipoId) ?? collect())
+                <section aria-label="Plantilla de {{ $equipoNombre }}">
+                    <h4 class="font-semibold text-gray-200 mb-2">{{ $equipoNombre }}</h4>
+                    @if ($jugadores->isEmpty())
+                        <p class="text-sm text-gray-400">El equipo no tiene jugadores en su plantilla.</p>
+                    @else
+                        <ul class="divide-y divide-gray-700 text-sm">
+                            @foreach ($jugadores as $jugador)
+                                <li class="flex items-center justify-between py-2 gap-3 text-white">
+                                    <span><span class="inline-block w-8 text-gray-400">{{ $jugador->dorsal ?? '—' }}</span>{{ $nombre($jugador) }}</span>
+                                    @if ($jugador->estado_elegibilidad !== 'Activo')
+                                        <span class="text-xs text-amber-400">{{ $jugador->estado_elegibilidad }}</span>
+                                    @endif
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+                </section>
+            @endforeach
+        </div>
     @else
         @if ($cedula->estaCerrada())
             <x-alert type="info" message="La cédula está cerrada: solo se consulta." />
+        @elseif (! $estadoPermitido)
+            <x-alert type="info" message="El partido ya no está programado, confirmado ni en juego: la cédula solo se consulta." />
         @endif
 
         <dl class="grid grid-cols-2 gap-4 text-center mb-8">

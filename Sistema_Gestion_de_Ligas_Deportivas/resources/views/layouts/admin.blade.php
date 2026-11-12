@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Sistema de Gestión de Ligas Deportivas')</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen flex">
 
-    <!-- Barra Lateral (Sidebar) -->
-    <aside class="w-64 bg-gray-800 border-r border-gray-700 flex flex-col min-h-screen">
+    <!-- Barra Lateral (Sidebar): en el celular se abre con el botón «Menú» para no angostar el contenido -->
+    <aside id="menu-lateral" class="hidden md:flex w-64 bg-gray-800 border-r border-gray-700 flex-col min-h-screen fixed inset-y-0 left-0 z-40 overflow-y-auto md:static">
         <div class="p-5 border-b border-gray-700 flex items-center gap-3">
             <div class="w-8 h-8 bg-green-500 rounded flex items-center justify-center font-bold text-black">
                 SGLD
@@ -30,6 +31,12 @@
                 </a>
                 <a href="{{ route('admin.roles.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-lg {{ request()->routeIs('admin.roles.*') ? 'bg-green-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white' }}">
                     Roles y permisos
+                </a>
+            @endrole
+
+            @role('Árbitro en Campo')
+                <a href="{{ route('cedulas.mis-partidos') }}" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-lg {{ request()->routeIs('cedulas.*') ? 'bg-green-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white' }}">
+                    Mis partidos
                 </a>
             @endrole
             @can('viewAny', App\Models\Jugador::class)
@@ -93,12 +100,17 @@
     </aside>
 
     <!-- Contenido Principal -->
-    <div class="flex-1 flex flex-col">
+    <div class="flex-1 flex flex-col min-w-0">
         <!-- Barra Superior (Topbar) -->
-        <header class="bg-gray-800 border-b border-gray-700 h-16 flex items-center justify-between px-6">
-            <h1 class="text-lg font-semibold text-white">@yield('header', 'Panel de Administración')</h1>
+        <header class="bg-gray-800 border-b border-gray-700 h-16 flex items-center justify-between gap-3 px-4 sm:px-6">
+            <div class="flex items-center gap-3 min-w-0">
+                <button type="button" id="boton-menu" class="md:hidden px-3 py-2 text-sm text-gray-200 border border-gray-600 rounded-lg" aria-controls="menu-lateral" aria-expanded="false">
+                    Menú
+                </button>
+                <h1 class="text-lg font-semibold text-white truncate">@yield('header', 'Panel de Administración')</h1>
+            </div>
             <div class="flex items-center gap-3">
-                <span class="text-sm text-gray-300">{{ auth()->user()->name ?? 'Usuario' }}</span>
+                <span class="hidden sm:inline text-sm text-gray-300">{{ auth()->user()->name ?? 'Usuario' }}</span>
                 <span class="px-2 py-1 text-xs bg-green-500/20 text-green-400 border border-green-500/30 rounded">
                     {{ auth()->user()?->getRoleNames()->first() ?? 'Sin Rol' }}
                 </span>
@@ -106,10 +118,36 @@
         </header>
 
         <!-- Área de Contenido -->
-        <main class="flex-1 p-6">
+        <main class="flex-1 p-4 sm:p-6">
             @yield('content')
         </main>
     </div>
+
+    <script>
+        // Menú lateral en el celular: se abre y se cierra con el botón, y con Escape
+        (function () {
+            const boton = document.getElementById('boton-menu');
+            const menu = document.getElementById('menu-lateral');
+
+            if (!boton || !menu) {
+                return;
+            }
+
+            const alternar = (abrir) => {
+                menu.classList.toggle('hidden', !abrir);
+                menu.classList.toggle('flex', abrir);
+                boton.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+            };
+
+            boton.addEventListener('click', () => alternar(menu.classList.contains('hidden')));
+            document.addEventListener('keydown', (evento) => {
+                if (evento.key === 'Escape' && boton.getAttribute('aria-expanded') === 'true') {
+                    alternar(false);
+                    boton.focus();
+                }
+            });
+        })();
+    </script>
 
     @stack('scripts')
 </body>
