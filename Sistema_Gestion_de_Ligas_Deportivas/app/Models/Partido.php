@@ -91,6 +91,17 @@ class Partido extends Model
     }
 
     /**
+     * Partidos cuya cédula ya tiene datos capturados (HU-036): no se borran ni se reemplazan (RNF-30).
+     *
+     * @param  Builder<Partido>  $query
+     * @return Builder<Partido>
+     */
+    public function scopeConCedulaCapturada(Builder $query): Builder
+    {
+        return $query->whereHas('cedula', fn (Builder $cedula) => $cedula->conDatosCapturados());
+    }
+
+    /**
      * Partidos que ocupan su cancha: tienen horario y no están suspendidos (RF-05.3).
      *
      * @param  Builder<Partido>  $query

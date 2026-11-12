@@ -11,13 +11,12 @@ return new class () extends Migration {
         Schema::create('alineaciones_partido', function (Blueprint $table) {
             $table->id();
             $table->foreignId('cedula_id')->constrained('cedulas_arbitrales')->cascadeOnDelete();
-            $table->foreignId('jugador_id')->constrained('jugadores_equipos')->cascadeOnDelete();
+            // Nulo si el jugador sale de la plantilla (venta del club, HU-011): la fila del partido se conserva, como en eventos_partido
+            $table->foreignId('jugador_id')->nullable()->constrained('jugadores_equipos')->nullOnDelete();
             $table->foreignId('equipo_id')->constrained('equipos')->cascadeOnDelete();
             $table->boolean('asistio')->default(false);
             $table->unsignedSmallInteger('numero_camiseta')->nullable();
             $table->boolean('es_capitan')->default(false);
-            // RNF-21: clave del último cambio aplicado; un reenvío con la misma clave no cambia nada
-            $table->char('clave_envio', 36)->nullable()->unique();
             $table->timestamps();
 
             $table->unique(['cedula_id', 'jugador_id']);

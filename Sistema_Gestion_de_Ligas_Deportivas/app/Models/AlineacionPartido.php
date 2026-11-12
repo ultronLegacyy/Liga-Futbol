@@ -11,12 +11,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *
  * @property int $id
  * @property int $cedula_id
- * @property int $jugador_id
+ * @property int|null $jugador_id
  * @property int $equipo_id
  * @property bool $asistio
  * @property int|null $numero_camiseta
  * @property bool $es_capitan
- * @property string|null $clave_envio
  */
 class AlineacionPartido extends Model
 {
@@ -29,7 +28,6 @@ class AlineacionPartido extends Model
         'asistio',
         'numero_camiseta',
         'es_capitan',
-        'clave_envio',
     ];
 
     /**

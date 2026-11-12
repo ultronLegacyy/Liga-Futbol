@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\Auditable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -25,6 +26,9 @@ class CedulaArbitral extends Model
     public const ABIERTA = 'abierta';
 
     public const CERRADA = 'cerrada';
+
+    // Estados del partido en que el árbitro abre la cédula y captura (decisión a confirmar con Medina)
+    public const ESTADOS_PARTIDO_CAPTURA = ['programado', 'confirmado', 'en juego'];
 
     protected $table = 'cedulas_arbitrales';
 
@@ -58,6 +62,23 @@ class CedulaArbitral extends Model
         return $this->estado === self::CERRADA;
     }
 
+    /**
+     * Cédulas con algo capturado: marcador distinto de 0-0, goles o tarjetas, incidencias o asistencia marcada.
+     * Su partido ya no se borra (RNF-30), porque el borrado en cascada no deja auditoría de lo capturado.
+     *
+     * @param  Builder<CedulaArbitral>  $query
+     * @return Builder<CedulaArbitral>
+     */
+    public function scopeConDatosCapturados(Builder $query): Builder
+    {
+        return $query->where(fn (Builder $consulta) => $consulta
+            ->where('goles_local', '>', 0)
+            ->orWhere('goles_visitante', '>', 0)
+            ->orWhereHas('eventos')
+            ->orWhereHas('incidencias')
+            ->orWhereHas('alineaciones', fn (Builder $alineacion) => $alineacion->where('asistio', true)));
+    }
+
     /** @return BelongsTo<Partido, $this> */
     public function partido(): BelongsTo
     {
@@ -86,5 +107,11 @@ class CedulaArbitral extends Model
     public function incidencias(): HasMany
     {
         return $this->hasMany(IncidenciaPartido::class, 'cedula_id');
+    }
+
+    /** @return HasMany<EnvioCedula, $this> */
+    public function envios(): HasMany
+    {
+        return $this->hasMany(EnvioCedula::class, 'cedula_id');
     }
 }
