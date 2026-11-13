@@ -8,10 +8,12 @@ use App\Http\Requests\CambiarEstadoJugadorRequest;
 use App\Http\Requests\RenovarJugadorRequest;
 use App\Http\Requests\TransferirJugadorRequest;
 use App\Http\Requests\VincularJugadorRequest;
+use App\Models\Categoria;
 use App\Models\DocumentoPersona;
 use App\Models\Equipo;
 use App\Models\Jugador;
 use App\Models\User;
+use App\Services\ConsentimientoPrivacidadService;
 use App\Services\EstadoJugadorService;
 use App\Services\RegistroJugadorService;
 use App\Services\GestionJugadorService;
@@ -57,7 +59,7 @@ class JugadorController extends Controller
         return view('jugadores.index', compact('jugadores', 'busqueda'));
     }
 
-    public function create(Request $request): View
+    public function create(Request $request, ConsentimientoPrivacidadService $privacidad): View
     {
         $usuario = $request->user();
         abort_unless($usuario instanceof User, 401);
@@ -79,8 +81,14 @@ class JugadorController extends Controller
 
         $temporadas = $equipos->pluck('temporada')->unique('id')->values();
         $categorias = $equipos->pluck('grupo.categoria')->unique('id')->values();
+        // HU-020: categorías que siempre piden al tutor; la edad la revisa la vista y, al guardar, el servidor.
+        $categoriasConTutor = $categorias
+            ->filter(fn (?Categoria $categoria): bool => $categoria !== null && $privacidad->motivoTutorPorCategoria($categoria) !== null)
+            ->map(fn (Categoria $categoria): int => (int) $categoria->getKey())
+            ->values()
+            ->all();
 
-        return view('jugadores.create', compact('equipos', 'temporadas', 'categorias'));
+        return view('jugadores.create', compact('equipos', 'temporadas', 'categorias', 'categoriasConTutor'));
     }
 
     public function darDeBaja(BajaJugadorRequest $request, Jugador $jugador, GestionJugadorService $gestion): JsonResponse|RedirectResponse
