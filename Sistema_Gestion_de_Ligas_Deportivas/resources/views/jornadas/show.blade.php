@@ -114,6 +114,13 @@
             </div>
         @endif
 
+        {{-- Alerta de errores de validacion o rechazo (HU-030, HU-036) --}}
+        @if ($errors->any())
+            <div class="mt-4">
+                <x-alert type="error" :message="$errors->first()" />
+            </div>
+        @endif
+
         {{-- Alerta de conflictos de programación (HU-030 / SCRUM-200) --}}
         @if (! empty($conflictos))
             <div class="mt-4 bg-red-950/40 border border-red-600/50 rounded-xl p-4">

@@ -5,6 +5,7 @@ use App\Http\Controllers\ArbitroController;
 use App\Http\Controllers\CanchaBloqueoController;
 use App\Http\Controllers\CanchaController;
 use App\Http\Controllers\CargoFinancieroController;
+use App\Http\Controllers\CedulaController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\EquipoController;
@@ -149,6 +150,29 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/arbitros/asignaciones', [ArbitroController::class, 'asignaciones'])
             ->name('arbitros.asignaciones');
         Route::resource('arbitros', ArbitroController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+        // Cédula arbitral del partido: el Árbitro en Campo solo entra a sus partidos (HU-036, RNF-29)
+        Route::get('/arbitro/partidos', [CedulaController::class, 'misPartidos'])
+            ->name('cedulas.mis-partidos');
+        Route::get('/partidos/{partido}/cedula', [CedulaController::class, 'show'])
+            ->whereNumber('partido')
+            ->name('cedulas.show');
+        Route::post('/partidos/{partido}/cedula', [CedulaController::class, 'abrir'])
+            ->whereNumber('partido')
+            ->name('cedulas.abrir');
+        // Captura desde el celular: cada cambio lleva su clave de envío y un reenvío no duplica nada (RNF-21)
+        Route::put('/partidos/{partido}/cedula/alineacion/{jugador}', [CedulaController::class, 'alineacion'])
+            ->whereNumber(['partido', 'jugador'])
+            ->name('cedulas.alineacion');
+        Route::put('/partidos/{partido}/cedula/marcador', [CedulaController::class, 'marcador'])
+            ->whereNumber('partido')
+            ->name('cedulas.marcador');
+        Route::post('/partidos/{partido}/cedula/eventos', [CedulaController::class, 'evento'])
+            ->whereNumber('partido')
+            ->name('cedulas.eventos');
+        Route::post('/partidos/{partido}/cedula/incidencias', [CedulaController::class, 'incidencia'])
+            ->whereNumber('partido')
+            ->name('cedulas.incidencias');
+
         Route::get('/partidos/{partido}/arbitro', [ArbitroController::class, 'editarAsignacion'])
             ->name('partidos.arbitro.edit');
         Route::put('/partidos/{partido}/arbitro', [ArbitroController::class, 'asignar'])
