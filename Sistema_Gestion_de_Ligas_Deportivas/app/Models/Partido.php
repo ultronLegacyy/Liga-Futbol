@@ -11,7 +11,26 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\DB;
 
-// Partido de una jornada (RF-06.1). HU-025 usa su cancha y su horario, HU-026 su árbitro; HU-029 maneja estados/reprogramación, HU-031 inmutabilidad
+/**
+ * Partido de una jornada (RF-06.1). HU-025 usa su cancha y su horario, HU-026 su árbitro; HU-029 maneja estados/reprogramación, HU-031 inmutabilidad
+ *
+ * @property int $id
+ * @property int $jornada_id
+ * @property int $equipo_local_id
+ * @property int $equipo_visitante_id
+ * @property int|null $cancha_id
+ * @property int|null $arbitro_id
+ * @property \Carbon\Carbon|null $fecha_partido
+ * @property string|null $hora_partido
+ * @property string $estado
+ * @property \Carbon\Carbon|null $created_at
+ * @property \Carbon\Carbon|null $updated_at
+ * @property-read Jornada $jornada
+ * @property-read Equipo|null $local
+ * @property-read Equipo|null $visitante
+ * @property-read Cancha|null $cancha
+ * @property-read Arbitro|null $arbitro
+ */
 class Partido extends Model
 {
     use HasFactory;

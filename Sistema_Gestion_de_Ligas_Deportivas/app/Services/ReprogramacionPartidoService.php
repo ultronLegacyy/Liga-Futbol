@@ -42,10 +42,23 @@ class ReprogramacionPartidoService
             ]);
         }
 
-        // Partidos finalizados no se pueden reprogramar
-        if ($partido->estado === Partido::ESTADO_FINALIZADO) {
+        // Partidos en estados terminales no se pueden reprogramar (HU-029 / SCRUM-195)
+        if (in_array($partido->estado, [Partido::ESTADO_FINALIZADO, Partido::ESTADO_CANCELADO], true)) {
             throw ValidationException::withMessages([
-                'estado' => 'No es posible reprogramar un partido que ya ha finalizado.',
+                'estado' => 'No es posible reprogramar un partido que ya ha finalizado o ha sido cancelado.',
+            ]);
+        }
+
+        // Partidos en borrador o en juego no pueden ser reprogramados directamente
+        if ($partido->estado === Partido::ESTADO_BORRADOR) {
+            throw ValidationException::withMessages([
+                'estado' => 'Un partido en estado borrador no puede ser reprogramado.',
+            ]);
+        }
+
+        if ($partido->estado === Partido::ESTADO_EN_JUEGO) {
+            throw ValidationException::withMessages([
+                'estado' => 'No es posible reprogramar un partido en juego. Debe suspenderse previamente.',
             ]);
         }
 
@@ -105,6 +118,15 @@ class ReprogramacionPartidoService
 
         // El nuevo estado pasa a reprogramado salvo que explícitamente se confirme o programe
         $nuevoEstado = $datos['estado'] ?? Partido::ESTADO_REPROGRAMADO;
+
+        // Validar que la transición sea válida según la máquina de estados oficial (HU-029 CA1)
+        if ($partido->estado === Partido::ESTADO_REPROGRAMADO && $nuevoEstado === Partido::ESTADO_REPROGRAMADO) {
+            // Permitido: reprogramar un partido que ya se encuentra en estado reprogramado manteniendo dicho estado
+        } elseif (! $partido->puedeTransicionarA($nuevoEstado)) {
+            throw ValidationException::withMessages([
+                'estado' => "La transición de estado '{$partido->estado}' a '{$nuevoEstado}' no está permitida por el flujo del sistema.",
+            ]);
+        }
 
         return DB::transaction(function () use (
             $partido,

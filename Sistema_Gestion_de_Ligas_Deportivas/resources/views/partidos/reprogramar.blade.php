@@ -115,6 +115,25 @@
         </div>
 
         {{-- Nuevo estado tras reprogramar --}}
+        @php
+            $opcionesEstado = [];
+            if ($partido->estado === \App\Models\Partido::ESTADO_REPROGRAMADO) {
+                $opcionesEstado[\App\Models\Partido::ESTADO_REPROGRAMADO] = 'reprogramado (Mantener)';
+            } else {
+                if ($partido->puedeTransicionarA(\App\Models\Partido::ESTADO_REPROGRAMADO)) {
+                    $opcionesEstado[\App\Models\Partido::ESTADO_REPROGRAMADO] = 'reprogramado (Recomendado)';
+                }
+            }
+            if ($partido->puedeTransicionarA(\App\Models\Partido::ESTADO_PROGRAMADO)) {
+                $opcionesEstado[\App\Models\Partido::ESTADO_PROGRAMADO] = 'programado';
+            }
+            if ($partido->puedeTransicionarA(\App\Models\Partido::ESTADO_CONFIRMADO)) {
+                $opcionesEstado[\App\Models\Partido::ESTADO_CONFIRMADO] = 'confirmado';
+            }
+            if (empty($opcionesEstado)) {
+                $opcionesEstado[\App\Models\Partido::ESTADO_REPROGRAMADO] = 'reprogramado';
+            }
+        @endphp
         <div>
             <x-form.field name="estado" label="Estado Posterior" :error="$errors->first('estado')">
                 <select
@@ -122,9 +141,11 @@
                     name="estado"
                     class="{{ $campo }} {{ $errors->has('estado') ? 'border-red-500' : 'border-gray-600' }}"
                 >
-                    <option value="reprogramado" @selected(old('estado', 'reprogramado') === 'reprogramado')>reprogramado (Recomendado)</option>
-                    <option value="programado" @selected(old('estado') === 'programado')>programado</option>
-                    <option value="confirmado" @selected(old('estado') === 'confirmado')>confirmado</option>
+                    @foreach ($opcionesEstado as $valor => $etiqueta)
+                        <option value="{{ $valor }}" @selected(old('estado', array_key_first($opcionesEstado)) === $valor)>
+                            {{ $etiqueta }}
+                        </option>
+                    @endforeach
                 </select>
             </x-form.field>
         </div>

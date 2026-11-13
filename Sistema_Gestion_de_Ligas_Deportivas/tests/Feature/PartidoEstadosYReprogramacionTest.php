@@ -195,7 +195,7 @@ class PartidoEstadosYReprogramacionTest extends TestCase
             ->patch(route('partidos.estado.update', $partido), [
                 'estado' => Partido::ESTADO_PROGRAMADO,
             ])
-            ->assertSessionHasErrors(['nuevo_estado']);
+            ->assertForbidden();
 
         $this->assertSame(Partido::ESTADO_FINALIZADO, $partido->fresh()->estado);
     }
@@ -392,6 +392,182 @@ class PartidoEstadosYReprogramacionTest extends TestCase
                 'motivo' => 'Intento de reprogramación no autorizado.',
             ])
             ->assertForbidden();
+    }
+
+    public function test_partido_cancelado_es_terminal_y_rechaza_reprogramacion(): void
+    {
+        $partido = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha1->id,
+            'arbitro_id' => $this->arbitro1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_CANCELADO,
+        ]);
+
+        $payload = [
+            'fecha_partido' => '2026-11-21',
+            'hora_partido' => '16:00',
+            'cancha_id' => $this->cancha1->id,
+            'motivo' => 'Intento de revivir y reprogramar un partido cancelado.',
+        ];
+
+        // Programador de Partidos es bloqueado por política
+        $this->actingAs($this->programador)
+            ->post(route('partidos.reprogramar.store', $partido), $payload)
+            ->assertForbidden();
+
+        // Administrador General también es bloqueado por política
+        $this->actingAs($this->admin)
+            ->post(route('partidos.reprogramar.store', $partido), $payload)
+            ->assertForbidden();
+
+        $this->assertSame(Partido::ESTADO_CANCELADO, $partido->fresh()->estado);
+    }
+
+    public function test_partido_finalizado_rechaza_reprogramacion_incluso_por_administrador(): void
+    {
+        $partido = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha1->id,
+            'arbitro_id' => $this->arbitro1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_FINALIZADO,
+        ]);
+
+        $payload = [
+            'fecha_partido' => '2026-11-21',
+            'hora_partido' => '16:00',
+            'cancha_id' => $this->cancha1->id,
+            'motivo' => 'Intento de reprogramación sobre un partido ya finalizado.',
+        ];
+
+        $this->actingAs($this->admin)
+            ->post(route('partidos.reprogramar.store', $partido), $payload)
+            ->assertForbidden();
+
+        $this->assertSame(Partido::ESTADO_FINALIZADO, $partido->fresh()->estado);
+    }
+
+    public function test_partidos_en_borrador_o_en_juego_rechazan_reprogramacion(): void
+    {
+        $partidoBorrador = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_BORRADOR,
+        ]);
+
+        $payload = [
+            'fecha_partido' => '2026-11-21',
+            'hora_partido' => '16:00',
+            'cancha_id' => $this->cancha1->id,
+            'motivo' => 'Intento de reprogramar un partido que aún está en borrador.',
+        ];
+
+        $this->actingAs($this->programador)
+            ->post(route('partidos.reprogramar.store', $partidoBorrador), $payload)
+            ->assertForbidden();
+
+        $partidoEnJuego = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha1->id,
+            'arbitro_id' => $this->arbitro1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_EN_JUEGO,
+        ]);
+
+        $this->actingAs($this->programador)
+            ->post(route('partidos.reprogramar.store', $partidoEnJuego), $payload)
+            ->assertForbidden();
+    }
+
+    public function test_reprogramar_partido_ya_reprogramado_mantiene_o_transiciona_estado_valido(): void
+    {
+        $partido = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha1->id,
+            'arbitro_id' => $this->arbitro1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_REPROGRAMADO,
+        ]);
+
+        // 1. Reprogramar manteniendo el estado reprogramado con nueva fecha y hora
+        $payloadMantener = [
+            'fecha_partido' => '2026-11-21',
+            'hora_partido' => '15:00',
+            'cancha_id' => $this->cancha2->id,
+            'estado' => Partido::ESTADO_REPROGRAMADO,
+            'motivo' => 'Ajuste de fecha manteniendo el estado reprogramado pendiente de confirmación.',
+        ];
+
+        $this->actingAs($this->programador)
+            ->post(route('partidos.reprogramar.store', $partido), $payloadMantener)
+            ->assertRedirect(route('jornadas.show', $this->jornada));
+
+        $partido->refresh();
+        $this->assertSame(Partido::ESTADO_REPROGRAMADO, $partido->estado);
+        $this->assertSame('2026-11-21', $partido->fecha_partido?->toDateString());
+        $this->assertSame('15:00:00', $partido->hora_partido);
+
+        // 2. Reprogramar y transicionar a confirmado
+        $payloadConfirmar = [
+            'fecha_partido' => '2026-11-22',
+            'hora_partido' => '11:00',
+            'cancha_id' => $this->cancha1->id,
+            'estado' => Partido::ESTADO_CONFIRMADO,
+            'motivo' => 'Confirmación definitiva de nueva fecha y horario consensuado.',
+        ];
+
+        $this->actingAs($this->programador)
+            ->post(route('partidos.reprogramar.store', $partido), $payloadConfirmar)
+            ->assertRedirect(route('jornadas.show', $this->jornada));
+
+        $partido->refresh();
+        $this->assertSame(Partido::ESTADO_CONFIRMADO, $partido->estado);
+        $this->assertSame('2026-11-22', $partido->fecha_partido?->toDateString());
+    }
+
+    public function test_reprogramacion_rechaza_transicion_invalida_segun_maquina_de_estados(): void
+    {
+        $partido = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha1->id,
+            'arbitro_id' => $this->arbitro1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        // 'programado' no puede transicionar a 'programado' (debe pasar a reprogramado o confirmado)
+        $payloadInvalido = [
+            'fecha_partido' => '2026-11-21',
+            'hora_partido' => '16:00',
+            'cancha_id' => $this->cancha2->id,
+            'estado' => Partido::ESTADO_PROGRAMADO,
+            'motivo' => 'Intento de transición idéntica que no pasa por reprogramado.',
+        ];
+
+        $this->actingAs($this->programador)
+            ->post(route('partidos.reprogramar.store', $partido), $payloadInvalido)
+            ->assertSessionHasErrors(['estado']);
+
+        $this->assertSame(Partido::ESTADO_PROGRAMADO, $partido->fresh()->estado);
     }
 
     private function crearEquipo(string $nombre, ?Grupo $grupo = null): Equipo

@@ -330,6 +330,12 @@ class ProgramacionJornadaService
         $jornada = $partido->jornada;
         $this->validarTemporadaGrupo($jornada->grupo);
 
+        if (in_array($partido->estado, [Partido::ESTADO_FINALIZADO, Partido::ESTADO_CANCELADO], true)) {
+            throw ValidationException::withMessages([
+                'estado' => 'No es posible modificar un partido que ya ha finalizado o ha sido cancelado.',
+            ]);
+        }
+
         $localId = isset($datos['equipo_local_id']) ? (int) $datos['equipo_local_id'] : $partido->equipo_local_id;
         $visitanteId = isset($datos['equipo_visitante_id']) ? (int) $datos['equipo_visitante_id'] : $partido->equipo_visitante_id;
 

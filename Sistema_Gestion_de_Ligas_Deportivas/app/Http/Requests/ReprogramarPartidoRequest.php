@@ -25,11 +25,29 @@ class ReprogramarPartidoRequest extends FormRequest
             'cancha_id' => ['nullable', 'exists:canchas,id'],
             'arbitro_id' => ['nullable', 'exists:arbitros,id'],
             'motivo' => ['required', 'string', 'min:10', 'max:1000'],
-            'estado' => ['nullable', 'string', Rule::in([
-                Partido::ESTADO_REPROGRAMADO,
-                Partido::ESTADO_PROGRAMADO,
-                Partido::ESTADO_CONFIRMADO,
-            ])],
+            'estado' => [
+                'nullable',
+                'string',
+                Rule::in([
+                    Partido::ESTADO_REPROGRAMADO,
+                    Partido::ESTADO_PROGRAMADO,
+                    Partido::ESTADO_CONFIRMADO,
+                ]),
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    /** @var Partido|null $partido */
+                    $partido = $this->route('partido');
+                    if (! $partido instanceof Partido) {
+                        return;
+                    }
+                    $nuevoEstado = (string) $value;
+                    if ($partido->estado === Partido::ESTADO_REPROGRAMADO && $nuevoEstado === Partido::ESTADO_REPROGRAMADO) {
+                        return;
+                    }
+                    if (! $partido->puedeTransicionarA($nuevoEstado)) {
+                        $fail("La transición del estado '{$partido->estado}' a '{$nuevoEstado}' no está permitida por el flujo del sistema.");
+                    }
+                },
+            ],
         ];
     }
 

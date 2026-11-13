@@ -13,8 +13,9 @@ class PartidoPolicy
     public function before(User $usuario, string $habilidad): ?bool
     {
         if ($usuario->hasRole('Administrador General')) {
-            // Regla estricta SCRUM-203 (HU-031 CA1): ningún usuario, ni por petición directa, elimina partidos con historial
-            if ($habilidad === 'delete') {
+            // Reglas de inmutabilidad y estados terminales (SCRUM-44, SCRUM-46):
+            // Ningún usuario, ni por petición directa, elimina partidos con historial ni reprograma/altera partidos finalizados o cancelados
+            if (in_array($habilidad, ['delete', 'update', 'reprogramar', 'cambiarEstado'], true)) {
                 return null;
             }
 
@@ -55,7 +56,11 @@ class PartidoPolicy
             return Response::deny('Una temporada cerrada no admite cambios en sus partidos.');
         }
 
-        return ($usuario->can('partidos.reprogramar') || $usuario->can('partidos.programar'))
+        if (in_array($partido->estado, [Partido::ESTADO_FINALIZADO, Partido::ESTADO_CANCELADO], true)) {
+            return Response::deny('Un partido finalizado o cancelado no puede ser modificado.');
+        }
+
+        return ($usuario->hasRole('Administrador General') || $usuario->can('partidos.reprogramar') || $usuario->can('partidos.programar'))
             ? Response::allow()
             : Response::deny('No cuenta con privilegios para modificar o reprogramar partidos.');
     }
@@ -66,11 +71,15 @@ class PartidoPolicy
             return Response::deny('Una temporada cerrada no admite cambios en sus partidos.');
         }
 
-        if ($partido->estado === Partido::ESTADO_FINALIZADO) {
-            return Response::deny('Un partido que ya ha finalizado no puede ser reprogramado.');
+        if (in_array($partido->estado, [Partido::ESTADO_FINALIZADO, Partido::ESTADO_CANCELADO], true)) {
+            return Response::deny('Un partido finalizado o cancelado no puede ser reprogramado.');
         }
 
-        return ($usuario->can('partidos.reprogramar') || $usuario->can('partidos.programar'))
+        if (in_array($partido->estado, [Partido::ESTADO_BORRADOR, Partido::ESTADO_EN_JUEGO], true)) {
+            return Response::deny('Un partido en borrador o en juego no puede ser reprogramado.');
+        }
+
+        return ($usuario->hasRole('Administrador General') || $usuario->can('partidos.reprogramar') || $usuario->can('partidos.programar'))
             ? Response::allow()
             : Response::deny('No cuenta con privilegios para reprogramar partidos.');
     }
@@ -81,7 +90,11 @@ class PartidoPolicy
             return Response::deny('Una temporada cerrada no admite cambios en sus partidos.');
         }
 
-        return ($usuario->can('partidos.reprogramar') || $usuario->can('partidos.programar'))
+        if (in_array($partido->estado, [Partido::ESTADO_FINALIZADO, Partido::ESTADO_CANCELADO], true)) {
+            return Response::deny('Un partido finalizado o cancelado no admite cambios de estado.');
+        }
+
+        return ($usuario->hasRole('Administrador General') || $usuario->can('partidos.reprogramar') || $usuario->can('partidos.programar'))
             ? Response::allow()
             : Response::deny('No cuenta con privilegios para actualizar el estado del partido.');
     }
