@@ -258,7 +258,7 @@ class JugadorRegistroDocumentosTest extends TestCase
         return Persona::query()->create([
             'nombre' => 'Jugador',
             'apellidos' => 'HU-016',
-            'fecha_nacimiento' => '2010-01-01',
+            'fecha_nacimiento' => '2006-01-01',
             'curp' => fake()->unique()->regexify('[A-Z]{4}[0-9]{6}[HM][A-Z]{5}[0-9A-Z][0-9]'),
         ]);
     }

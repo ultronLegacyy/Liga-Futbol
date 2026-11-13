@@ -47,8 +47,8 @@ class JugadorInterfacesTest extends TestCase
         $persona = Persona::query()->create([
             'nombre' => 'Jugador',
             'apellidos' => 'Interfaz Test',
-            'fecha_nacimiento' => '2010-01-01',
-            'curp' => 'INTE100101HDFABC01',
+            'fecha_nacimiento' => '2006-01-01',
+            'curp' => 'INTE060101HDFABC01',
         ]);
 
         $jugador->forceFill(['persona_id' => $persona->id])->save();

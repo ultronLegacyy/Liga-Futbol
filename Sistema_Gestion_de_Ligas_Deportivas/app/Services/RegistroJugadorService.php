@@ -147,6 +147,12 @@ class RegistroJugadorService
                     ]);
                 }
 
+                // Edad mínima de la Liga (también la exige validar(), que comparten la renovación y la
+                // transferencia); aquí va antes para mostrar el error junto al dato que lo causa.
+                $this->reglaEdad->validarEdadMinimaLiga(
+                    $persona,
+                    isset($datos['persona_id']) && $datos['persona_id'] !== '' ? 'persona_id' : 'fecha_nacimiento',
+                );
                 $this->validarSaltoCategoria($persona, $equipoDestino);
                 // Reglas de edad de la categoría, compartidas con la renovación y la transferencia (HU-017).
                 $this->reglaEdad->validar($persona, $categoriaDestino, $temporadaDestino);

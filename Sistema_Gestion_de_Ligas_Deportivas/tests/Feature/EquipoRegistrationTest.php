@@ -537,7 +537,7 @@ class EquipoRegistrationTest extends TestCase
         return (int) DB::table('personas')->insertGetId([
             'nombre' => 'Jugador de Prueba',
             'apellidos' => 'Historia SCRUM-26',
-            'fecha_nacimiento' => '2010-01-01',
+            'fecha_nacimiento' => '2006-01-01',
             'curp' => str()->upper(str()->random(18)),
             'created_at' => now(),
             'updated_at' => now(),

@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Services\ConsentimientoPrivacidadService;
 use App\Services\EstadoJugadorService;
 use App\Services\RegistroJugadorService;
+use App\Services\ReglaEdadCategoriaService;
 use App\Services\GestionJugadorService;
 use App\Services\VinculacionJugadorService;
 use Illuminate\Database\Eloquent\Builder;
@@ -59,7 +60,7 @@ class JugadorController extends Controller
         return view('jugadores.index', compact('jugadores', 'busqueda'));
     }
 
-    public function create(Request $request, ConsentimientoPrivacidadService $privacidad): View
+    public function create(Request $request, ConsentimientoPrivacidadService $privacidad, ReglaEdadCategoriaService $reglaEdad): View
     {
         $usuario = $request->user();
         abort_unless($usuario instanceof User, 401);
@@ -88,7 +89,10 @@ class JugadorController extends Controller
             ->values()
             ->all();
 
-        return view('jugadores.create', compact('equipos', 'temporadas', 'categorias', 'categoriasConTutor'));
+        // Edad mínima de la Liga: la vista la usa como ayuda; la valida ReglaEdadCategoriaService al guardar.
+        $edadMinima = $reglaEdad->edadMinimaLiga();
+
+        return view('jugadores.create', compact('equipos', 'temporadas', 'categorias', 'categoriasConTutor', 'edadMinima'));
     }
 
     public function darDeBaja(BajaJugadorRequest $request, Jugador $jugador, GestionJugadorService $gestion): JsonResponse|RedirectResponse

@@ -405,7 +405,7 @@ class JugadorReglasHu017Test extends TestCase
         return $club->equipos()->create(['temporada_id' => $temporada->id, 'grupo_id' => $grupo->id, 'nombre' => $nombre.' '.str()->random(4)]);
     }
 
-    private function crearPersona(string $nombre = 'Jugador', string $apellidos = 'HU-017', string $nacimiento = '2010-01-01'): Persona
+    private function crearPersona(string $nombre = 'Jugador', string $apellidos = 'HU-017', string $nacimiento = '2006-01-01'): Persona
     {
         return Persona::query()->create([
             'nombre' => $nombre,

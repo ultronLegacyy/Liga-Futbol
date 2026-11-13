@@ -505,7 +505,7 @@ class JugadorTransferenciaTest extends TestCase
         return Persona::query()->create([
             'nombre' => 'Jugador Transferencia',
             'apellidos' => 'Prueba HU-017',
-            'fecha_nacimiento' => '2010-01-01',
+            'fecha_nacimiento' => '2006-01-01',
             'curp' => str()->upper(str()->random(18)),
         ]);
     }

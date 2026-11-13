@@ -342,7 +342,7 @@ class JugadorFormularioRegistroTest extends TestCase
         $persona = Persona::factory()->create([
             'nombre' => 'Jugador Formulario',
             'apellidos' => 'Prueba',
-            'fecha_nacimiento' => '2010-01-01',
+            'fecha_nacimiento' => '2006-01-01',
             'curp' => 'TEST010101HDFXXX01',
         ]);
         $datos = $this->datosFormulario($equipo, $temporada, $categoria, ['fotografia' => $this->imagenPng('foto.png')]);
@@ -365,7 +365,7 @@ class JugadorFormularioRegistroTest extends TestCase
         $persona = Persona::factory()->create([
             'nombre' => 'Persona Original',
             'apellidos' => 'Apellido Original',
-            'fecha_nacimiento' => '2010-01-01',
+            'fecha_nacimiento' => '2006-01-01',
             'curp' => 'TEST010101HDFXXX01',
         ]);
 
@@ -503,7 +503,7 @@ class JugadorFormularioRegistroTest extends TestCase
         return [
             'nombre' => 'Jugador Formulario',
             'apellidos' => 'Prueba',
-            'fecha_nacimiento' => '2010-01-01',
+            'fecha_nacimiento' => '2006-01-01',
             'curp' => 'TEST010101HDFXXX01',
             'temporada_id' => $temporada->id,
             'categoria_id' => $categoria->id,

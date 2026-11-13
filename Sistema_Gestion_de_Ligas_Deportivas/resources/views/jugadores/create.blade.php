@@ -37,7 +37,10 @@
                     </div>
                     <div>
                         <label for="fecha_nacimiento" class="mb-1 block text-sm font-medium text-gray-200">Fecha de nacimiento</label>
-                        <input id="fecha_nacimiento" name="fecha_nacimiento" type="date" value="{{ old('fecha_nacimiento') }}" required max="{{ now()->toDateString() }}" autocomplete="bday" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
+                        <input id="fecha_nacimiento" name="fecha_nacimiento" type="date" value="{{ old('fecha_nacimiento') }}" required max="{{ $edadMinima === null ? now(App\Services\GestionJugadorService::ZONA_HORARIA)->toDateString() : now(App\Services\GestionJugadorService::ZONA_HORARIA)->subYears($edadMinima)->toDateString() }}" autocomplete="bday" @if ($edadMinima !== null) aria-describedby="fecha-nacimiento-ayuda" @endif class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
+                        @if ($edadMinima !== null)
+                            <p id="fecha-nacimiento-ayuda" class="mt-1 text-xs text-gray-400">La Liga solo inscribe jugadores de {{ $edadMinima }} años cumplidos o más.</p>
+                        @endif
                         @error('fecha_nacimiento') <p class="mt-1 text-sm text-red-300">{{ $message }}</p> @enderror
                     </div>
                     <div>

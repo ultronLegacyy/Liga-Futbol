@@ -37,6 +37,9 @@ class JugadorAvisoPrivacidadTest extends TestCase
         parent::setUp();
         $this->seed(RoleAndPermissionSeeder::class);
         Storage::fake('private');
+        // El consentimiento del tutor solo aplica si la Liga admite menores: se desactiva la
+        // edad mínima (config/jugadores.php). Con la regla activa lo prueba JugadorEdadMinimaLigaTest.
+        config(['jugadores.edad_minima' => null]);
     }
 
     public function test_el_formulario_muestra_el_aviso_de_privacidad_y_la_seccion_del_tutor(): void
