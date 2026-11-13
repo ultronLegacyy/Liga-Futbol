@@ -388,7 +388,7 @@ class PartidosProgramacionTest extends TestCase
             'arbitro_id' => $this->arbitro->id,
             'fecha_partido' => '2026-11-20',
             'hora_partido' => '10:00:00',
-            'estado' => 'programado',
+            'estado' => 'borrador',
         ]);
 
         $this->actingAs($this->admin)

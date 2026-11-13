@@ -477,7 +477,8 @@ class ProgramacionJornadaService
     }
 
     /**
-     * Eliminar un partido programado.
+     * Eliminar un partido programado (HU-031 / RF-06.6 / SCRUM-203).
+     * Regla estricta: solo se eliminan partidos en estado borrador sin historial ni cédula.
      *
      * @throws ValidationException
      */
@@ -485,9 +486,9 @@ class ProgramacionJornadaService
     {
         $this->validarTemporadaGrupo($partido->jornada->grupo);
 
-        if (in_array($partido->estado, ['finalizado', 'en juego'], true)) {
+        if (! $partido->esEliminable()) {
             throw ValidationException::withMessages([
-                'estado' => 'No se puede eliminar un partido que ya se encuentra en juego o ha finalizado.',
+                'estado' => 'Solo se permite eliminar partidos en estado borrador que no cuenten con cédula ni historial deportivo oficial (HU-031).',
             ]);
         }
 

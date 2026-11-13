@@ -1,0 +1,69 @@
+<?php
+
+namespace App\Http\Requests;
+
+use App\Models\Partido;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+// Validación para cambio de estado del partido (HU-029 / RF-06.3 / SCRUM-197)
+class CambiarEstadoPartidoRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('estado') && ! $this->has('nuevo_estado')) {
+            $this->merge(['nuevo_estado' => $this->input('estado')]);
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function rules(): array
+    {
+        $estadosValidos = [
+            Partido::ESTADO_BORRADOR,
+            Partido::ESTADO_PROGRAMADO,
+            Partido::ESTADO_CONFIRMADO,
+            Partido::ESTADO_EN_JUEGO,
+            Partido::ESTADO_FINALIZADO,
+            Partido::ESTADO_SUSPENDIDO,
+            Partido::ESTADO_CANCELADO,
+            Partido::ESTADO_REPROGRAMADO,
+        ];
+
+        return [
+            'nuevo_estado' => ['required', 'string', Rule::in($estadosValidos)],
+            'motivo' => [
+                'nullable',
+                'string',
+                Rule::requiredIf(fn () => in_array($this->input('nuevo_estado'), [
+                    Partido::ESTADO_CANCELADO,
+                    Partido::ESTADO_SUSPENDIDO,
+                    Partido::ESTADO_REPROGRAMADO,
+                ], true)),
+                'min:5',
+                'max:1000',
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'nuevo_estado.required' => 'Debe seleccionar el nuevo estado del partido.',
+            'nuevo_estado.in' => 'El estado seleccionado no es válido en el sistema.',
+            'motivo.required' => 'El motivo es obligatorio al cancelar, suspender o reprogramar un partido (Criterio 2).',
+            'motivo.min' => 'El motivo debe contener al menos 5 caracteres descriptivos.',
+            'motivo.max' => 'El motivo no debe exceder los 1000 caracteres.',
+        ];
+    }
+}

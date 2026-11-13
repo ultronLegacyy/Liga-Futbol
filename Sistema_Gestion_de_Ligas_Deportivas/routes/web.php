@@ -102,10 +102,18 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/grupos/{grupo}/configuracion', [GrupoController::class, 'guardarConfiguracion'])
             ->name('grupos.configuracion.update');
 
-        // Programación de jornadas y descansos por grupo (HU-027, HU-028, RF-06.1, RF-06.2)
+        // Programación de jornadas y descansos por grupo (HU-027, HU-028, HU-030, RF-06.1, RF-06.2, RF-06.5)
         Route::resource('grupos.jornadas', JornadaController::class)->shallow()->only(['index', 'create', 'store', 'show', 'edit', 'update', 'destroy']);
         Route::match(['put', 'patch'], '/jornadas/{jornada}/descanso', [JornadaController::class, 'actualizarDescanso'])
             ->name('jornadas.descanso.update');
+        Route::post('/jornadas/{jornada}/enviar-revision', [JornadaController::class, 'enviarRevision'])
+            ->name('jornadas.enviar-revision');
+        Route::post('/jornadas/{jornada}/aprobar', [JornadaController::class, 'aprobar'])
+            ->name('jornadas.aprobar');
+        Route::post('/jornadas/{jornada}/publicar', [JornadaController::class, 'publicar'])
+            ->name('jornadas.publicar');
+        Route::get('/jornadas/{jornada}/conflictos', [JornadaController::class, 'conflictos'])
+            ->name('jornadas.conflictos');
 
         // Generación automática de rol regular y enfrentamientos (HU-032, RF-07.1)
         Route::get('/grupos/{grupo}/generar-rol', [GeneradorEnfrentamientosController::class, 'configurar'])
@@ -117,7 +125,15 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/jornadas/{jornada}/generar-partidos', [GeneradorEnfrentamientosController::class, 'generarJornada'])
             ->name('jornadas.generar-partidos');
 
-        // Alta manual y reprogramación de partidos en jornadas (HU-027, RF-06.1)
+        // Alta manual, reprogramación, gestión de estados e historial de partidos (HU-027, HU-029, HU-031, RF-06.1, RF-06.3, RF-06.4, RF-06.6)
+        Route::get('/partidos/{partido}/reprogramar', [PartidoController::class, 'formularioReprogramar'])
+            ->name('partidos.reprogramar');
+        Route::post('/partidos/{partido}/reprogramar', [PartidoController::class, 'reprogramar'])
+            ->name('partidos.reprogramar.store');
+        Route::patch('/partidos/{partido}/estado', [PartidoController::class, 'cambiarEstado'])
+            ->name('partidos.estado.update');
+        Route::get('/partidos/{partido}/historial', [PartidoController::class, 'historial'])
+            ->name('partidos.historial');
         Route::resource('jornadas.partidos', PartidoController::class)->shallow()->only(['create', 'store', 'show', 'edit', 'update', 'destroy']);
 
         // Padrón de personas y sus roles por temporada (HU-013, RF-03.2)

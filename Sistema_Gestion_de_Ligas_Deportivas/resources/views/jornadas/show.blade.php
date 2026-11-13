@@ -14,6 +14,16 @@
                     <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30">
                         {{ $grupo->nombre }}
                     </span>
+                    @php
+                        $estadoJornadaConfig = match($jornada->estado) {
+                            'borrador' => ['variant' => 'default', 'label' => 'Borrador'],
+                            'en_revision' => ['variant' => 'warning', 'label' => 'En Revisión'],
+                            'aprobada' => ['variant' => 'info', 'label' => 'Aprobada'],
+                            'publicada' => ['variant' => 'success', 'label' => 'Publicada Oficial'],
+                            default => ['variant' => 'default', 'label' => ucfirst((string) $jornada->estado)],
+                        };
+                    @endphp
+                    <x-badge :variant="$estadoJornadaConfig['variant']">{{ $estadoJornadaConfig['label'] }}</x-badge>
                 </div>
                 <p class="text-sm text-gray-400 mt-1">
                     {{ $grupo->categoria->nombre }} · {{ $grupo->temporada->nombre }} · Rama {{ $grupo->categoria->rama ?? 'N/A' }}
@@ -21,12 +31,69 @@
                 <p class="text-xs text-gray-500 mt-1">
                     Periodo: {{ \Carbon\Carbon::parse($jornada->fecha_inicio)->format('d/m/Y') }} al {{ \Carbon\Carbon::parse($jornada->fecha_fin)->format('d/m/Y') }}
                 </p>
+                @if ($jornada->aprobado_por_id)
+                    <p class="text-xs text-indigo-300 mt-1">
+                        Aprobada por: <span class="font-semibold">{{ $jornada->aprobadoPor->name ?? 'Comité' }}</span>
+                        @if ($jornada->fecha_aprobacion)
+                            el {{ \Carbon\Carbon::parse($jornada->fecha_aprobacion)->format('d/m/Y H:i') }} hrs
+                        @endif
+                    </p>
+                @endif
+                @if ($jornada->fecha_publicacion)
+                    <p class="text-xs text-green-400 mt-0.5">
+                        Publicada oficialmente el {{ \Carbon\Carbon::parse($jornada->fecha_publicacion)->format('d/m/Y H:i') }} hrs
+                    </p>
+                @endif
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
                 <a href="{{ route('grupos.jornadas.index', $grupo) }}" class="text-gray-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-400 rounded text-sm px-3 py-2">
                     Volver a jornadas
                 </a>
+
+                {{-- Flujo de publicación semanal (HU-030 / SCRUM-199 / SCRUM-201) --}}
+                @if ($jornada->esBorrador())
+                    @can('enviarRevision', $jornada)
+                        <form action="{{ route('jornadas.enviar-revision', $jornada) }}" method="POST" class="inline">
+                            @csrf
+                            <button
+                                type="submit"
+                                class="px-3 py-2 bg-amber-600/90 hover:bg-amber-600 text-white text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 transition"
+                                @disabled($jornada->partidos->isEmpty())
+                                title="{{ $jornada->partidos->isEmpty() ? 'Agrega partidos antes de enviar a revisión' : 'Enviar programación a revisión' }}"
+                            >
+                                Enviar a Revisión
+                            </button>
+                        </form>
+                    @endcan
+                @elseif ($jornada->esEnRevision())
+                    @can('aprobar', $jornada)
+                        <form action="{{ route('jornadas.aprobar', $jornada) }}" method="POST" class="inline">
+                            @csrf
+                            <button
+                                type="submit"
+                                class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
+                            >
+                                Aprobar Programación
+                            </button>
+                        </form>
+                    @endcan
+                @elseif ($jornada->esAprobada())
+                    @can('publicar', $jornada)
+                        <form action="{{ route('jornadas.publicar', $jornada) }}" method="POST" class="inline" onsubmit="return confirm('¿Confirmas la publicación oficial de la jornada? Todos los partidos pasarán a estado programado.');">
+                            @csrf
+                            <button
+                                type="submit"
+                                class="px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 transition"
+                                @disabled(! empty($conflictos))
+                                title="{{ ! empty($conflictos) ? 'No se puede publicar debido a conflictos existentes' : 'Publicar programación oficial' }}"
+                            >
+                                Publicar Programación
+                            </button>
+                        </form>
+                    @endcan
+                @endif
+
                 @can('update', $jornada)
                     <a href="{{ route('jornadas.edit', $jornada) }}" class="px-3 py-2 bg-yellow-600/80 hover:bg-yellow-600 text-white text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 transition">
                         Editar Jornada
@@ -44,6 +111,24 @@
         @if (session('error'))
             <div class="mt-4">
                 <x-alert type="error" :message="session('error')" />
+            </div>
+        @endif
+
+        {{-- Alerta de conflictos de programación (HU-030 / SCRUM-200) --}}
+        @if (! empty($conflictos))
+            <div class="mt-4 bg-red-950/40 border border-red-600/50 rounded-xl p-4">
+                <div class="flex items-start gap-3">
+                    <div class="flex-shrink-0 text-red-400 font-bold text-base mt-0.5">!</div>
+                    <div class="space-y-1">
+                        <h4 class="text-sm font-bold text-red-200">Conflictos de programación detectados (HU-030):</h4>
+                        <p class="text-xs text-red-300">La programación contiene solapamientos o colisiones que deben corregirse antes de su publicación:</p>
+                        <ul class="list-disc list-inside text-xs text-red-300 space-y-0.5 mt-2">
+                            @foreach ($conflictos as $conflicto)
+                                <li>{{ $conflicto }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                </div>
             </div>
         @endif
     </div>
@@ -169,12 +254,31 @@
                             {{ $partido->arbitro->persona->nombre_completo ?? 'Árbitro #'.$partido->arbitro_id }}
                         </td>
                         <td class="px-4 py-3 text-center">
-                            <x-badge variant="info">{{ $partido->estado }}</x-badge>
+                            @php
+                                $estadoPartidoVariant = match($partido->estado) {
+                                    'confirmado' => 'success',
+                                    'cancelado' => 'danger',
+                                    'suspendido', 'en juego' => 'warning',
+                                    'programado', 'reprogramado' => 'info',
+                                    default => 'default',
+                                };
+                            @endphp
+                            <x-badge :variant="$estadoPartidoVariant">{{ $partido->estado }}</x-badge>
                         </td>
-                        <td class="px-4 py-3 text-right space-x-3 whitespace-nowrap text-sm">
+                        <td class="px-4 py-3 text-right space-x-2 whitespace-nowrap text-sm">
                             <a href="{{ route('partidos.show', $partido) }}" class="text-blue-400 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-400 rounded">
                                 Ver
                             </a>
+
+                            <a href="{{ route('partidos.historial', $partido) }}" class="text-indigo-400 hover:underline focus:outline-none focus:ring-2 focus:ring-indigo-400 rounded" title="Bitácora de cambios y reprogramaciones">
+                                Historial
+                            </a>
+
+                            @can('reprogramar', $partido)
+                                <a href="{{ route('partidos.reprogramar', $partido) }}" class="text-purple-400 hover:underline focus:outline-none focus:ring-2 focus:ring-purple-400 rounded">
+                                    Reprogramar
+                                </a>
+                            @endcan
 
                             @can('update', $partido)
                                 <a href="{{ route('partidos.edit', $partido) }}" class="text-yellow-400 hover:underline focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded">
@@ -183,13 +287,17 @@
                             @endcan
 
                             @can('delete', $partido)
-                                <form action="{{ route('partidos.destroy', $partido) }}" method="POST" class="inline" onsubmit="return confirm('¿Deseas cancelar/eliminar este partido programado?');">
+                                <form action="{{ route('partidos.destroy', $partido) }}" method="POST" class="inline" onsubmit="return confirm('¿Deseas eliminar este partido en borrador?');">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="text-red-400 hover:underline focus:outline-none focus:ring-2 focus:ring-red-400 rounded">
                                         Eliminar
                                     </button>
                                 </form>
+                            @else
+                                <span class="text-xs text-gray-500 italic" title="Historial oficial protegido contra eliminación (HU-031)">
+                                    Historial protegido
+                                </span>
                             @endcan
                         </td>
                     </tr>

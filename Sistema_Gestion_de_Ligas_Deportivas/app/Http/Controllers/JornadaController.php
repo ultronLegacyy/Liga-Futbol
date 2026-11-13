@@ -7,16 +7,19 @@ use App\Http\Requests\UpdateJornadaRequest;
 use App\Models\Grupo;
 use App\Models\Jornada;
 use App\Services\ProgramacionJornadaService;
+use App\Services\PublicacionProgramacionService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
-// Gestión de jornadas y descansos por grupo (HU-027, RF-06.1; HU-028, RF-06.2)
+// Gestión de jornadas, descansos por grupo y publicación semanal (HU-027, HU-028, HU-030, RF-06.1, RF-06.2, RF-06.5)
 class JornadaController extends Controller
 {
     public function __construct(
-        private readonly ProgramacionJornadaService $programacionService
+        private readonly ProgramacionJornadaService $programacionService,
+        private readonly PublicacionProgramacionService $publicacionService
     ) {
     }
 
@@ -66,7 +69,7 @@ class JornadaController extends Controller
     }
 
     /**
-     * Detalle de la jornada con sus partidos programados y equipo en descanso.
+     * Detalle de la jornada con sus partidos programados, descansos y validación de publicación.
      */
     public function show(Jornada $jornada): View
     {
@@ -76,6 +79,7 @@ class JornadaController extends Controller
             'grupo.categoria.temporada',
             'grupo.equipos' => fn ($q) => $q->orderBy('nombre'),
             'equipoDescanso',
+            'aprobadoPor',
             'partidos.local',
             'partidos.visitante',
             'partidos.cancha',
@@ -84,8 +88,11 @@ class JornadaController extends Controller
 
         $grupo = $jornada->grupo;
         $equipos = $grupo->equipos;
+        $conflictos = $jornada->partidos->isNotEmpty()
+            ? $this->publicacionService->detectarConflictos($jornada)
+            : [];
 
-        return view('jornadas.show', compact('jornada', 'grupo', 'equipos'));
+        return view('jornadas.show', compact('jornada', 'grupo', 'equipos', 'conflictos'));
     }
 
     /**
@@ -146,5 +153,61 @@ class JornadaController extends Controller
 
         return redirect()->route('grupos.jornadas.index', $grupo)
             ->with('success', "Jornada {$numero} eliminada exitosamente.");
+    }
+
+    /**
+     * Enviar la programación semanal a revisión (HU-030 / SCRUM-199).
+     */
+    public function enviarRevision(Jornada $jornada): RedirectResponse
+    {
+        Gate::authorize('enviarRevision', $jornada);
+
+        $this->publicacionService->enviarARevision($jornada, auth()->user());
+
+        return redirect()->route('jornadas.show', $jornada)
+            ->with('success', 'La programación de la jornada se ha enviado a revisión exitosamente.');
+    }
+
+    /**
+     * Aprobación de la programación semanal por el Comité Ejecutivo (HU-030 / SCRUM-199).
+     */
+    public function aprobar(Jornada $jornada): RedirectResponse
+    {
+        Gate::authorize('aprobar', $jornada);
+
+        $this->publicacionService->aprobar($jornada, auth()->user());
+
+        return redirect()->route('jornadas.show', $jornada)
+            ->with('success', 'La programación semanal ha sido aprobada por el Comité Ejecutivo.');
+    }
+
+    /**
+     * Publicación oficial de la programación semanal tras resolver conflictos (HU-030 / SCRUM-201).
+     */
+    public function publicar(Jornada $jornada): RedirectResponse
+    {
+        Gate::authorize('publicar', $jornada);
+
+        $this->publicacionService->publicar($jornada, auth()->user());
+
+        return redirect()->route('jornadas.show', $jornada)
+            ->with('success', 'La programación semanal ha sido publicada oficialmente.');
+    }
+
+    /**
+     * Detección de conflictos de programación en formato JSON (HU-030 / SCRUM-200).
+     */
+    public function conflictos(Jornada $jornada): JsonResponse
+    {
+        Gate::authorize('view', $jornada);
+
+        $conflictos = $this->publicacionService->detectarConflictos($jornada);
+
+        return response()->json([
+            'jornada_id' => $jornada->id,
+            'numero_jornada' => $jornada->numero_jornada,
+            'tiene_conflictos' => ! empty($conflictos),
+            'conflictos' => $conflictos,
+        ]);
     }
 }
