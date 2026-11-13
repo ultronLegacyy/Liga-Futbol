@@ -125,6 +125,12 @@ class PublicacionProgramacionService
      */
     public function enviarARevision(Jornada $jornada, ?User $usuario = null): Jornada
     {
+        if ($jornada->estado !== Jornada::ESTADO_BORRADOR) {
+            throw ValidationException::withMessages([
+                'jornada' => "Solo una jornada en estado 'borrador' puede enviarse a revisión. Estado actual: '{$jornada->estado}'.",
+            ]);
+        }
+
         if ($jornada->partidos()->count() === 0) {
             throw ValidationException::withMessages([
                 'jornada' => 'No se puede enviar a revisión una jornada sin partidos programados.',
@@ -133,6 +139,13 @@ class PublicacionProgramacionService
 
         return DB::transaction(function () use ($jornada): Jornada {
             $jornadaBloqueada = Jornada::query()->whereKey($jornada->id)->lockForUpdate()->firstOrFail();
+
+            if ($jornadaBloqueada->estado !== Jornada::ESTADO_BORRADOR) {
+                throw ValidationException::withMessages([
+                    'jornada' => "Solo una jornada en estado 'borrador' puede enviarse a revisión. Estado actual: '{$jornadaBloqueada->estado}'.",
+                ]);
+            }
+
             $jornadaBloqueada->estado = Jornada::ESTADO_EN_REVISION;
             $jornadaBloqueada->save();
 
@@ -147,10 +160,22 @@ class PublicacionProgramacionService
      */
     public function aprobar(Jornada $jornada, ?User $usuario = null): Jornada
     {
+        if ($jornada->estado !== Jornada::ESTADO_EN_REVISION) {
+            throw ValidationException::withMessages([
+                'jornada' => "Solo una jornada en estado 'en_revision' puede ser aprobada por el Comité Ejecutivo. Estado actual: '{$jornada->estado}'.",
+            ]);
+        }
+
         $usuarioActuante = $usuario ?? auth()->user();
 
         return DB::transaction(function () use ($jornada, $usuarioActuante): Jornada {
             $jornadaBloqueada = Jornada::query()->whereKey($jornada->id)->lockForUpdate()->firstOrFail();
+
+            if ($jornadaBloqueada->estado !== Jornada::ESTADO_EN_REVISION) {
+                throw ValidationException::withMessages([
+                    'jornada' => "Solo una jornada en estado 'en_revision' puede ser aprobada por el Comité Ejecutivo. Estado actual: '{$jornadaBloqueada->estado}'.",
+                ]);
+            }
 
             $jornadaBloqueada->estado = Jornada::ESTADO_APROBADA;
             $jornadaBloqueada->aprobado_por_id = $usuarioActuante?->id;
@@ -168,6 +193,12 @@ class PublicacionProgramacionService
      */
     public function publicar(Jornada $jornada, ?User $usuario = null): Jornada
     {
+        if ($jornada->estado !== Jornada::ESTADO_APROBADA) {
+            throw ValidationException::withMessages([
+                'jornada' => "Solo una jornada previamente aprobada por el Comité Ejecutivo puede ser publicada. Estado actual: '{$jornada->estado}'.",
+            ]);
+        }
+
         // Validar que no existan conflictos antes de permitir la publicación
         $conflictos = $this->detectarConflictos($jornada);
         if (! empty($conflictos)) {
@@ -179,6 +210,12 @@ class PublicacionProgramacionService
 
         return DB::transaction(function () use ($jornada): Jornada {
             $jornadaBloqueada = Jornada::query()->whereKey($jornada->id)->lockForUpdate()->firstOrFail();
+
+            if ($jornadaBloqueada->estado !== Jornada::ESTADO_APROBADA) {
+                throw ValidationException::withMessages([
+                    'jornada' => "Solo una jornada previamente aprobada por el Comité Ejecutivo puede ser publicada. Estado actual: '{$jornadaBloqueada->estado}'.",
+                ]);
+            }
 
             $jornadaBloqueada->estado = Jornada::ESTADO_PUBLICADA;
             $jornadaBloqueada->fecha_publicacion = now();

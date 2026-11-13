@@ -189,7 +189,9 @@ class JornadaPublicacionYConflictosTest extends TestCase
             'estado' => Partido::ESTADO_BORRADOR,
         ]);
 
-        // Intentar publicar debe ser rechazado
+        // Intentar publicar debe ser rechazado (incluso estando en estado aprobada)
+        $this->jornada->update(['estado' => Jornada::ESTADO_APROBADA]);
+
         $this->actingAs($this->programador)
             ->post(route('jornadas.publicar', $this->jornada))
             ->assertSessionHasErrors(['publicacion']);
@@ -225,11 +227,67 @@ class JornadaPublicacionYConflictosTest extends TestCase
             'estado' => Partido::ESTADO_BORRADOR,
         ]);
 
+        $this->jornada->update(['estado' => Jornada::ESTADO_APROBADA]);
+
         $this->actingAs($this->programador)
             ->post(route('jornadas.publicar', $this->jornada))
             ->assertSessionHasErrors(['publicacion']);
 
         $this->assertNotSame(Jornada::ESTADO_PUBLICADA, $this->jornada->fresh()->estado);
+    }
+
+    public function test_publicacion_rechaza_jornada_que_no_este_aprobada(): void
+    {
+        Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->equipoA->id,
+            'equipo_visitante_id' => $this->equipoB->id,
+            'cancha_id' => $this->cancha1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_BORRADOR,
+        ]);
+
+        // Intentar publicar jornada en borrador es rechazado por política
+        $this->actingAs($this->programador)
+            ->post(route('jornadas.publicar', $this->jornada))
+            ->assertForbidden();
+
+        // Incluso el Administrador General es rechazado si intenta saltar el flujo
+        $this->actingAs($this->admin)
+            ->post(route('jornadas.publicar', $this->jornada))
+            ->assertForbidden();
+
+        $this->assertSame(Jornada::ESTADO_BORRADOR, $this->jornada->fresh()->estado);
+    }
+
+    public function test_aprobacion_rechaza_jornada_que_no_este_en_revision(): void
+    {
+        Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->equipoA->id,
+            'equipo_visitante_id' => $this->equipoB->id,
+            'cancha_id' => $this->cancha1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_BORRADOR,
+        ]);
+
+        // La jornada sigue en borrador, no se puede aprobar directamente
+        $this->actingAs($this->comiteUser)
+            ->post(route('jornadas.aprobar', $this->jornada))
+            ->assertForbidden();
+
+        $this->assertSame(Jornada::ESTADO_BORRADOR, $this->jornada->fresh()->estado);
+    }
+
+    public function test_enviar_a_revision_rechaza_jornada_que_no_este_en_borrador(): void
+    {
+        $this->jornada->update(['estado' => Jornada::ESTADO_EN_REVISION]);
+
+        $this->actingAs($this->programador)
+            ->post(route('jornadas.enviar-revision', $this->jornada))
+            ->assertForbidden();
     }
 
     public function test_bloqueo_de_publicacion_por_equipo_duplicado_o_en_descanso(): void

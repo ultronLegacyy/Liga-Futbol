@@ -8,7 +8,26 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-// Jornada de un grupo con programación, estados y publicación semanal (HU-027, RF-06.1; HU-028, RF-06.2; HU-030, RF-06.5)
+/**
+ * Jornada de un grupo con programación, estados y publicación semanal (HU-027, RF-06.1; HU-028, RF-06.2; HU-030, RF-06.5)
+ *
+ * @property int $id
+ * @property int $grupo_id
+ * @property int $numero_jornada
+ * @property \Carbon\Carbon|string $fecha_inicio
+ * @property \Carbon\Carbon|string $fecha_fin
+ * @property int|null $equipo_descanso_id
+ * @property string $estado
+ * @property int|null $aprobado_por_id
+ * @property \Carbon\Carbon|null $fecha_aprobacion
+ * @property \Carbon\Carbon|null $fecha_publicacion
+ * @property \Carbon\Carbon|null $created_at
+ * @property \Carbon\Carbon|null $updated_at
+ * @property-read Grupo $grupo
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Partido> $partidos
+ * @property-read Equipo|null $equipoDescanso
+ * @property-read User|null $aprobadoPor
+ */
 class Jornada extends Model
 {
     use HasFactory;

@@ -13,6 +13,11 @@ class JornadaPolicy
     public function before(User $usuario, string $habilidad): ?bool
     {
         if ($usuario->hasRole('Administrador General')) {
+            // El Administrador General no puede omitir el orden de las etapas del flujo formal (HU-030 / SCRUM-199)
+            if (in_array($habilidad, ['enviarRevision', 'aprobar', 'publicar'], true)) {
+                return null;
+            }
+
             return true;
         }
 
@@ -75,7 +80,11 @@ class JornadaPolicy
             return Response::deny('Una temporada cerrada no admite cambios en sus jornadas.');
         }
 
-        return $usuario->can('partidos.programar')
+        if ($jornada->estado !== Jornada::ESTADO_BORRADOR) {
+            return Response::deny("Solo una jornada en estado borrador puede enviarse a revisión (estado actual: {$jornada->estado}).");
+        }
+
+        return ($usuario->hasRole('Administrador General') || $usuario->can('partidos.programar'))
             ? Response::allow()
             : Response::deny('No cuenta con privilegios para enviar la programación a revisión.');
     }
@@ -87,6 +96,10 @@ class JornadaPolicy
     {
         if ($jornada->grupo->temporada?->estado === 'cerrada') {
             return Response::deny('Una temporada cerrada no admite cambios en sus jornadas.');
+        }
+
+        if ($jornada->estado !== Jornada::ESTADO_EN_REVISION) {
+            return Response::deny("Solo una jornada en estado de revisión puede ser aprobada por el Comité Ejecutivo (estado actual: {$jornada->estado}).");
         }
 
         $esComiteEjecutivo = $usuario->hasAnyRole([
@@ -110,6 +123,10 @@ class JornadaPolicy
     {
         if ($jornada->grupo->temporada?->estado === 'cerrada') {
             return Response::deny('Una temporada cerrada no admite cambios en sus jornadas.');
+        }
+
+        if ($jornada->estado !== Jornada::ESTADO_APROBADA) {
+            return Response::deny("Solo una jornada previamente aprobada por el Comité Ejecutivo puede ser publicada (estado actual: {$jornada->estado}).");
         }
 
         return ($usuario->can('partidos.programar') || $usuario->hasRole('Administrador General'))
