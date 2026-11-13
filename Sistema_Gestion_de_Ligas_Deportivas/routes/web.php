@@ -6,6 +6,7 @@ use App\Http\Controllers\CanchaBloqueoController;
 use App\Http\Controllers\CanchaController;
 use App\Http\Controllers\CargoFinancieroController;
 use App\Http\Controllers\CedulaController;
+use App\Http\Controllers\CierreCedulaController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\EquipoController;
@@ -156,6 +157,30 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/partidos/{partido}/cedula/incidencias', [CedulaController::class, 'incidencia'])
             ->whereNumber('partido')
             ->name('cedulas.incidencias');
+        // HU-075: reporte arbitral, anulaciones, firmas de los capitanes y cierre
+        Route::put('/partidos/{partido}/cedula/informe', [CedulaController::class, 'informe'])
+            ->whereNumber('partido')
+            ->name('cedulas.informe');
+        Route::delete('/partidos/{partido}/cedula/eventos/{evento}', [CedulaController::class, 'anularEvento'])
+            ->whereNumber(['partido', 'evento'])
+            ->name('cedulas.eventos.anular');
+        Route::delete('/partidos/{partido}/cedula/incidencias/{incidencia}', [CedulaController::class, 'anularIncidencia'])
+            ->whereNumber(['partido', 'incidencia'])
+            ->name('cedulas.incidencias.anular');
+        Route::get('/partidos/{partido}/cedula/cierre', [CierreCedulaController::class, 'resumen'])
+            ->whereNumber('partido')
+            ->name('cedulas.cierre');
+        Route::post('/partidos/{partido}/cedula/firmas/{lado}', [CierreCedulaController::class, 'firmar'])
+            ->whereNumber('partido')
+            ->whereIn('lado', ['local', 'visitante'])
+            ->name('cedulas.firmar');
+        Route::get('/partidos/{partido}/cedula/firmas/{lado}', [CierreCedulaController::class, 'firma'])
+            ->whereNumber('partido')
+            ->whereIn('lado', ['local', 'visitante'])
+            ->name('cedulas.firma');
+        Route::post('/partidos/{partido}/cedula/cerrar', [CierreCedulaController::class, 'cerrar'])
+            ->whereNumber('partido')
+            ->name('cedulas.cerrar');
 
         Route::get('/partidos/{partido}/arbitro', [ArbitroController::class, 'editarAsignacion'])
             ->name('partidos.arbitro.edit');

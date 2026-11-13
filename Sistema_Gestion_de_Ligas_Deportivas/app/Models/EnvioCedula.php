@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Clave de envío ya aplicada a la alineación o al marcador de una cédula (HU-036, RNF-21).
+ * Clave de envío ya aplicada a la alineación, al marcador o al reporte arbitral de una cédula (HU-036 y HU-075, RNF-21).
  * Los eventos y las incidencias guardan su clave en su propia fila.
  *
  * @property int $id
@@ -18,6 +18,8 @@ class EnvioCedula extends Model
     public const ALINEACION = 'alineacion';
 
     public const MARCADOR = 'marcador';
+
+    public const INFORME = 'informe';
 
     protected $table = 'envios_cedula';
 
