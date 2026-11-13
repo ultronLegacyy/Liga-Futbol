@@ -55,6 +55,9 @@
                             </a>
                         @endcan
                         @can('view', $grupo)
+                            <a href="{{ route('grupos.tabla', $grupo) }}" class="text-green-400 hover:underline focus:outline-none focus:ring-2 focus:ring-green-400 rounded">
+                                Tabla de posiciones<span class="sr-only"> de {{ $grupo->nombre }}</span>
+                            </a>
                             <a href="{{ route('grupos.configuracion', $grupo) }}" class="text-blue-400 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-400 rounded">
                                 Formato y clasificación<span class="sr-only"> de {{ $grupo->nombre }}</span>
                             </a>

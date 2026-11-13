@@ -14,12 +14,14 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
+use Tests\Concerns\CreaGrupoConResultados;
 use Tests\Concerns\CreaPartidoConCedula;
 use Tests\TestCase;
 
 // HU-040 (SCRUM-52, RF-08.4): un resultado capturado solo es oficial después de validarlo
 class ValidacionResultadoTest extends TestCase
 {
+    use CreaGrupoConResultados;
     use CreaPartidoConCedula;
     use DatabaseTransactions;
 
@@ -34,6 +36,8 @@ class ValidacionResultadoTest extends TestCase
         $this->seed(RoleAndPermissionSeeder::class);
 
         $this->partido = $this->partidoConArbitro();
+        // Desde HU-041, validar recalcula la tabla con los puntos de las reglas de la temporada
+        $this->reglas($this->partido->jornada->grupo->temporada, [3, 1, 0], ['diferencia_goles']);
         $servicio = app(CedulaService::class);
         $this->cedula = $servicio->abrir($this->partido);
         $servicio->guardarMarcador($this->cedula, 2, 1, (string) Str::uuid());
