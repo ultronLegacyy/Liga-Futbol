@@ -108,6 +108,14 @@ class PartidoPolicy
             return Response::deny('Una temporada cerrada no admite cambios en sus partidos.');
         }
 
+        // HU-036: Si el partido tiene cédula con datos capturados, delegar a la validación
+        // de negocio en ProgramacionJornadaService para responder 422 en JSON y mensaje de sesión en web
+        if ($partido->cedula()->conDatosCapturados()->exists()) {
+            return $usuario->can('partidos.programar')
+                ? Response::allow()
+                : Response::deny('No cuenta con privilegios para eliminar partidos.');
+        }
+
         if (! $partido->esEliminable()) {
             return Response::deny('No es posible eliminar un partido que cuenta con programación activa, cédula arbitral o historial oficial (HU-031).');
         }

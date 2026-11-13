@@ -126,8 +126,8 @@ class Partido extends Model
             return false;
         }
 
-        // Si tiene cédula arbitral registrada, es intocable (HU-031 CA1)
-        if ($this->cedula()->exists()) {
+        // Si tiene cédula arbitral con datos capturados o cerrada, es intocable (HU-031, HU-036)
+        if ($this->cedula()->conDatosCapturados()->exists() || $this->cedula()->where('estado', 'cerrada')->exists()) {
             return false;
         }
 

@@ -233,8 +233,6 @@ class RoleAndPermissionSeeder extends Seeder
         // Rol Tesorero: administracion financiera, cargos, pagos y reportes (aislamiento total de disciplina y competicion)
         $permisosTesorero = [
             'gobernanza.panel',
-            'partidos.ver',
-            'programacion.aprobar',
             'finanzas.ver',
             'finanzas.cargos',
             'finanzas.pagos_validar',

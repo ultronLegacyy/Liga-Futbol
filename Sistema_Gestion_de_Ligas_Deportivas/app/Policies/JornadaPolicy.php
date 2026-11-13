@@ -67,6 +67,14 @@ class JornadaPolicy
             return Response::deny('Una temporada cerrada no admite cambios en sus jornadas.');
         }
 
+        // HU-036: Si la jornada tiene partidos con cédula capturada, delegar a la validación
+        // de negocio en ProgramacionJornadaService para lanzar ValidationException con mensaje de sesión en jornada_id
+        if ($jornada->partidos()->conCedulaCapturada()->exists()) {
+            return $usuario->can('partidos.programar')
+                ? Response::allow()
+                : Response::deny('No cuenta con privilegios para eliminar jornadas.');
+        }
+
         // Obligatorio 2: Solo jornadas en borrador sin partidos protegidos pueden eliminarse (HU-030, HU-031)
         if (! $jornada->esBorrador()) {
             return Response::deny("No se puede eliminar una jornada en estado '{$jornada->estado}'. Solo jornadas en estado borrador pueden eliminarse.");

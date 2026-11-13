@@ -179,7 +179,8 @@ class HistorialPartidosInmutabilidadTest extends TestCase
 
         $this->actingAs($this->programador)
             ->delete(route('partidos.destroy', $partido))
-            ->assertForbidden();
+            ->assertRedirect()
+            ->assertSessionHasErrors(['estado' => 'No se puede eliminar un partido cuya cédula arbitral ya tiene datos capturados.']);
 
         $this->assertDatabaseHas('partidos', ['id' => $partido->id]);
     }

@@ -573,16 +573,16 @@ class ProgramacionJornadaService
             ]);
         }
 
-        if (! $partido->esEliminable()) {
-            throw ValidationException::withMessages([
-                'estado' => 'Solo se permite eliminar partidos en estado borrador que no cuenten con cédula ni historial deportivo oficial (HU-031).',
-            ]);
-        }
-
         // HU-036: el borrado en cascada se llevaría la cédula capturada sin dejarla en la auditoría (RNF-30)
         if (Partido::query()->whereKey($partido->id)->conCedulaCapturada()->exists()) {
             throw ValidationException::withMessages([
                 'estado' => 'No se puede eliminar un partido cuya cédula arbitral ya tiene datos capturados.',
+            ]);
+        }
+
+        if (! $partido->esEliminable()) {
+            throw ValidationException::withMessages([
+                'estado' => 'Solo se permite eliminar partidos en estado borrador que no cuenten con cédula ni historial deportivo oficial (HU-031).',
             ]);
         }
 
@@ -608,6 +608,13 @@ class ProgramacionJornadaService
     {
         $this->validarTemporadaGrupo($jornada->grupo);
 
+        // HU-036: igual que al eliminar un partido, una cédula con datos capturados no se borra en cascada
+        if ($jornada->partidos()->conCedulaCapturada()->exists()) {
+            throw ValidationException::withMessages([
+                'jornada_id' => 'No se puede eliminar una jornada con partidos cuya cédula arbitral ya tiene datos capturados.',
+            ]);
+        }
+
         // Obligatorio 2: Solo se pueden eliminar jornadas en estado borrador
         if (! $jornada->esBorrador()) {
             throw ValidationException::withMessages([
@@ -620,13 +627,6 @@ class ProgramacionJornadaService
         if ($partidosNoEliminables->isNotEmpty()) {
             throw ValidationException::withMessages([
                 'jornada_id' => 'No se puede eliminar la jornada porque contiene partidos protegidos (con cédula, bitácora de reprogramación o fuera de borrador) (HU-031).',
-            ]);
-        }
-
-        // HU-036: igual que al eliminar un partido, una cédula con datos capturados no se borra en cascada
-        if ($jornada->partidos()->conCedulaCapturada()->exists()) {
-            throw ValidationException::withMessages([
-                'jornada_id' => 'No se puede eliminar una jornada con partidos cuya cédula arbitral ya tiene datos capturados.',
             ]);
         }
 
