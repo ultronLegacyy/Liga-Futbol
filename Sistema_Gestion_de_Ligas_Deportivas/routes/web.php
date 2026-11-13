@@ -22,6 +22,7 @@ use App\Http\Controllers\RecuperacionContrasenaController;
 use App\Http\Controllers\ReglaTemporadaController;
 use App\Http\Controllers\ResultadoController;
 use App\Http\Controllers\RolPermisoController;
+use App\Http\Controllers\TablaPosicionesController;
 use App\Http\Controllers\TarjetonDigitalController;
 use App\Http\Controllers\TemporadaController;
 use App\Http\Controllers\UserController;
@@ -110,6 +111,11 @@ Route::middleware(['auth'])->group(function () {
             ->name('jornadas.descanso.update');
 
         // Generación automática de rol regular y enfrentamientos (HU-032, RF-07.1)
+        // Tabla de posiciones calculada con los resultados oficiales (HU-041, RF-09.1)
+        Route::get('/grupos/{grupo}/tabla', [TablaPosicionesController::class, 'show'])
+            ->whereNumber('grupo')
+            ->name('grupos.tabla');
+
         Route::get('/grupos/{grupo}/generar-rol', [GeneradorEnfrentamientosController::class, 'configurar'])
             ->name('grupos.generar-rol');
         Route::post('/grupos/{grupo}/previsualizar-rol', [GeneradorEnfrentamientosController::class, 'previsualizar'])
