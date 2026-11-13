@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\Arbitro;
+use App\Models\Asamblea;
 use App\Models\BloqueoCancha;
 use App\Models\Cancha;
 use App\Models\CargoFinanciero;
@@ -24,6 +25,7 @@ use App\Observers\ClubObserver;
 use App\Observers\DirectivoClubObserver;
 use App\Observers\EquipoObserver;
 use App\Policies\ArbitroPolicy;
+use App\Policies\AsambleaPolicy;
 use App\Policies\BloqueoCanchaPolicy;
 use App\Policies\CanchaPolicy;
 use App\Policies\CargoFinancieroPolicy;
@@ -81,6 +83,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(CedulaArbitral::class, CedulaArbitralPolicy::class);
         Gate::policy(CargoFinanciero::class, CargoFinancieroPolicy::class);
         Gate::policy(Pago::class, PagoPolicy::class);
+        Gate::policy(Asamblea::class, AsambleaPolicy::class);
 
         RateLimiter::for('jugador-vinculacion', fn (Request $request): Limit => Limit::perMinute(5)
             ->by(($request->user()?->getAuthIdentifier() ?? 'anonimo').'|'.$request->ip())
