@@ -552,6 +552,36 @@ class DatabaseSeeder extends Seeder
             'updated_at' => $now,
         ]);
 
+        // HU-036: plantillas de los equipos del partido 2 (programado), para la demo de la cédula arbitral.
+        // Cinco activos y un suspendido por equipo; el suspendido sirve para mostrar la validación de HU-075
+        $plantillasDemo = [
+            [$equipo3Id, 'FUAZ', 'Azul', ['Diego', 'Mateo', 'Santiago', 'Emiliano', 'Leonardo', 'Sebastian']],
+            [$equipo4Id, 'HAES', 'Halcon', ['Andres', 'Julian', 'Rodrigo', 'Fernando', 'Ricardo', 'Alejandro']],
+        ];
+
+        foreach ($plantillasDemo as [$equipoDemoId, $prefijoCurp, $apellido, $nombres]) {
+            foreach ($nombres as $indice => $nombre) {
+                $numero = $indice + 1;
+                $personaDemoId = DB::table('personas')->insertGetId([
+                    'nombre' => $nombre,
+                    'apellidos' => $apellido.' Demo',
+                    'fecha_nacimiento' => sprintf('2005-%02d-01', $numero),
+                    'curp' => sprintf('%s05%02d01HMNDMO%02d', $prefijoCurp, $numero, $numero),
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+
+                DB::table('jugadores_equipos')->insert([
+                    'persona_id' => $personaDemoId,
+                    'equipo_id' => $equipoDemoId,
+                    'dorsal' => $numero,
+                    'estado_elegibilidad' => $numero === 6 ? 'Suspendido' : 'Activo',
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
+        }
+
         // 19. arbitros
         $arbitroId = DB::table('arbitros')->insertGetId([
             'persona_id' => $pArbitroId,
