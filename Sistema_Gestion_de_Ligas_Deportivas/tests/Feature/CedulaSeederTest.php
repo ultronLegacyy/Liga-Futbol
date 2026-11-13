@@ -28,6 +28,17 @@ class CedulaSeederTest extends TestCase
 
         $this->actingAs($arbitro)->get(route('cedulas.mis-partidos'))->assertOk()->assertSee(route('cedulas.show', $programado));
         $this->actingAs($arbitro)->post(route('cedulas.abrir', $programado))->assertSessionHasNoErrors();
-        $this->assertTrue(CedulaArbitral::query()->where('partido_id', $programado->id)->exists());
+        $cedulaDemo = CedulaArbitral::query()->where('partido_id', $programado->id)->sole();
+
+        // Los dos equipos del partido traen plantilla: 6 jugadores cada uno, con un suspendido
+        $this->assertSame(
+            [$programado->equipo_local_id => 6, $programado->equipo_visitante_id => 6],
+            $cedulaDemo->alineaciones()->get()->countBy('equipo_id')->all()
+        );
+        $this->actingAs($arbitro)->get(route('cedulas.show', $programado))
+            ->assertOk()
+            ->assertSee('Azul Demo, Diego')
+            ->assertSee('Halcon Demo, Alejandro')
+            ->assertSee('(Suspendido)');
     }
 }
