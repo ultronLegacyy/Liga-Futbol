@@ -58,7 +58,10 @@ class HistorialPartidosInmutabilidadTest extends TestCase
         $this->admin = $this->crearUsuario('admin_hist@liga.com', 'Administrador General');
         $this->programador = $this->crearUsuario('prog_hist@liga.com', 'Programador de Partidos');
 
-        $this->temporada = Temporada::factory()->activa()->create();
+        $this->temporada = Temporada::factory()->activa()->create([
+            'fecha_inicio' => '2026-01-01',
+            'fecha_fin' => '2026-12-31',
+        ]);
         $categoria = Categoria::factory()->create(['temporada_id' => $this->temporada->id]);
         $this->grupo = Grupo::factory()->create(['categoria_id' => $categoria->id]);
 
@@ -167,7 +170,6 @@ class HistorialPartidosInmutabilidadTest extends TestCase
         // Agregar cédula arbitral
         CedulaArbitral::create([
             'partido_id' => $partido->id,
-            'arbitro_id' => $this->arbitro->id,
             'estado' => 'cerrada',
             'goles_local' => 3,
             'goles_visitante' => 2,
@@ -254,6 +256,81 @@ class HistorialPartidosInmutabilidadTest extends TestCase
             ->get(route('jornadas.show', $this->jornada))
             ->assertOk()
             ->assertSee('Historial protegido');
+    }
+
+    public function test_actualizar_partido_no_permite_saltarse_inmutabilidad_cambiando_estado_a_borrador(): void
+    {
+        $partido = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha->id,
+            'arbitro_id' => $this->arbitro->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        // Intentar pasar a borrador vía PUT para luego intentar borrarlo (Obligatorio 1)
+        $this->actingAs($this->programador)
+            ->put(route('partidos.update', $partido), [
+                'equipo_local_id' => $this->local->id,
+                'equipo_visitante_id' => $this->visitante->id,
+                'cancha_id' => $this->cancha->id,
+                'fecha_partido' => '2026-11-20',
+                'hora_partido' => '10:00',
+                'estado' => Partido::ESTADO_BORRADOR,
+            ]);
+
+        // El estado debe permanecer como programado y no puede ser borrado
+        $this->assertSame(Partido::ESTADO_PROGRAMADO, $partido->fresh()->estado);
+        $this->assertFalse($partido->fresh()->esEliminable());
+
+        // El borrado debe ser rechazado
+        $this->actingAs($this->programador)
+            ->delete(route('partidos.destroy', $partido))
+            ->assertForbidden();
+    }
+
+    public function test_eliminar_jornada_bloquea_si_contiene_partidos_protegidos(): void
+    {
+        Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha->id,
+            'arbitro_id' => $this->arbitro->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        // Obligatorio 2: DELETE /jornadas/{id} debe ser bloqueado por política
+        $this->actingAs($this->programador)
+            ->delete(route('jornadas.destroy', $this->jornada))
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('jornadas', ['id' => $this->jornada->id]);
+    }
+
+    public function test_reemplazar_rol_bloquea_si_contiene_partidos_protegidos(): void
+    {
+        Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha->id,
+            'arbitro_id' => $this->arbitro->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_REPROGRAMADO,
+        ]);
+
+        $generador = app(\App\Services\GeneradorEnfrentamientosService::class);
+        $propuesta = $generador->generarPropuestaRol($this->grupo);
+
+        $this->expectException(ValidationException::class);
+        $generador->guardarRolGenerado($this->grupo, $propuesta, true);
     }
 
     private function crearEquipo(string $nombre, ?Grupo $grupo = null): Equipo

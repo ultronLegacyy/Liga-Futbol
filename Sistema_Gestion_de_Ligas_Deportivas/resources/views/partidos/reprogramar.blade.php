@@ -60,7 +60,7 @@
                     id="fecha_partido"
                     name="fecha_partido"
                     required
-                    value="{{ old('fecha_partido', $partido->fecha_partido ? \Carbon\Carbon::parse($partido->fecha_partido)->format('Y-m-d') : '') }}"
+                    value="{{ is_string(old('fecha_partido')) ? old('fecha_partido') : ($partido->fecha_partido ? \Carbon\Carbon::parse($partido->fecha_partido)->format('Y-m-d') : '') }}"
                     class="{{ $campo }} {{ $errors->has('fecha_partido') ? 'border-red-500' : 'border-gray-600' }}"
                     @if ($errors->has('fecha_partido')) aria-invalid="true" aria-describedby="fecha_partido-error" @endif
                 >
@@ -72,7 +72,7 @@
                     id="hora_partido"
                     name="hora_partido"
                     required
-                    value="{{ old('hora_partido', $partido->hora_partido ? \Carbon\Carbon::parse($partido->hora_partido)->format('H:i') : '') }}"
+                    value="{{ is_string(old('hora_partido')) ? old('hora_partido') : ($partido->hora_partido ? \Carbon\Carbon::parse($partido->hora_partido)->format('H:i') : '') }}"
                     class="{{ $campo }} {{ $errors->has('hora_partido') ? 'border-red-500' : 'border-gray-600' }}"
                     @if ($errors->has('hora_partido')) aria-invalid="true" aria-describedby="hora_partido-error" @endif
                 >
@@ -81,16 +81,17 @@
 
         {{-- Nueva cancha y árbitro --}}
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <x-form.field name="cancha_id" label="Cancha Asignada" :error="$errors->first('cancha_id')">
+            <x-form.field name="cancha_id" label="Cancha Asignada" required :error="$errors->first('cancha_id')">
                 <select
                     id="cancha_id"
                     name="cancha_id"
+                    required
                     class="{{ $campo }} {{ $errors->has('cancha_id') ? 'border-red-500' : 'border-gray-600' }}"
                     @if ($errors->has('cancha_id')) aria-invalid="true" aria-describedby="cancha_id-error" @endif
                 >
-                    <option value="">-- Sin cancha asignada --</option>
+                    <option value="">-- Seleccionar cancha oficial --</option>
                     @foreach ($canchas as $cancha)
-                        <option value="{{ $cancha->id }}" @selected(old('cancha_id', $partido->cancha_id) == $cancha->id)>
+                        <option value="{{ $cancha->id }}" @selected((is_string(old('cancha_id')) ? old('cancha_id') : (string) $partido->cancha_id) == (string) $cancha->id)>
                             {{ $cancha->nombre }} (Cap. {{ $cancha->capacidad_partidos_consecutivos }})
                         </option>
                     @endforeach
@@ -142,7 +143,7 @@
                     class="{{ $campo }} {{ $errors->has('estado') ? 'border-red-500' : 'border-gray-600' }}"
                 >
                     @foreach ($opcionesEstado as $valor => $etiqueta)
-                        <option value="{{ $valor }}" @selected(old('estado', array_key_first($opcionesEstado)) === $valor)>
+                        <option value="{{ $valor }}" @selected((is_string(old('estado')) ? old('estado') : array_key_first($opcionesEstado)) === $valor)>
                             {{ $etiqueta }}
                         </option>
                     @endforeach
@@ -161,7 +162,7 @@
                 placeholder="Indica la razón formal de la reprogramación (ej. condiciones climáticas adversas, mantenimiento urgente en cancha, solicitud consensuada entre clubes)..."
                 class="{{ $campo }} {{ $errors->has('motivo') ? 'border-red-500' : 'border-gray-600' }}"
                 @if ($errors->has('motivo')) aria-invalid="true" aria-describedby="motivo-error" @endif
-            >{{ old('motivo') }}</textarea>
+            >{{ is_string(old('motivo')) ? old('motivo') : '' }}</textarea>
             <p class="text-xs text-gray-400 mt-1">Este motivo quedará auditado de forma permanente en la bitácora histórica del partido (HU-031 / RNF-22).</p>
         </x-form.field>
 

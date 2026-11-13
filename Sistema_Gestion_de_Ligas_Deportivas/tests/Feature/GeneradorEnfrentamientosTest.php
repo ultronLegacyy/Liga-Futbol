@@ -740,7 +740,7 @@ class GeneradorEnfrentamientosTest extends TestCase
             'equipo_local_id' => $e1->id,
             'equipo_visitante_id' => $e2->id,
             'fecha_partido' => '2026-11-10',
-            'estado' => 'programado',
+            'estado' => 'borrador',
         ]);
 
         $propuesta = $this->generadorService->generarPropuestaRol($this->grupo, [

@@ -335,6 +335,7 @@ class PartidosProgramacionTest extends TestCase
             'arbitro_id' => $nuevoArbitro->id,
             'fecha_partido' => '2026-11-21',
             'hora_partido' => '16:00',
+            'motivo' => 'Ajuste de horario y sede por disponibilidad de campo.',
         ];
 
         $this->actingAs($this->programador)
@@ -604,6 +605,7 @@ class PartidosProgramacionTest extends TestCase
         $this->actingAs($this->programador)
             ->put(route('partidos.update', $partido), [
                 'hora_partido' => '16:00',
+                'motivo' => 'Ajuste de hora para prueba de bloqueo concurrente.',
             ])
             ->assertRedirect(route('jornadas.show', $this->jornada));
 

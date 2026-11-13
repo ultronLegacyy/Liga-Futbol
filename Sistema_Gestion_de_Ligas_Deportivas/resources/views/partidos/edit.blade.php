@@ -127,7 +127,7 @@
                     required
                     min="{{ \Carbon\Carbon::parse($partido->jornada->fecha_inicio)->format('Y-m-d') }}"
                     max="{{ \Carbon\Carbon::parse($partido->jornada->fecha_fin)->format('Y-m-d') }}"
-                    value="{{ old('fecha_partido', \Carbon\Carbon::parse($partido->fecha_partido)->format('Y-m-d')) }}"
+                    value="{{ is_string(old('fecha_partido')) ? old('fecha_partido') : ($partido->fecha_partido ? \Carbon\Carbon::parse($partido->fecha_partido)->format('Y-m-d') : '') }}"
                     class="{{ $campo }} {{ $errors->has('fecha_partido') ? 'border-red-500' : 'border-gray-600' }}"
                     @if ($errors->has('fecha_partido')) aria-invalid="true" aria-describedby="fecha_partido-error" @endif
                 >
@@ -139,12 +139,26 @@
                     id="hora_partido"
                     name="hora_partido"
                     required
-                    value="{{ old('hora_partido', \Carbon\Carbon::parse($partido->hora_partido)->format('H:i')) }}"
+                    value="{{ is_string(old('hora_partido')) ? old('hora_partido') : ($partido->hora_partido ? \Carbon\Carbon::parse($partido->hora_partido)->format('H:i') : '') }}"
                     class="{{ $campo }} {{ $errors->has('hora_partido') ? 'border-red-500' : 'border-gray-600' }}"
                     @if ($errors->has('hora_partido')) aria-invalid="true" aria-describedby="hora_partido-error" @endif
                 >
             </x-form.field>
         </div>
+
+        {{-- Motivo de reprogramación si el partido ya no es borrador (HU-029) --}}
+        @if (! $partido->esBorrador())
+            <x-form.field name="motivo" label="Motivo de reprogramación (Obligatorio si cambia fecha, hora o cancha, mín. 10 caracteres)" :error="$errors->first('motivo')">
+                <textarea
+                    id="motivo"
+                    name="motivo"
+                    rows="3"
+                    placeholder="Registra el motivo por el cual se modifica la fecha, hora o cancha de este partido..."
+                    class="{{ $campo }} {{ $errors->has('motivo') ? 'border-red-500' : 'border-gray-600' }}"
+                >{{ is_string(old('motivo')) ? old('motivo') : '' }}</textarea>
+                <p class="text-xs text-gray-400 mt-1">Este partido se encuentra en estado '{{ $partido->estado }}'. Todo cambio de programación quedará auditado en la bitácora oficial (HU-029).</p>
+            </x-form.field>
+        @endif
 
         <div class="flex items-center gap-4 pt-4 border-t border-gray-700">
             <button type="submit" class="px-5 py-2.5 bg-blue-600 text-white font-medium text-sm rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 transition">

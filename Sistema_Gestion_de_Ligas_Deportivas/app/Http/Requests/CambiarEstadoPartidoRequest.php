@@ -38,16 +38,12 @@ class CambiarEstadoPartidoRequest extends FormRequest
         ];
 
         return [
-            'nuevo_estado' => ['required', 'string', Rule::in($estadosValidos)],
+            'nuevo_estado' => ['bail', 'required', 'string', Rule::in($estadosValidos)],
             'motivo' => [
-                'nullable',
+                'bail',
+                'required',
                 'string',
-                Rule::requiredIf(fn () => in_array($this->input('nuevo_estado'), [
-                    Partido::ESTADO_CANCELADO,
-                    Partido::ESTADO_SUSPENDIDO,
-                    Partido::ESTADO_REPROGRAMADO,
-                ], true)),
-                'min:5',
+                'min:10',
                 'max:1000',
             ],
         ];
@@ -61,8 +57,8 @@ class CambiarEstadoPartidoRequest extends FormRequest
         return [
             'nuevo_estado.required' => 'Debe seleccionar el nuevo estado del partido.',
             'nuevo_estado.in' => 'El estado seleccionado no es válido en el sistema.',
-            'motivo.required' => 'El motivo es obligatorio al cancelar, suspender o reprogramar un partido (Criterio 2).',
-            'motivo.min' => 'El motivo debe contener al menos 5 caracteres descriptivos.',
+            'motivo.required' => 'El motivo es obligatorio en todo cambio de estado (HU-029 Criterio 2).',
+            'motivo.min' => 'El motivo debe contener al menos 10 caracteres descriptivos.',
             'motivo.max' => 'El motivo no debe exceder los 1000 caracteres.',
         ];
     }

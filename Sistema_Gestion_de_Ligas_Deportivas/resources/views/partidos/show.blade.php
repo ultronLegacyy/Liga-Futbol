@@ -26,6 +26,10 @@
         <x-alert type="success" :message="session('success')" />
     @endif
 
+    @if (session('error'))
+        <x-alert type="error" :message="session('error')" />
+    @endif
+
     {{-- HU-036: rechazo del borrado del partido (por ejemplo, con la cédula capturada) --}}
     @if ($errors->any())
         <x-alert type="error" :message="$errors->first()" />

@@ -18,54 +18,55 @@ class GestionEstadoPartidoService
      */
     public function cambiarEstado(Partido $partido, string $nuevoEstado, ?string $motivo = null, ?User $usuario = null): Partido
     {
-        $estadoActual = $partido->estado;
-
-        if (! $partido->puedeTransicionarA($nuevoEstado)) {
-            $permitidos = implode(', ', $partido->transicionesPermitidas());
-            $mensaje = empty($permitidos)
-                ? "El partido en estado '{$estadoActual}' es terminal y no admite más transiciones."
-                : "Transición no válida de '{$estadoActual}' a '{$nuevoEstado}'. Estados permitidos: {$permitidos}.";
-
+        // El motivo es obligatorio en todo cambio de estado con al menos 10 caracteres (HU-029 Criterio 2)
+        $motivoLimpio = trim((string) $motivo);
+        if (mb_strlen($motivoLimpio) < 10) {
             throw ValidationException::withMessages([
-                'nuevo_estado' => $mensaje,
+                'motivo' => 'El motivo es obligatorio en todo cambio de estado y debe contener al menos 10 caracteres explicativos (HU-029).',
             ]);
         }
 
-        // Si cambia a cancelado, suspendido o reprogramado, el motivo es obligatorio (Criterio 2)
-        if (in_array($nuevoEstado, [Partido::ESTADO_CANCELADO, Partido::ESTADO_SUSPENDIDO, Partido::ESTADO_REPROGRAMADO], true)) {
-            $motivoLimpio = trim((string) $motivo);
-            if (mb_strlen($motivoLimpio) < 5) {
+        $usuarioActuante = $usuario ?? auth()->user();
+        if (! $usuarioActuante instanceof User) {
+            throw ValidationException::withMessages([
+                'usuario' => 'Se requiere un usuario autenticado para registrar el cambio de estado en la bitácora oficial (HU-029).',
+            ]);
+        }
+        $usuarioId = $usuarioActuante->id;
+
+        return DB::transaction(function () use ($partido, $nuevoEstado, $motivoLimpio, $usuarioId): Partido {
+            // Concurrencia (Obligatorio 4): bloquear la fila en base de datos antes de validar la transición
+            $partidoBloqueado = Partido::query()->whereKey($partido->id)->lockForUpdate()->firstOrFail();
+            $estadoActual = $partidoBloqueado->estado;
+
+            if (! $partidoBloqueado->puedeTransicionarA($nuevoEstado)) {
+                $permitidos = implode(', ', $partidoBloqueado->transicionesPermitidas());
+                $mensaje = empty($permitidos)
+                    ? "El partido en estado '{$estadoActual}' es terminal y no admite más transiciones."
+                    : "Transición no válida de '{$estadoActual}' a '{$nuevoEstado}'. Estados permitidos: {$permitidos}.";
+
                 throw ValidationException::withMessages([
-                    'motivo' => 'El motivo es obligatorio y debe contener al menos 5 caracteres descriptivos.',
+                    'nuevo_estado' => $mensaje,
                 ]);
             }
-        }
-
-        $usuarioActuante = $usuario ?? auth()->user();
-        $usuarioId = $usuarioActuante?->id;
-
-        return DB::transaction(function () use ($partido, $estadoActual, $nuevoEstado, $motivo, $usuarioId): Partido {
-            $partidoBloqueado = Partido::query()->whereKey($partido->id)->lockForUpdate()->firstOrFail();
 
             $partidoBloqueado->estado = $nuevoEstado;
             $partidoBloqueado->save();
 
-            // Registrar auditoría de la transición en reprogramaciones_partidos
-            if ($usuarioId !== null) {
-                ReprogramacionPartido::create([
-                    'partido_id' => $partidoBloqueado->id,
-                    'usuario_id' => $usuarioId,
-                    'estado_anterior' => $estadoActual,
-                    'estado_nuevo' => $nuevoEstado,
-                    'cancha_anterior_id' => $partidoBloqueado->cancha_id,
-                    'cancha_nueva_id' => $partidoBloqueado->cancha_id,
-                    'fecha_anterior' => $partidoBloqueado->fecha_partido,
-                    'fecha_nueva' => $partidoBloqueado->fecha_partido,
-                    'hora_anterior' => $partidoBloqueado->hora_partido,
-                    'hora_nueva' => $partidoBloqueado->hora_partido,
-                    'motivo' => $motivo ?? "Cambio de estado de '{$estadoActual}' a '{$nuevoEstado}'.",
-                ]);
-            }
+            // Registrar auditoría de la transición en reprogramaciones_partidos (RNF-22)
+            ReprogramacionPartido::create([
+                'partido_id' => $partidoBloqueado->id,
+                'usuario_id' => $usuarioId,
+                'estado_anterior' => $estadoActual,
+                'estado_nuevo' => $nuevoEstado,
+                'cancha_anterior_id' => $partidoBloqueado->cancha_id,
+                'cancha_nueva_id' => $partidoBloqueado->cancha_id,
+                'fecha_anterior' => $partidoBloqueado->fecha_partido,
+                'fecha_nueva' => $partidoBloqueado->fecha_partido,
+                'hora_anterior' => $partidoBloqueado->hora_partido,
+                'hora_nueva' => $partidoBloqueado->hora_partido,
+                'motivo' => $motivoLimpio,
+            ]);
 
             return $partidoBloqueado;
         });

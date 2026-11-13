@@ -112,7 +112,7 @@ class PartidoController extends Controller
      */
     public function update(UpdatePartidoRequest $request, Partido $partido): RedirectResponse
     {
-        $this->programacionService->actualizarPartido($partido, $request->validated());
+        $this->programacionService->actualizarPartido($partido, $request->validated(), $request->user());
 
         return redirect()->route('jornadas.show', $partido->jornada)
             ->with('success', 'Partido actualizado y reprogramado correctamente.');

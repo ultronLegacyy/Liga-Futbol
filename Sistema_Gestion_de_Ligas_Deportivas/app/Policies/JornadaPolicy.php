@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\Grupo;
 use App\Models\Jornada;
+use App\Models\Partido;
 use App\Models\User;
 use Illuminate\Auth\Access\Response;
 
@@ -26,14 +27,14 @@ class JornadaPolicy
 
     public function viewAny(User $usuario): Response
     {
-        return $usuario->can('partidos.ver')
+        return ($usuario->can('partidos.ver') || $usuario->can('programacion.aprobar'))
             ? Response::allow()
             : Response::deny('No cuenta con privilegios para consultar jornadas.');
     }
 
     public function view(User $usuario, Jornada $jornada): Response
     {
-        return $usuario->can('partidos.ver')
+        return ($usuario->can('partidos.ver') || $usuario->can('programacion.aprobar'))
             ? Response::allow()
             : Response::deny('No cuenta con privilegios para consultar esta jornada.');
     }
@@ -66,6 +67,16 @@ class JornadaPolicy
             return Response::deny('Una temporada cerrada no admite cambios en sus jornadas.');
         }
 
+        // Obligatorio 2: Solo jornadas en borrador sin partidos protegidos pueden eliminarse (HU-030, HU-031)
+        if (! $jornada->esBorrador()) {
+            return Response::deny("No se puede eliminar una jornada en estado '{$jornada->estado}'. Solo jornadas en estado borrador pueden eliminarse.");
+        }
+
+        $tieneNoEliminables = $jornada->partidos()->get()->contains(fn (Partido $p) => ! $p->esEliminable());
+        if ($tieneNoEliminables) {
+            return Response::deny('No se puede eliminar la jornada porque contiene partidos protegidos (con cédula arbitral, historial de reprogramación o fuera de borrador).');
+        }
+
         return $usuario->can('partidos.programar')
             ? Response::allow()
             : Response::deny('No cuenta con privilegios para eliminar jornadas.');
@@ -90,7 +101,8 @@ class JornadaPolicy
     }
 
     /**
-     * Aprobación de la programación semanal por el Comité Ejecutivo (HU-030 / Anexo B / SCRUM-199).
+     * Aprobación de la programación semanal (HU-030 / Anexo B / SCRUM-199).
+     * Obligatorio 9: Se desacopla de partidos.programar para evitar autoaprobación del Programador.
      */
     public function aprobar(User $usuario, Jornada $jornada): Response
     {
@@ -99,21 +111,12 @@ class JornadaPolicy
         }
 
         if ($jornada->estado !== Jornada::ESTADO_EN_REVISION) {
-            return Response::deny("Solo una jornada en estado de revisión puede ser aprobada por el Comité Ejecutivo (estado actual: {$jornada->estado}).");
+            return Response::deny("Solo una jornada en estado de revisión puede ser aprobada (estado actual: {$jornada->estado}).");
         }
 
-        $esComiteEjecutivo = $usuario->hasAnyRole([
-            'Administrador General',
-            'Presidente',
-            'Secretario',
-            'Tesorero',
-            'Comisión Arbitral',
-            'Comision de la Rama Infantil',
-        ]);
-
-        return ($esComiteEjecutivo || $usuario->can('partidos.programar'))
+        return ($usuario->hasRole('Administrador General') || $usuario->can('programacion.aprobar'))
             ? Response::allow()
-            : Response::deny('Solo los integrantes del Comité Ejecutivo o administradores pueden aprobar la programación semanal.');
+            : Response::deny('Solo los usuarios autorizados para aprobar programación o administradores generales pueden aprobar la jornada.');
     }
 
     /**

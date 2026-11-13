@@ -35,8 +35,8 @@ return new class () extends Migration {
         // 3. Crear tabla de auditoría para reprogramaciones de partidos (HU-029 / RF-06.4 / RNF-22)
         Schema::create('reprogramaciones_partidos', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('partido_id')->constrained('partidos')->cascadeOnDelete();
-            $table->foreignId('usuario_id')->constrained('usuarios')->cascadeOnDelete();
+            $table->foreignId('partido_id')->constrained('partidos')->restrictOnDelete();
+            $table->foreignId('usuario_id')->constrained('usuarios')->restrictOnDelete();
             $table->string('estado_anterior', 30);
             $table->string('estado_nuevo', 30);
             $table->foreignId('cancha_anterior_id')->nullable()->constrained('canchas')->nullOnDelete();
@@ -57,11 +57,14 @@ return new class () extends Migration {
     {
         Schema::dropIfExists('reprogramaciones_partidos');
 
-        Schema::table('jornadas', function (Blueprint $table) {
-            $table->dropForeign(['aprobado_por_id']);
-            $table->dropColumn(['estado', 'aprobado_por_id', 'fecha_aprobacion', 'fecha_publicacion']);
-        });
+        if (Schema::hasColumn('jornadas', 'aprobado_por_id')) {
+            Schema::table('jornadas', function (Blueprint $table) {
+                $table->dropForeign(['aprobado_por_id']);
+                $table->dropColumn(['estado', 'aprobado_por_id', 'fecha_aprobacion', 'fecha_publicacion']);
+            });
+        }
 
+        DB::table('partidos')->whereIn('estado', ['cancelado', 'reprogramado'])->update(['estado' => 'suspendido']);
         DB::statement("ALTER TABLE partidos MODIFY COLUMN estado ENUM('borrador', 'programado', 'confirmado', 'en juego', 'finalizado', 'suspendido') NOT NULL DEFAULT 'borrador'");
     }
 };

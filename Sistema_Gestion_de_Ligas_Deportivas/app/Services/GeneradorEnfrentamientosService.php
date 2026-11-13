@@ -665,15 +665,21 @@ class GeneradorEnfrentamientosService
                         ]);
                     }
 
-                    // Verificar en memoria si hay partidos ya jugados, en juego, suspendidos o confirmados
+                    // Obligatorio 2: Verificar que las jornadas estén en borrador y que todos sus partidos sean eliminables (HU-031)
                     foreach ($jornadasExistentes as $jornadaEx) {
-                        $tieneProtegidos = $jornadaEx->partidos->contains(function (Partido $p) {
-                            return in_array($p->estado, ['confirmado', 'en juego', 'suspendido', 'finalizado'], true);
+                        if (! $jornadaEx->esBorrador()) {
+                            throw ValidationException::withMessages([
+                                'grupo' => "La jornada {$jornadaEx->numero_jornada} se encuentra en estado '{$jornadaEx->estado}' y no puede ser reemplazada (HU-030).",
+                            ]);
+                        }
+
+                        $tieneNoEliminables = $jornadaEx->partidos->contains(function (Partido $p) {
+                            return ! $p->esEliminable();
                         });
 
-                        if ($tieneProtegidos) {
+                        if ($tieneNoEliminables) {
                             throw ValidationException::withMessages([
-                                'grupo' => "La jornada {$jornadaEx->numero_jornada} contiene partidos en estado confirmado, en juego, suspendido o finalizado y no puede ser reemplazada.",
+                                'grupo' => "La jornada {$jornadaEx->numero_jornada} contiene partidos protegidos (con cédula, bitácora de reprogramación o fuera de borrador) y no puede ser reemplazada (HU-031).",
                             ]);
                         }
                     }

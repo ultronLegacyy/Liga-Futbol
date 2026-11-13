@@ -64,7 +64,10 @@ class JornadaPublicacionYConflictosTest extends TestCase
         $this->programador = $this->crearUsuario('prog_pub@liga.com', 'Programador de Partidos');
         $this->comiteUser = $this->crearUsuario('presidente_pub@liga.com', 'Presidente');
 
-        $this->temporada = Temporada::factory()->activa()->create();
+        $this->temporada = Temporada::factory()->activa()->create([
+            'fecha_inicio' => '2026-01-01',
+            'fecha_fin' => '2026-12-31',
+        ]);
         $categoria = Categoria::factory()->create(['temporada_id' => $this->temporada->id]);
         $this->grupo = Grupo::factory()->create(['categoria_id' => $categoria->id]);
 
@@ -326,6 +329,78 @@ class JornadaPublicacionYConflictosTest extends TestCase
         $textosConflictos = implode(' ', $response['conflictos']);
         $this->assertStringContainsString('descanso', $textosConflictos);
         $this->assertStringContainsString('más de una vez', $textosConflictos);
+    }
+
+    public function test_programador_no_puede_aprobar_su_propia_jornada(): void
+    {
+        $this->jornada->update(['estado' => Jornada::ESTADO_EN_REVISION]);
+
+        // El Programador de Partidos tiene prohibido aprobar (Obligatorio 9)
+        $this->actingAs($this->programador)
+            ->post(route('jornadas.aprobar', $this->jornada))
+            ->assertForbidden();
+
+        $this->assertSame(Jornada::ESTADO_EN_REVISION, $this->jornada->fresh()->estado);
+    }
+
+    public function test_partido_cancelado_no_bloquea_publicacion_ni_genera_conflictos(): void
+    {
+        // Partido activo completo
+        Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->equipoA->id,
+            'equipo_visitante_id' => $this->equipoB->id,
+            'cancha_id' => $this->cancha1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        // Partido cancelado sin cancha (no debe generar conflicto según Obligatorio 11)
+        Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->equipoC->id,
+            'equipo_visitante_id' => $this->equipoD->id,
+            'cancha_id' => null,
+            'fecha_partido' => null,
+            'hora_partido' => null,
+            'estado' => Partido::ESTADO_CANCELADO,
+        ]);
+
+        $conflictos = app(\App\Services\PublicacionProgramacionService::class)->detectarConflictos($this->jornada);
+        $this->assertEmpty($conflictos, 'Los partidos cancelados no deben generar conflictos de horario o asignación incompleta.');
+    }
+
+    public function test_modificar_o_agregar_partido_en_jornada_aprobada_la_regresa_a_borrador(): void
+    {
+        $partido = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->equipoA->id,
+            'equipo_visitante_id' => $this->equipoB->id,
+            'cancha_id' => $this->cancha1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_BORRADOR,
+        ]);
+
+        $this->jornada->update([
+            'estado' => Jornada::ESTADO_APROBADA,
+            'aprobado_por_id' => $this->comiteUser->id,
+            'fecha_aprobacion' => now(),
+        ]);
+
+        // Al agregar un nuevo partido a la jornada aprobada
+        app(\App\Services\ProgramacionJornadaService::class)->programarPartido($this->jornada, [
+            'equipo_local_id' => $this->equipoC->id,
+            'equipo_visitante_id' => $this->equipoD->id,
+            'cancha_id' => $this->cancha2->id,
+            'fecha_partido' => '2026-11-21',
+            'hora_partido' => '12:00:00',
+        ]);
+
+        // Obligatorio 10: La jornada regresa a borrador para requerir nueva revisión
+        $this->assertSame(Jornada::ESTADO_BORRADOR, $this->jornada->fresh()->estado);
+        $this->assertNull($this->jornada->fresh()->aprobado_por_id);
     }
 
     private function crearEquipo(string $nombre, ?Grupo $grupo = null): Equipo

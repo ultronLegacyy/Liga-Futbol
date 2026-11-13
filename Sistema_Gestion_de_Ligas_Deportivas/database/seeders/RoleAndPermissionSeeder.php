@@ -149,6 +149,7 @@ class RoleAndPermissionSeeder extends Seeder
             'partidos.ver',
             'partidos.programar',
             'partidos.reprogramar',
+            'programacion.aprobar',
 
             // Modulo Cedulas y Captura de Resultados
             'cedulas.ver',
@@ -198,6 +199,8 @@ class RoleAndPermissionSeeder extends Seeder
             'clubes.ver',
             'equipos.ver',
             'campos.ver',
+            'partidos.ver',
+            'programacion.aprobar',
             'finanzas.reportes',
         ];
         $rolesCreados['Presidente']->syncPermissions($permisosPresidente);
@@ -222,12 +225,16 @@ class RoleAndPermissionSeeder extends Seeder
             'personas.crear',
             'personas.editar',
             'campos.ver',
+            'partidos.ver',
+            'programacion.aprobar',
         ];
         $rolesCreados['Secretario']->syncPermissions($permisosSecretario);
 
         // Rol Tesorero: administracion financiera, cargos, pagos y reportes (aislamiento total de disciplina y competicion)
         $permisosTesorero = [
             'gobernanza.panel',
+            'partidos.ver',
+            'programacion.aprobar',
             'finanzas.ver',
             'finanzas.cargos',
             'finanzas.pagos_validar',
@@ -247,6 +254,8 @@ class RoleAndPermissionSeeder extends Seeder
             'jugadores.ver',
             'jugadores.validar_edad',
             'campos.ver',
+            'partidos.ver',
+            'programacion.aprobar',
         ];
         $rolesCreados['Comision de la Rama Infantil']->syncPermissions($permisosComisionInfantil);
 
@@ -320,6 +329,7 @@ class RoleAndPermissionSeeder extends Seeder
             'arbitros.editar',
             'arbitros.asignar',
             'partidos.ver',
+            'programacion.aprobar',
             'cedulas.ver',
         ];
         $rolesCreados['Comisión Arbitral']->syncPermissions($permisosComisionArbitral);
