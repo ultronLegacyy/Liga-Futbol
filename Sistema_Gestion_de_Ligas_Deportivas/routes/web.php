@@ -20,6 +20,7 @@ use App\Http\Controllers\PartidoController;
 use App\Http\Controllers\PersonaController;
 use App\Http\Controllers\RecuperacionContrasenaController;
 use App\Http\Controllers\ReglaTemporadaController;
+use App\Http\Controllers\ResultadoController;
 use App\Http\Controllers\RolPermisoController;
 use App\Http\Controllers\TarjetonDigitalController;
 use App\Http\Controllers\TemporadaController;
@@ -156,6 +157,15 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/partidos/{partido}/cedula/incidencias', [CedulaController::class, 'incidencia'])
             ->whereNumber('partido')
             ->name('cedulas.incidencias');
+
+        // Validación oficial de resultados: sin validar no cuentan para la tabla (HU-040, RF-08.4)
+        Route::middleware(['can:resultados.validar'])->group(function () {
+            Route::get('/resultados', [ResultadoController::class, 'index'])
+                ->name('resultados.index');
+            Route::post('/resultados/{cedula}/validar', [ResultadoController::class, 'validar'])
+                ->whereNumber('cedula')
+                ->name('resultados.validar');
+        });
 
         Route::get('/partidos/{partido}/arbitro', [ArbitroController::class, 'editarAsignacion'])
             ->name('partidos.arbitro.edit');
