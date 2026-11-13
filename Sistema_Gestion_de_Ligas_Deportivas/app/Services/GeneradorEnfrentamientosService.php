@@ -678,6 +678,18 @@ class GeneradorEnfrentamientosService
                         }
                     }
 
+                    // HU-036: una cédula con datos capturados no se borra en cascada al reemplazar el rol (RNF-30)
+                    $conCedula = Partido::query()
+                        ->whereIn('jornada_id', $jornadasExistentes->pluck('id'))
+                        ->conCedulaCapturada()
+                        ->exists();
+
+                    if ($conCedula) {
+                        throw ValidationException::withMessages([
+                            'grupo' => 'El grupo tiene partidos cuya cédula arbitral ya tiene datos capturados y su rol no puede ser reemplazado.',
+                        ]);
+                    }
+
                     // Eliminar jornadas y partidos previos individualmente para disparar auditoría (RNF-30)
                     foreach ($jornadasExistentes as $jornadaEx) {
                         foreach ($jornadaEx->partidos as $partidoEx) {

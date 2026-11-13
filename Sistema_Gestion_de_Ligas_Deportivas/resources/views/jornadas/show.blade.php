@@ -46,6 +46,13 @@
                 <x-alert type="error" :message="session('error')" />
             </div>
         @endif
+
+        {{-- HU-036: rechazo del borrado de un partido (por ejemplo, con la cédula capturada) --}}
+        @if ($errors->any())
+            <div class="mt-4">
+                <x-alert type="error" :message="$errors->first()" />
+            </div>
+        @endif
     </div>
 
     {{-- Tarjeta de descanso de la jornada (HU-028 / RF-06.2 / SCRUM-159) --}}

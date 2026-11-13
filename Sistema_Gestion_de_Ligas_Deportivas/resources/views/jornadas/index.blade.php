@@ -44,6 +44,11 @@
         <x-alert type="error" :message="session('error')" />
     @endif
 
+    {{-- HU-036: rechazo del borrado de una jornada (por ejemplo, con una cédula capturada) --}}
+    @if ($errors->any())
+        <x-alert type="error" :message="$errors->first()" />
+    @endif
+
     <x-table caption="Listado de jornadas del grupo">
         <thead class="bg-gray-700/50 text-gray-200 uppercase text-xs">
             <tr>

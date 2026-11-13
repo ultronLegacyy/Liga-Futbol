@@ -493,6 +493,9 @@ class DatabaseSeeder extends Seeder
             'updated_at' => $now,
         ]);
 
+        // HU-036: la cuenta del árbitro se enlaza a su persona para que vea las cédulas de sus partidos (PA-19)
+        DB::table('usuarios')->where('id', $arbitroUserId)->update(['persona_id' => $pArbitroId]);
+
         // 17. documentos_persona
         DB::table('documentos_persona')->insert([
             [
@@ -646,8 +649,11 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // 26. cedulas_arbitrales
+        // El partido 1 ya terminó y su cédula tiene las dos firmas: queda cerrada (HU-075)
         $cedula1Id = DB::table('cedulas_arbitrales')->insertGetId([
             'partido_id' => $partido1Id,
+            'estado' => 'cerrada',
+            'cerrada_en' => '2026-10-18 12:00:00',
             'goles_local' => 2,
             'goles_visitante' => 1,
             'informe_arbitral' => 'Partido disputado con normalidad. Se suscito una amonestacion por falta temeraria en el segundo tiempo.',

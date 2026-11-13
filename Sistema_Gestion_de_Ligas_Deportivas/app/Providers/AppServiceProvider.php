@@ -6,6 +6,7 @@ use App\Models\Arbitro;
 use App\Models\BloqueoCancha;
 use App\Models\Cancha;
 use App\Models\CargoFinanciero;
+use App\Models\CedulaArbitral;
 use App\Models\Categoria;
 use App\Models\Club;
 use App\Models\DirectivoClub;
@@ -26,6 +27,7 @@ use App\Policies\ArbitroPolicy;
 use App\Policies\BloqueoCanchaPolicy;
 use App\Policies\CanchaPolicy;
 use App\Policies\CargoFinancieroPolicy;
+use App\Policies\CedulaArbitralPolicy;
 use App\Policies\CategoriaPolicy;
 use App\Policies\ClubPolicy;
 use App\Policies\EquipoPolicy;
@@ -76,6 +78,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(TarjetonDigital::class, TarjetonDigitalPolicy::class);
         Gate::policy(Jugador::class, JugadorPolicy::class);
         Gate::policy(Partido::class, PartidoPolicy::class);
+        Gate::policy(CedulaArbitral::class, CedulaArbitralPolicy::class);
         Gate::policy(CargoFinanciero::class, CargoFinancieroPolicy::class);
         Gate::policy(Pago::class, PagoPolicy::class);
 

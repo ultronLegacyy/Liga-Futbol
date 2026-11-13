@@ -26,6 +26,11 @@
         <x-alert type="success" :message="session('success')" />
     @endif
 
+    {{-- HU-036: rechazo del borrado del partido (por ejemplo, con la cédula capturada) --}}
+    @if ($errors->any())
+        <x-alert type="error" :message="$errors->first()" />
+    @endif
+
     {{-- Enfrentamiento visual --}}
     <div class="bg-gray-900/60 border border-gray-700 rounded-xl p-6 text-center">
         <div class="grid grid-cols-1 sm:grid-cols-3 items-center gap-4">

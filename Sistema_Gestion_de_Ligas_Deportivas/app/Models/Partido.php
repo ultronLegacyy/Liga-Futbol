@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 // Partido de una jornada (RF-06.1). HU-025 usa su cancha y su horario, HU-026 su árbitro; HU-014/HU-027 completan el resto
 class Partido extends Model
@@ -80,6 +81,24 @@ class Partido extends Model
     public function arbitro(): BelongsTo
     {
         return $this->belongsTo(Arbitro::class);
+    }
+
+    // Cédula arbitral del partido (HU-036); se crea al abrirla
+    /** @return HasOne<CedulaArbitral, $this> */
+    public function cedula(): HasOne
+    {
+        return $this->hasOne(CedulaArbitral::class, 'partido_id');
+    }
+
+    /**
+     * Partidos cuya cédula ya tiene datos capturados (HU-036): no se borran ni se reemplazan (RNF-30).
+     *
+     * @param  Builder<Partido>  $query
+     * @return Builder<Partido>
+     */
+    public function scopeConCedulaCapturada(Builder $query): Builder
+    {
+        return $query->whereHas('cedula', fn (Builder $cedula) => $cedula->conDatosCapturados());
     }
 
     /**
