@@ -9,6 +9,7 @@ use App\Http\Controllers\CedulaController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\EquipoController;
+use App\Http\Controllers\EstadisticasGrupoController;
 use App\Http\Controllers\ForcePasswordChangeController;
 use App\Http\Controllers\GeneradorEnfrentamientosController;
 use App\Http\Controllers\GrupoController;
@@ -115,6 +116,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/grupos/{grupo}/tabla', [TablaPosicionesController::class, 'show'])
             ->whereNumber('grupo')
             ->name('grupos.tabla');
+        // Goleo, tarjetas, sanciones y tabla histórica por jornada (HU-043, RF-09.3)
+        Route::get('/grupos/{grupo}/estadisticas', [EstadisticasGrupoController::class, 'show'])
+            ->whereNumber('grupo')
+            ->name('grupos.estadisticas');
 
         Route::get('/grupos/{grupo}/generar-rol', [GeneradorEnfrentamientosController::class, 'configurar'])
             ->name('grupos.generar-rol');
