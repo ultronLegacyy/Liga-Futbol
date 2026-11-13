@@ -18,6 +18,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $goles_local
  * @property int $goles_visitante
  * @property \Illuminate\Support\Carbon|null $cerrada_en
+ * @property int|null $validada_por_id
+ * @property \Illuminate\Support\Carbon|null $validada_en
  */
 class CedulaArbitral extends Model
 {
@@ -42,6 +44,8 @@ class CedulaArbitral extends Model
         'firma_capitan_visitante',
         'cerrada_por_id',
         'cerrada_en',
+        'validada_por_id',
+        'validada_en',
     ];
 
     /**
@@ -53,6 +57,7 @@ class CedulaArbitral extends Model
             'goles_local' => 'integer',
             'goles_visitante' => 'integer',
             'cerrada_en' => 'datetime',
+            'validada_en' => 'datetime',
         ];
     }
 
@@ -60,6 +65,34 @@ class CedulaArbitral extends Model
     public function estaCerrada(): bool
     {
         return $this->estado === self::CERRADA;
+    }
+
+    // HU-040: el resultado es oficial solo cuando la cédula está cerrada y alguien con resultados.validar lo validó
+    public function esOficial(): bool
+    {
+        return $this->estaCerrada() && $this->validada_en !== null;
+    }
+
+    /**
+     * Resultados oficiales (HU-040): los únicos que cuentan para la tabla de posiciones y las estadísticas.
+     *
+     * @param  Builder<CedulaArbitral>  $query
+     * @return Builder<CedulaArbitral>
+     */
+    public function scopeOficiales(Builder $query): Builder
+    {
+        return $query->where('estado', self::CERRADA)->whereNotNull('validada_en');
+    }
+
+    /**
+     * Resultados capturados y cerrados que esperan la validación oficial (HU-040).
+     *
+     * @param  Builder<CedulaArbitral>  $query
+     * @return Builder<CedulaArbitral>
+     */
+    public function scopePorValidar(Builder $query): Builder
+    {
+        return $query->where('estado', self::CERRADA)->whereNull('validada_en');
     }
 
     /**
@@ -89,6 +122,12 @@ class CedulaArbitral extends Model
     public function cerradaPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'cerrada_por_id');
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function validadaPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'validada_por_id');
     }
 
     /** @return HasMany<AlineacionPartido, $this> */
