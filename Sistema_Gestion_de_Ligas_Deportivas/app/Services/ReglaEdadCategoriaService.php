@@ -49,6 +49,18 @@ class ReglaEdadCategoriaService
     }
 
     /**
+     * Años cumplidos a una fecha; sin fecha, a «hoy» con la hora de México. Compara solo
+     * fechas: la zona de la app es UTC y desde las 18:00 de México ya va en el día siguiente.
+     */
+    public static function edadCumplida(Persona $persona, ?CarbonInterface $fecha = null): int
+    {
+        $hoy = Carbon::parse(($fecha ?? now(GestionJugadorService::ZONA_HORARIA))->toDateString());
+        $nacimiento = Carbon::parse(Carbon::parse($persona->fecha_nacimiento)->toDateString());
+
+        return (int) $nacimiento->diffInYears($hoy);
+    }
+
+    /**
      * Regla de la Liga: solo se inscriben jugadores con la edad mínima cumplida a la fecha
      * de la operación, sin importar la categoría.
      */
@@ -60,9 +72,7 @@ class ReglaEdadCategoriaService
             return;
         }
 
-        $edad = (int) Carbon::parse($persona->fecha_nacimiento)->diffInYears($fecha ?? now());
-
-        if ($edad < $minima) {
+        if (self::edadCumplida($persona, $fecha) < $minima) {
             throw ValidationException::withMessages([
                 $campo => "La Liga solo inscribe jugadores mayores de edad: el jugador debe tener {$minima} años cumplidos.",
             ]);

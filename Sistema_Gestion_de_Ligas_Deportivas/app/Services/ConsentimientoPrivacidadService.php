@@ -8,7 +8,6 @@ use App\Models\Jugador;
 use App\Models\Persona;
 use App\Models\User;
 use Carbon\CarbonInterface;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -37,9 +36,8 @@ class ConsentimientoPrivacidadService
             return $motivoCategoria;
         }
 
-        $edad = (int) Carbon::parse($persona->fecha_nacimiento)->diffInYears($fecha ?? now());
-
-        return $edad < (int) config('privacidad.mayoria_de_edad')
+        // A la fecha del registro con la hora de México (ReglaEdadCategoriaService::edadCumplida).
+        return ReglaEdadCategoriaService::edadCumplida($persona, $fecha) < (int) config('privacidad.mayoria_de_edad')
             ? ConsentimientoPrivacidadJugador::MOTIVO_MENOR_DE_EDAD
             : null;
     }

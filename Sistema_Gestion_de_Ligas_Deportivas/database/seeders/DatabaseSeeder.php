@@ -266,6 +266,9 @@ class DatabaseSeeder extends Seeder
 
         // 5. asambleas
         DB::table('asambleas')->insert([
+            // Ya tiene acta: es una asamblea celebrada (HU-053).
+            'tipo' => 'Ordinaria',
+            'estado' => 'Celebrada',
             'fecha' => '2026-09-20',
             'acta_pdf_url' => 'storage/asambleas/acta_ordinaria_2026_09_20.pdf',
             'acuerdos' => 'Se aprobo el inicio del torneo para el mes de octubre con 40 canchas habilitadas.',

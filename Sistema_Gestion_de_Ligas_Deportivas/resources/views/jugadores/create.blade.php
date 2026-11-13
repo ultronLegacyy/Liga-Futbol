@@ -37,7 +37,7 @@
                     </div>
                     <div>
                         <label for="fecha_nacimiento" class="mb-1 block text-sm font-medium text-gray-200">Fecha de nacimiento</label>
-                        <input id="fecha_nacimiento" name="fecha_nacimiento" type="date" value="{{ old('fecha_nacimiento') }}" required max="{{ $edadMinima === null ? now()->toDateString() : now()->subYears($edadMinima)->toDateString() }}" autocomplete="bday" @if ($edadMinima !== null) aria-describedby="fecha-nacimiento-ayuda" @endif class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
+                        <input id="fecha_nacimiento" name="fecha_nacimiento" type="date" value="{{ old('fecha_nacimiento') }}" required max="{{ $edadMinima === null ? now(App\Services\GestionJugadorService::ZONA_HORARIA)->toDateString() : now(App\Services\GestionJugadorService::ZONA_HORARIA)->subYears($edadMinima)->toDateString() }}" autocomplete="bday" @if ($edadMinima !== null) aria-describedby="fecha-nacimiento-ayuda" @endif class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
                         @if ($edadMinima !== null)
                             <p id="fecha-nacimiento-ayuda" class="mt-1 text-xs text-gray-400">La Liga solo inscribe jugadores de {{ $edadMinima }} años cumplidos o más.</p>
                         @endif
@@ -138,6 +138,7 @@
             <section id="seccion-tutor" aria-labelledby="tutor-titulo" class="rounded-lg border border-amber-700/60 bg-amber-950/20 p-5">
                 <h2 id="tutor-titulo" class="text-xl font-semibold text-white">Consentimiento del tutor</h2>
                 <p class="mt-1 text-sm text-amber-100">Obligatorio si el jugador es de la rama infantil, de categoría Juvenil o menor de 18 años. Sin el consentimiento de su madre, padre o tutor no se puede guardar el registro.</p>
+                @error('tutor') <p role="alert" class="mt-3 rounded border border-red-700 bg-red-950/40 p-3 text-sm text-red-200">{{ $message }}</p> @enderror
                 @error('tutor.consentimiento') <p role="alert" class="mt-3 rounded border border-red-700 bg-red-950/40 p-3 text-sm text-red-200">{{ $message }}</p> @enderror
                 <div class="mt-4 grid gap-5 md:grid-cols-2">
                     <div>

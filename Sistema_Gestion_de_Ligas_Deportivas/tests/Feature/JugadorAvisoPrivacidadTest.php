@@ -15,6 +15,7 @@ use App\Services\ConsentimientoPrivacidadService;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -239,6 +240,64 @@ class JugadorAvisoPrivacidadTest extends TestCase
         }
 
         $this->assertNull($servicio->motivoTutorPorCategoria(Categoria::factory()->make(['rama' => 'Veteranos', 'nombre' => 'Veteranos 40'])));
+    }
+
+    public function test_un_arreglo_en_los_datos_del_tutor_no_provoca_un_error_500(): void
+    {
+        [$delegado, $equipo, $temporada, $categoria] = $this->contexto('Infantil', 'Infantil A');
+        $datos = $this->datos($equipo, $temporada, $categoria, self::MENOR);
+        $datos['tutor'] = ['nombre_completo' => ['x'], 'telefono' => ['x'], 'correo' => ['x'], 'parentesco' => ['x'], 'consentimiento' => '1'];
+
+        $this->actingAs($delegado)->from(route('jugadores.create'))->post(route('jugadores.store'), $datos)
+            ->assertRedirect(route('jugadores.create'))
+            ->assertSessionHasErrors(['tutor.nombre_completo', 'tutor.telefono', 'tutor.parentesco']);
+
+        $this->actingAs($delegado)->get(route('jugadores.create'))->assertOk();
+        $this->assertDatabaseCount('jugadores_equipos', 0);
+    }
+
+    public function test_los_datos_del_tutor_que_no_son_un_arreglo_muestran_su_error_en_espanol(): void
+    {
+        [$delegado, $equipo, $temporada, $categoria] = $this->contexto('Infantil', 'Infantil A');
+        $datos = $this->datos($equipo, $temporada, $categoria, self::MENOR);
+        $datos['tutor'] = 'hola';
+        $mensaje = 'Los datos del tutor no son válidos; captúralos en la sección «Consentimiento del tutor».';
+
+        // followingRedirects: la página que ve el Delegado después de la redirección muestra el error.
+        $this->actingAs($delegado)->from(route('jugadores.create'))->followingRedirects()
+            ->post(route('jugadores.store'), $datos)
+            ->assertOk()
+            ->assertSee($mensaje);
+
+        $this->assertDatabaseCount('jugadores_equipos', 0);
+    }
+
+    public function test_el_correo_del_tutor_largo_responde_en_espanol(): void
+    {
+        [$delegado, $equipo, $temporada, $categoria] = $this->contexto('Infantil', 'Infantil A');
+        $datos = $this->datos($equipo, $temporada, $categoria, self::MENOR);
+        $datos['tutor']['correo'] = str_repeat('a', 160).'@correo.test';
+
+        $this->actingAs($delegado)->postJson(route('jugadores.store'), $datos)
+            ->assertJsonValidationErrors(['tutor.correo' => 'El correo del tutor no debe tener más de 160 caracteres.']);
+    }
+
+    public function test_la_minoria_de_edad_se_cuenta_con_la_hora_de_mexico(): void
+    {
+        // 19:30 del 13/11 en México ya es 14/11 en UTC: quien cumple 18 el 14/11 todavía es menor.
+        Carbon::setTestNow(Carbon::parse('2026-11-13 19:30', 'America/Mexico_City'));
+        $servicio = app(ConsentimientoPrivacidadService::class);
+        $categoria = Categoria::factory()->make(['rama' => 'Libre', 'nombre' => 'Primera Fuerza']);
+
+        try {
+            $cumpleManana = Persona::factory()->make(['fecha_nacimiento' => '2008-11-14']);
+            $cumplioHoy = Persona::factory()->make(['fecha_nacimiento' => '2008-11-13']);
+
+            $this->assertSame(ConsentimientoPrivacidadJugador::MOTIVO_MENOR_DE_EDAD, $servicio->motivoTutor($cumpleManana, $categoria));
+            $this->assertNull($servicio->motivoTutor($cumplioHoy, $categoria));
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     /** @return array{User, Equipo, Temporada, Categoria} */

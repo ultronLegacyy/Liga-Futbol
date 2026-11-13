@@ -67,9 +67,7 @@
         @endif
     </section>
 
-    @foreach (['asamblea', 'acuerdo'] as $campoGeneral)
-        @error($campoGeneral) <div role="alert" class="mt-6 rounded-lg border border-red-700 bg-red-950/40 p-4 text-sm text-red-200">{{ $message }}</div> @enderror
-    @endforeach
+    @error('asamblea') <div role="alert" class="mt-6 rounded-lg border border-red-700 bg-red-950/40 p-4 text-sm text-red-200">{{ $message }}</div> @enderror
 
     <section aria-labelledby="acuerdos-titulo" class="mt-6 rounded-xl border border-gray-700 bg-gray-800 p-6">
         <h2 id="acuerdos-titulo" class="mb-4 text-xl font-semibold text-white">Acuerdos</h2>
@@ -104,9 +102,12 @@
                                     </div>
                                     <button type="submit" class="rounded-lg bg-amber-700 px-3 py-2 text-xs font-bold text-white hover:bg-amber-600">Autorizar como regla permanente</button>
                                 </form>
-                                @error('motivo') <p class="mt-1 text-sm text-red-300">{{ $message }}</p> @enderror
                             @endcan
                         @endif
+                        {{-- Errores de la autorización de este acuerdo: van en su propia bolsa (AutorizarAcuerdoAsambleaRequest). --}}
+                        @foreach ($errors->getBag(App\Http\Requests\AutorizarAcuerdoAsambleaRequest::bolsaDeErrores($acuerdo))->all() as $mensaje)
+                            <p role="alert" class="mt-2 text-sm text-red-300">Acuerdo {{ $acuerdo->numero }}: {{ $mensaje }}</p>
+                        @endforeach
                     </li>
                 @endforeach
             </ol>

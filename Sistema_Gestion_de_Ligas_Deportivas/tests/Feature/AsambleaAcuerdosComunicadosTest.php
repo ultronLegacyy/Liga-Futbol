@@ -158,7 +158,7 @@ class AsambleaAcuerdosComunicadosTest extends TestCase
         $presidente = $this->usuario('Presidente');
         $ruta = route('asambleas.acuerdos.autorizar', [$asamblea, $acuerdo]);
 
-        $this->actingAs($presidente)->post($ruta, ['motivo' => 'corto'])->assertSessionHasErrors('motivo');
+        $this->actingAs($presidente)->post($ruta, ['motivo' => 'corto'])->assertSessionHasErrorsIn('acuerdo_'.$acuerdo->id, 'motivo');
 
         $this->actingAs($presidente)->post($ruta, [
             'motivo' => 'La asamblea votó aplicarlo en las siguientes temporadas.',
@@ -176,7 +176,7 @@ class AsambleaAcuerdosComunicadosTest extends TestCase
             ->exists());
 
         $this->actingAs($presidente)->post($ruta, ['motivo' => 'Segundo intento de autorización.'])
-            ->assertSessionHasErrors('acuerdo');
+            ->assertSessionHasErrorsIn('acuerdo_'.$acuerdo->id, 'acuerdo');
     }
 
     public function test_un_acuerdo_que_no_modifica_el_reglamento_no_puede_ser_regla_permanente(): void
@@ -190,7 +190,7 @@ class AsambleaAcuerdosComunicadosTest extends TestCase
 
         $this->actingAs($this->usuario('Presidente'))->post(route('asambleas.acuerdos.autorizar', [$asamblea, $acuerdo]), [
             'motivo' => 'Intento sobre un acuerdo que no cambia reglas.',
-        ])->assertSessionHasErrors('acuerdo');
+        ])->assertSessionHasErrorsIn('acuerdo_'.$acuerdo->id, 'acuerdo');
 
         $this->assertFalse($acuerdo->refresh()->es_regla_permanente);
     }

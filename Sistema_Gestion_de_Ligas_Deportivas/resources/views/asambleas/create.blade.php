@@ -23,7 +23,7 @@
             </div>
             <div>
                 <label for="fecha" class="mb-1 block text-sm font-medium text-gray-200">Fecha</label>
-                <input id="fecha" name="fecha" type="date" required min="{{ now()->toDateString() }}" value="{{ old('fecha') }}" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white">
+                <input id="fecha" name="fecha" type="date" required min="{{ App\Http\Requests\StoreAsambleaRequest::hoy() }}" value="{{ old('fecha') }}" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white">
                 @error('fecha') <p class="mt-1 text-sm text-red-300">{{ $message }}</p> @enderror
             </div>
             <div>
