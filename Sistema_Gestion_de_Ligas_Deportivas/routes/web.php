@@ -15,6 +15,7 @@ use App\Http\Controllers\GeneradorEnfrentamientosController;
 use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\HistorialEquipoController;
 use App\Http\Controllers\JornadaController;
+use App\Http\Controllers\LiguillaController;
 use App\Http\Controllers\JugadorController;
 use App\Http\Controllers\PagoController;
 use App\Http\Controllers\PartidoController;
@@ -120,6 +121,13 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/grupos/{grupo}/estadisticas', [EstadisticasGrupoController::class, 'show'])
             ->whereNumber('grupo')
             ->name('grupos.estadisticas');
+        // Clasificación a la liguilla y llaves desde la tabla final (HU-055, RF-11.1)
+        Route::get('/grupos/{grupo}/liguilla', [LiguillaController::class, 'show'])
+            ->whereNumber('grupo')
+            ->name('grupos.liguilla');
+        Route::post('/grupos/{grupo}/liguilla', [LiguillaController::class, 'store'])
+            ->whereNumber('grupo')
+            ->name('grupos.liguilla.store');
 
         Route::get('/grupos/{grupo}/generar-rol', [GeneradorEnfrentamientosController::class, 'configurar'])
             ->name('grupos.generar-rol');
