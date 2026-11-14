@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\DescartaArreglosEnCamposDeTexto;
 use App\Models\Categoria;
 use App\Models\Equipo;
 use App\Models\Jugador;
@@ -14,6 +15,22 @@ use Illuminate\Validation\Validator;
 
 class StoreJugadorRequest extends FormRequest
 {
+    use DescartaArreglosEnCamposDeTexto;
+
+    /**
+     * Campos de texto del formulario: si llegan como arreglo se descartan antes de
+     * validar, para que old() no provoque un 500 al volver a pintar el formulario.
+     *
+     * @return list<string>
+     */
+    protected function camposDeTexto(): array
+    {
+        return [
+            'nombre', 'apellidos', 'fecha_nacimiento', 'curp', 'dorsal', 'fotografia_base64',
+            'tutor.nombre_completo', 'tutor.parentesco', 'tutor.telefono', 'tutor.correo', 'tutor.consentimiento',
+        ];
+    }
+
     public function authorize(): bool
     {
         $user = $this->user();
@@ -137,6 +154,15 @@ class StoreJugadorRequest extends FormRequest
                     }
                 },
             ],
+            // HU-020: el aviso se muestra en todo registro; los datos del tutor los exige
+            // ConsentimientoPrivacidadService según la rama, la categoría y la edad.
+            'aviso_privacidad_aceptado' => ['bail', 'required', 'accepted'],
+            'tutor' => ['bail', 'sometimes', 'nullable', 'array'],
+            'tutor.nombre_completo' => ['bail', 'nullable', 'string', 'min:5', 'max:200'],
+            'tutor.parentesco' => ['bail', 'nullable', 'string', Rule::in((array) config('privacidad.parentescos_tutor'))],
+            'tutor.telefono' => ['bail', 'nullable', 'string', 'regex:/^[0-9]{10}$/'],
+            'tutor.correo' => ['bail', 'nullable', 'string', 'email', 'max:160'],
+            'tutor.consentimiento' => ['bail', 'nullable', 'boolean'],
         ];
 
         if ($equipo instanceof Equipo) {
@@ -218,6 +244,20 @@ class StoreJugadorRequest extends FormRequest
             'documentos.comprobante.required' => 'Debes adjuntar el comprobante de domicilio.',
             'documentos.comprobante.mimes' => 'El comprobante de domicilio debe ser un archivo JPG, PNG o PDF.',
             'documentos.comprobante.max' => 'El comprobante de domicilio no debe superar los 10 MB.',
+            'aviso_privacidad_aceptado.required' => 'Debes mostrar el aviso de privacidad y confirmar que el jugador o su tutor lo leyó antes de guardar el registro.',
+            'aviso_privacidad_aceptado.accepted' => 'Debes mostrar el aviso de privacidad y confirmar que el jugador o su tutor lo leyó antes de guardar el registro.',
+            'tutor.array' => 'Los datos del tutor no son válidos; captúralos en la sección «Consentimiento del tutor».',
+            'tutor.nombre_completo.string' => 'El nombre del tutor debe ser texto.',
+            'tutor.parentesco.string' => 'Selecciona un parentesco válido para el tutor.',
+            'tutor.telefono.string' => 'El teléfono del tutor debe tener 10 dígitos.',
+            'tutor.correo.string' => 'El correo del tutor no es válido.',
+            'tutor.correo.max' => 'El correo del tutor no debe tener más de :max caracteres.',
+            'tutor.nombre_completo.min' => 'Escribe el nombre completo del tutor.',
+            'tutor.nombre_completo.max' => 'El nombre del tutor no debe superar los 200 caracteres.',
+            'tutor.parentesco.in' => 'Selecciona un parentesco válido para el tutor.',
+            'tutor.telefono.regex' => 'El teléfono del tutor debe tener 10 dígitos.',
+            'tutor.correo.email' => 'El correo del tutor no es válido.',
+            'tutor.consentimiento.boolean' => 'El consentimiento del tutor no es válido.',
         ];
     }
 

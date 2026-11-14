@@ -21,6 +21,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Role;
+use Tests\Concerns\DatosPrivacidadJugador;
 use Tests\TestCase;
 
 /**
@@ -29,6 +30,7 @@ use Tests\TestCase;
 class JugadorReglasHu017Test extends TestCase
 {
     use DatabaseTransactions;
+    use DatosPrivacidadJugador;
 
     protected function setUp(): void
     {
@@ -291,7 +293,7 @@ class JugadorReglasHu017Test extends TestCase
             ->assertUnprocessable()->assertJsonValidationErrors(['equipo_id' => $mensaje]);
 
         $this->expectException(ValidationException::class);
-        app(RegistroJugadorService::class)->registrar($infantilB, ['persona_id' => $this->crearPersona('Nuevo', 'Adulto', '2000-01-01')->id], $delegadoB);
+        app(RegistroJugadorService::class)->registrar($infantilB, ['persona_id' => $this->crearPersona('Nuevo', 'Adulto', '2000-01-01')->id] + $this->privacidad(), $delegadoB);
     }
 
     // --- Recomendados: reglas que ninguna prueba cubría ---

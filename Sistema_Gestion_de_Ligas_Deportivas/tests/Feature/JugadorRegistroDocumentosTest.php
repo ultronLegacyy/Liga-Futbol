@@ -17,11 +17,13 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Role;
+use Tests\Concerns\DatosPrivacidadJugador;
 use Tests\TestCase;
 
 class JugadorRegistroDocumentosTest extends TestCase
 {
     use DatabaseTransactions;
+    use DatosPrivacidadJugador;
 
     protected function setUp(): void
     {
@@ -39,6 +41,7 @@ class JugadorRegistroDocumentosTest extends TestCase
 
         $respuesta = $this->actingAs($delegado)->post(route('equipos.jugadores.store', $equipo), [
             'persona_id' => $persona->id,
+            ...$this->privacidad(),
             'dorsal' => 12,
             'documentos' => [
                 'ine' => UploadedFile::fake()->create('ine.pdf', 80, 'application/pdf'),
@@ -80,6 +83,7 @@ class JugadorRegistroDocumentosTest extends TestCase
 
         $this->actingAs($delegado)->post(route('equipos.jugadores.store', $equipo), [
             'persona_id' => $persona->id,
+            ...$this->privacidad(),
             'documentos' => ['fotografia' => $this->crearFotografiaFake('captura-camara.png')],
         ])->assertCreated();
 
