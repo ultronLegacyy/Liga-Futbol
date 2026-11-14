@@ -4,17 +4,26 @@
 @section('header', 'Roles y permisos')
 
 @section('content')
-{{-- CA2 y CA3 de HU-081: módulos y acciones del rol leídos del motor de permisos, sin controles para cambiarlos --}}
+{{-- CA2 y CA3 de HU-081: módulos y acciones del rol leídos del motor de permisos; aquí no hay controles, la edición está en admin.roles.edit (HU-083) --}}
 <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 sm:p-6 max-w-4xl">
     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6">
         <div>
             <h2 class="text-xl font-bold text-white">{{ $rol->name }}</h2>
-            <p class="text-sm text-gray-400">Solo consulta: en esta versión los permisos son fijos y no se pueden cambiar.</p>
+            <p class="text-sm text-gray-400">Solo consulta: para agregar o quitar permisos usa «Editar permisos» (HU-083).</p>
         </div>
-        <a href="{{ route('admin.roles.index') }}" class="self-start text-gray-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-400 rounded">
-            Volver a roles
-        </a>
+        <div class="flex items-center gap-4 self-start">
+            <a href="{{ route('admin.roles.edit', $rol->id) }}" class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400">
+                Editar permisos
+            </a>
+            <a href="{{ route('admin.roles.index') }}" class="text-gray-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-400 rounded">
+                Volver a roles
+            </a>
+        </div>
     </div>
+
+    @if (session('success'))
+        <div class="mb-6"><x-alert type="success" :message="session('success')" /></div>
+    @endif
 
     <x-table caption="Módulos y acciones permitidas para {{ $rol->name }}">
         <thead class="bg-gray-700/50 text-gray-200 uppercase text-xs">

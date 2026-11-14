@@ -8,7 +8,7 @@
 <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 sm:p-6">
     <div class="mb-6">
         <h2 class="text-xl font-bold text-white">Roles y permisos</h2>
-        <p class="text-sm text-gray-400">Solo consulta: en esta versión los permisos de cada rol son fijos.</p>
+        <p class="text-sm text-gray-400">Consulta los permisos de cada rol; desde su detalle el Administrador General puede editarlos.</p>
     </div>
 
     <x-table caption="Roles con cuenta en el sistema">
