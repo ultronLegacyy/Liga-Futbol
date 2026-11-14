@@ -323,12 +323,14 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // 10. categorias
+        // Edades según la Tabla 4 de la ERS (temporada 2026-2027): la rama Libre es para
+        // mayores de 18 años, sin edad máxima; la categoría Juvenil, para nacidos en 2009-2010.
         $catEspecialId = DB::table('categorias')->insertGetId([
             'temporada_id' => $temporadaId,
             'nombre' => 'Primera Especial',
             'rama' => 'Libre',
             'edad_min' => 18,
-            'edad_max' => 35,
+            'edad_max' => null,
             'jerarquia_salto' => 1,
             'created_at' => $now,
             'updated_at' => $now,
@@ -339,7 +341,7 @@ class DatabaseSeeder extends Seeder
             'nombre' => 'Primera Fuerza',
             'rama' => 'Libre',
             'edad_min' => 18,
-            'edad_max' => 35,
+            'edad_max' => null,
             'jerarquia_salto' => 2,
             'created_at' => $now,
             'updated_at' => $now,
@@ -349,8 +351,10 @@ class DatabaseSeeder extends Seeder
             'temporada_id' => $temporadaId,
             'nombre' => 'Juvenil A',
             'rama' => 'Libre',
-            'edad_min' => 14,
-            'edad_max' => 16,
+            'anio_nacimiento_desde' => 2009,
+            'anio_nacimiento_hasta' => 2010,
+            'edad_min' => null,
+            'edad_max' => null,
             'jerarquia_salto' => 3,
             'created_at' => $now,
             'updated_at' => $now,
