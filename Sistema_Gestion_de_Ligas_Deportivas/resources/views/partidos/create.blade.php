@@ -126,7 +126,7 @@
                     required
                     min="{{ \Carbon\Carbon::parse($jornada->fecha_inicio)->format('Y-m-d') }}"
                     max="{{ \Carbon\Carbon::parse($jornada->fecha_fin)->format('Y-m-d') }}"
-                    value="{{ old('fecha_partido', \Carbon\Carbon::parse($jornada->fecha_inicio)->format('Y-m-d')) }}"
+                    value="{{ is_string(old('fecha_partido')) ? old('fecha_partido') : \Carbon\Carbon::parse($jornada->fecha_inicio)->format('Y-m-d') }}"
                     class="{{ $campo }} {{ $errors->has('fecha_partido') ? 'border-red-500' : 'border-gray-600' }}"
                     @if ($errors->has('fecha_partido')) aria-invalid="true" aria-describedby="fecha_partido-error" @endif
                 >
@@ -138,7 +138,7 @@
                     id="hora_partido"
                     name="hora_partido"
                     required
-                    value="{{ old('hora_partido', '10:00') }}"
+                    value="{{ is_string(old('hora_partido')) ? old('hora_partido') : '10:00' }}"
                     class="{{ $campo }} {{ $errors->has('hora_partido') ? 'border-red-500' : 'border-gray-600' }}"
                     @if ($errors->has('hora_partido')) aria-invalid="true" aria-describedby="hora_partido-error" @endif
                 >

@@ -2,12 +2,17 @@
 
 namespace Tests\Feature;
 
+use App\Models\Arbitro;
+use App\Models\Cancha;
 use App\Models\Categoria;
+use App\Models\CedulaArbitral;
 use App\Models\Club;
 use App\Models\Equipo;
 use App\Models\Grupo;
 use App\Models\Jornada;
+use App\Models\Jugador;
 use App\Models\Partido;
+use App\Models\Persona;
 use App\Models\Temporada;
 use App\Models\User;
 use App\Services\GeneradorEnfrentamientosService;
@@ -337,10 +342,10 @@ class GeneradorEnfrentamientosTest extends TestCase
             'fecha_inicio' => '2026-11-20',
         ]);
 
-        // C(3, 2) = 3 partidos programados
+        // C(3, 2) = 3 partidos generados en borrador (Obligatorio 6)
         $this->assertDatabaseCount('partidos', 3);
         $this->assertDatabaseHas('partidos', [
-            'estado' => 'programado',
+            'estado' => Partido::ESTADO_BORRADOR,
             'fecha_partido' => '2026-11-20',
         ]);
 
@@ -351,6 +356,103 @@ class GeneradorEnfrentamientosTest extends TestCase
             'usuario_id' => $this->programador->id,
             'motivo' => 'Generación automática de rol de enfrentamientos (HU-032 / RF-07.1)',
         ]);
+    }
+
+    /**
+     * Obligatorio 6: El rol generado nace en borrador.
+     * Al completarse con cancha y horario (sin motivo obligatorio), se promueve a programado,
+     * se le asigna árbitro y el árbitro puede abrir la cédula arbitral.
+     */
+    public function test_rol_generado_en_borrador_se_completa_con_cancha_horario_sin_motivo_asigna_arbitro_y_abre_cedula(): void
+    {
+        $e1 = $this->crearEquipo('Equipo Alfa');
+        $e2 = $this->crearEquipo('Equipo Beta');
+
+        // Cancha disponible
+        $cancha = Cancha::factory()->create([
+            'nombre' => 'Cancha Principal Rol',
+            'estado' => 'Disponible',
+            'capacidad_partidos_consecutivos' => 4,
+        ]);
+
+        // Árbitro y usuario con rol Árbitro en Campo con vigencia en la temporada (HU-016)
+        $rolArbitro = app(\App\Services\IdentidadPersonaService::class)->asignarRol([
+            'nombre' => 'Carlos',
+            'apellidos' => 'Silbato',
+            'fecha_nacimiento' => '1988-03-12',
+            'curp' => 'SILC880312HDFRRN01',
+        ], 'arbitro', $this->temporada);
+
+        $arbitro = Arbitro::create(['persona_id' => $rolArbitro->persona_id, 'estado' => 'Activo']);
+        $usuarioArbitro = User::create([
+            'name' => 'Carlos Silbato',
+            'email' => 'arbitro_generador@liga.test',
+            'password' => Hash::make('secreto123'),
+            'estatus' => 'activo',
+        ]);
+        $usuarioArbitro->forceFill(['persona_id' => $rolArbitro->persona_id])->save();
+        $usuarioArbitro->assignRole('Árbitro en Campo');
+
+        // Jugadores para los equipos (para permitir alineación en la cédula)
+        foreach ([$e1, $e2] as $idx => $equipo) {
+            for ($j = 1; $j <= 5; $j++) {
+                Jugador::create([
+                    'persona_id' => Persona::factory()->create(['nombre' => "Jug {$j}", 'apellidos' => "Eq {$idx}"])->id,
+                    'equipo_id' => $equipo->id,
+                    'dorsal' => $j,
+                    'estado_elegibilidad' => 'Activo',
+                ]);
+            }
+        }
+
+        // 1. Generar rol y confirmar
+        $propuesta = $this->generadorService->generarPropuestaRol($this->grupo, [
+            'fecha_inicio' => '2026-11-20',
+            'dias_juego' => [5],
+            'vueltas' => 1,
+        ]);
+
+        $this->actingAs($this->programador)
+            ->post(route('grupos.confirmar-rol', $this->grupo), [
+                'fixture_payload' => json_encode($propuesta),
+                'sobrescribir' => '0',
+            ])
+            ->assertRedirect(route('grupos.jornadas.index', $this->grupo))
+            ->assertSessionHas('success');
+
+        $partido = Partido::query()->where('jornada_id', $this->grupo->jornadas()->first()->id)->firstOrFail();
+        $this->assertSame(Partido::ESTADO_BORRADOR, $partido->estado);
+        $this->assertNull($partido->cancha_id);
+        $this->assertNull($partido->hora_partido);
+
+        // 2. Programar el partido asignando cancha y horario SIN MOTIVO (Obligatorio 1 y 6)
+        $this->actingAs($this->programador)
+            ->put(route('partidos.update', $partido), [
+                'equipo_local_id' => $partido->equipo_local_id,
+                'equipo_visitante_id' => $partido->equipo_visitante_id,
+                'cancha_id' => $cancha->id,
+                'fecha_partido' => \Carbon\Carbon::parse($partido->fecha_partido)->toDateString(),
+                'hora_partido' => '10:00',
+                'arbitro_id' => $arbitro->id,
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $partido->refresh();
+        $this->assertSame(Partido::ESTADO_PROGRAMADO, $partido->estado);
+        $this->assertEquals($cancha->id, $partido->cancha_id);
+        $this->assertEquals('10:00:00', $partido->hora_partido);
+        $this->assertEquals($arbitro->id, $partido->arbitro_id);
+        $this->assertDatabaseMissing('reprogramaciones_partidos', ['partido_id' => $partido->id]);
+
+        // 3. El árbitro asignado abre la cédula arbitral
+        $this->actingAs($usuarioArbitro)
+            ->post(route('cedulas.abrir', $partido))
+            ->assertRedirect(route('cedulas.show', $partido))
+            ->assertSessionHas('success');
+
+        $cedula = CedulaArbitral::query()->where('partido_id', $partido->id)->sole();
+        $this->assertSame(CedulaArbitral::ABIERTA, $cedula->estado);
     }
 
     /**
@@ -740,7 +842,7 @@ class GeneradorEnfrentamientosTest extends TestCase
             'equipo_local_id' => $e1->id,
             'equipo_visitante_id' => $e2->id,
             'fecha_partido' => '2026-11-10',
-            'estado' => 'programado',
+            'estado' => 'borrador',
         ]);
 
         $propuesta = $this->generadorService->generarPropuestaRol($this->grupo, [

@@ -26,6 +26,10 @@
         <x-alert type="success" :message="session('success')" />
     @endif
 
+    @if (session('error'))
+        <x-alert type="error" :message="session('error')" />
+    @endif
+
     {{-- HU-036: rechazo del borrado del partido (por ejemplo, con la cédula capturada) --}}
     @if ($errors->any())
         <x-alert type="error" :message="$errors->first()" />
@@ -43,7 +47,16 @@
                     VS
                 </span>
                 <div class="mt-2">
-                    <x-badge variant="info">{{ $partido->estado }}</x-badge>
+                    @php
+                        $estadoPartidoVariant = match($partido->estado) {
+                            'confirmado' => 'success',
+                            'cancelado' => 'danger',
+                            'suspendido', 'en juego' => 'warning',
+                            'programado', 'reprogramado' => 'info',
+                            default => 'default',
+                        };
+                    @endphp
+                    <x-badge :variant="$estadoPartidoVariant">{{ $partido->estado }}</x-badge>
                 </div>
             </div>
             <div>
@@ -52,6 +65,51 @@
             </div>
         </div>
     </div>
+
+    {{-- Cambio de estado del partido (HU-029 / SCRUM-195) --}}
+    @can('cambiarEstado', $partido)
+        @php
+            $permitidos = $partido->transicionesPermitidas();
+        @endphp
+        @if (! empty($permitidos))
+            <div class="bg-gray-900/50 border border-gray-700 rounded-lg p-4 space-y-3">
+                <h3 class="text-sm font-semibold text-white">Transición de Estado (HU-029)</h3>
+                <form action="{{ route('partidos.estado.update', $partido) }}" method="POST" class="space-y-3">
+                    @csrf
+                    @method('PATCH')
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label for="nuevo_estado" class="block text-xs text-gray-300 font-medium mb-1">Nuevo Estado</label>
+                            <select
+                                name="estado"
+                                id="nuevo_estado"
+                                required
+                                class="w-full rounded-lg bg-gray-900 border border-gray-600 text-white text-sm p-2 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                            >
+                                <option value="">Selecciona nuevo estado</option>
+                                @foreach ($permitidos as $opcion)
+                                    <option value="{{ $opcion }}">{{ ucfirst($opcion) }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label for="motivo_estado" class="block text-xs text-gray-300 font-medium mb-1">Motivo / Justificación</label>
+                            <input
+                                type="text"
+                                name="motivo"
+                                id="motivo_estado"
+                                placeholder="Requerido para cancelado, suspendido o reprogramado (mín. 5 letras)"
+                                class="w-full rounded-lg bg-gray-900 border border-gray-600 text-white text-sm p-2 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                            >
+                        </div>
+                    </div>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 transition">
+                        Actualizar Estado
+                    </button>
+                </form>
+            </div>
+        @endif
+    @endcan
 
     {{-- Datos de programación --}}
     <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
@@ -89,21 +147,35 @@
         </div>
     </dl>
 
-    <div class="flex items-center gap-4 pt-4 border-t border-gray-700">
+    <div class="flex flex-wrap items-center gap-3 pt-4 border-t border-gray-700">
+        <a href="{{ route('partidos.historial', $partido) }}" class="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg transition" title="Consultar bitácora histórica">
+            Ver Historial
+        </a>
+
+        @can('reprogramar', $partido)
+            <a href="{{ route('partidos.reprogramar', $partido) }}" class="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition">
+                Reprogramar
+            </a>
+        @endcan
+
         @can('update', $partido)
-            <a href="{{ route('partidos.edit', $partido) }}" class="px-4 py-2 bg-yellow-600/90 hover:bg-yellow-600 text-white text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 transition">
-                Editar / Reprogramar
+            <a href="{{ route('partidos.edit', $partido) }}" class="px-3 py-2 bg-yellow-600/90 hover:bg-yellow-600 text-white text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 transition">
+                Editar
             </a>
         @endcan
 
         @can('delete', $partido)
-            <form action="{{ route('partidos.destroy', $partido) }}" method="POST" class="inline" onsubmit="return confirm('¿Deseas cancelar/eliminar este partido programado?');">
+            <form action="{{ route('partidos.destroy', $partido) }}" method="POST" class="inline" onsubmit="return confirm('¿Deseas eliminar este partido en borrador?');">
                 @csrf
                 @method('DELETE')
-                <button type="submit" class="px-4 py-2 bg-red-600/90 hover:bg-red-600 text-white text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-red-400 transition">
-                    Eliminar partido
+                <button type="submit" class="px-3 py-2 bg-red-600/90 hover:bg-red-600 text-white text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-red-400 transition">
+                    Eliminar
                 </button>
             </form>
+        @else
+            <span class="text-xs text-gray-500 italic p-2" title="Historial oficial protegido contra eliminación (HU-031)">
+                Historial protegido
+            </span>
         @endcan
 
         <a href="{{ route('jornadas.show', $jornada) }}" class="text-sm text-gray-400 hover:text-white transition ml-auto">
