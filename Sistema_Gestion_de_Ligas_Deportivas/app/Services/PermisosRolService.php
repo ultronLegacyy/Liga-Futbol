@@ -35,12 +35,17 @@ class PermisosRolService
         'resultados' => 'Resultados',
         'disciplina' => 'Disciplina',
         'finanzas' => 'Finanzas',
+        'asambleas' => 'Asambleas',
     ];
 
     // Nombre visible de las acciones que no se leen bien solo cambiando «_» por espacio
     private const ACCIONES = [
         'pagos_validar' => 'Validar pagos',
         'asignar_permiso' => 'Asignar permisos',
+        // Asambleas (HU-053, HU-054)
+        'asistencia' => 'Registrar asistencia',
+        'acuerdos.registrar' => 'Registrar acuerdos y comunicados',
+        'acuerdos.autorizar' => 'Autorizar reglas permanentes',
     ];
 
     /**
