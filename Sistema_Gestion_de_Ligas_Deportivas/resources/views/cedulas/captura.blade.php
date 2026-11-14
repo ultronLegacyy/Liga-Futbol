@@ -20,7 +20,8 @@
      data-url-alineacion="{{ route('cedulas.alineacion', [$partido, 0]) }}"
      data-url-marcador="{{ route('cedulas.marcador', $partido) }}"
      data-url-eventos="{{ route('cedulas.eventos', $partido) }}"
-     data-url-incidencias="{{ route('cedulas.incidencias', $partido) }}">
+     data-url-incidencias="{{ route('cedulas.incidencias', $partido) }}"
+     data-url-informe="{{ route('cedulas.informe', $partido) }}">
 
     <div>
         <h2 class="text-xl font-bold text-white">{{ $partido->local?->nombre }} vs. {{ $partido->visitante?->nombre }}</h2>
@@ -157,6 +158,17 @@
                 <li class="py-2 text-white">
                     <span class="inline-block w-12 text-gray-400">{{ $evento->minuto !== null ? $evento->minuto."'" : '—' }}</span>
                     {{ $evento->tipo }}{{ $evento->autogol ? ' (autogol)' : '' }} · {{ $nombre($evento->jugador) }}
+                    {{-- HU-075: anular lo capturado por error, con motivo --}}
+                    <details class="mt-1">
+                        <summary class="inline-block py-1 text-xs text-red-300 cursor-pointer">Anular</summary>
+                        <form method="POST" action="{{ route('cedulas.eventos.anular', [$partido, $evento]) }}" class="mt-2 flex flex-wrap gap-2">
+                            @csrf
+                            @method('DELETE')
+                            <label for="motivo-evento-{{ $evento->id }}" class="sr-only">Motivo para anular el evento</label>
+                            <input type="text" id="motivo-evento-{{ $evento->id }}" name="motivo" required minlength="5" maxlength="500" placeholder="Motivo de la anulación" class="{{ $campo }} flex-1 min-w-40">
+                            <button type="submit" class="{{ $boton }} text-white bg-red-700 hover:bg-red-600">Anular</button>
+                        </form>
+                    </details>
                 </li>
             @endforeach
         </ul>
@@ -196,10 +208,38 @@
                     @if ($incidencia->equipo)
                         <span class="text-gray-400">· {{ $incidencia->equipo->nombre }}</span>
                     @endif
+                    {{-- HU-075: anular lo capturado por error, con motivo --}}
+                    <details class="mt-1">
+                        <summary class="inline-block py-1 text-xs text-red-300 cursor-pointer">Anular</summary>
+                        <form method="POST" action="{{ route('cedulas.incidencias.anular', [$partido, $incidencia]) }}" class="mt-2 flex flex-wrap gap-2">
+                            @csrf
+                            @method('DELETE')
+                            <label for="motivo-incidencia-{{ $incidencia->id }}" class="sr-only">Motivo para anular la incidencia</label>
+                            <input type="text" id="motivo-incidencia-{{ $incidencia->id }}" name="motivo" required minlength="5" maxlength="500" placeholder="Motivo de la anulación" class="{{ $campo }} flex-1 min-w-40">
+                            <button type="submit" class="{{ $boton }} text-white bg-red-700 hover:bg-red-600">Anular</button>
+                        </form>
+                    </details>
                 </li>
             @endforeach
         </ul>
     </section>
+
+    {{-- HU-075: reporte arbitral, también por la cola sin conexión --}}
+    <section aria-labelledby="titulo-informe" class="bg-gray-800 border border-gray-700 rounded-xl p-4">
+        <h3 id="titulo-informe" class="text-lg font-semibold text-white mb-3">Reporte arbitral</h3>
+        <form id="form-informe" class="space-y-4">
+            <label for="informe-arbitral" class="block text-sm text-gray-300">Lo que el árbitro reporta del partido</label>
+            <textarea id="informe-arbitral" name="informe_arbitral" rows="4" maxlength="5000" class="{{ $campo }} w-full">{{ $cedula->informe_arbitral }}</textarea>
+            <button type="submit" class="{{ $boton }} w-full text-white bg-green-600 hover:bg-green-500">Guardar reporte</button>
+        </form>
+    </section>
+
+    {{-- HU-075: firmas de los capitanes y cierre, con el resumen para confirmar --}}
+    @can('cerrar', [App\Models\CedulaArbitral::class, $partido])
+        <a href="{{ route('cedulas.cierre', $partido) }}" class="{{ $boton }} flex items-center justify-center w-full text-black bg-amber-400 hover:bg-amber-300">
+            Firmas y cierre
+        </a>
+    @endcan
 </div>
 @endsection
 
@@ -477,12 +517,22 @@
         document.getElementById('incidencia-descripcion').focus();
     });
 
+    // HU-075: reporte arbitral; manda el texto completo, como el marcador
+    document.getElementById('form-informe').addEventListener('submit', (evento) => {
+        evento.preventDefault();
+        const texto = document.getElementById('informe-arbitral').value.trim();
+
+        encolar('informe', raiz.dataset.urlInforme, 'PUT', { informe_arbitral: texto === '' ? null : texto });
+    });
+
     // Al cargar: muestra en pantalla lo que quedó pendiente de una visita anterior y lo intenta enviar
     leerCola().forEach((cambio) => {
         const d = cambio.datos;
 
         if (cambio.tipo === 'evento' || cambio.tipo === 'incidencia') {
             agregarALista(cambio);
+        } else if (cambio.tipo === 'informe') {
+            document.getElementById('informe-arbitral').value = d.informe_arbitral === null ? '' : d.informe_arbitral;
         } else if (cambio.tipo === 'marcador') {
             document.getElementById('goles-local').value = d.goles_local;
             document.getElementById('goles-visitante').value = d.goles_visitante;

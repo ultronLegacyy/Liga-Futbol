@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Cedula\AbrirCedulaRequest;
+use App\Http\Requests\Cedula\AnularRegistroRequest;
+use App\Http\Requests\Cedula\GuardarInformeRequest;
 use App\Http\Requests\Cedula\GuardarAlineacionRequest;
 use App\Http\Requests\Cedula\GuardarMarcadorRequest;
 use App\Http\Requests\Cedula\RegistrarEventoRequest;
@@ -11,6 +13,7 @@ use App\Models\CedulaArbitral;
 use App\Models\Partido;
 use App\Models\User;
 use App\Services\CedulaService;
+use App\Services\CierreCedulaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,8 +23,10 @@ use Illuminate\View\View;
 // Cédula arbitral del partido (HU-036): consulta, apertura por el árbitro asignado y captura desde el celular
 class CedulaController extends Controller
 {
-    public function __construct(private readonly CedulaService $cedulas)
-    {
+    public function __construct(
+        private readonly CedulaService $cedulas,
+        private readonly CierreCedulaService $cierre,
+    ) {
     }
 
     // Partidos asignados al árbitro que inició sesión, con el enlace a cada cédula
@@ -69,6 +74,10 @@ class CedulaController extends Controller
             'plantilla' => $cedula === null ? $this->cedulas->plantilla($partido) : null,
             'estadoPermitido' => $estadoPermitido,
             'puedeAbrir' => $estadoPermitido && Gate::allows('abrir', [CedulaArbitral::class, $partido]) && ($cedula === null || ! $cedula->estaCerrada()),
+            // HU-075: solo se muestran las firmas cuyo archivo existe en el disco privado
+            'firmas' => $cedula === null ? [] : array_filter(
+                array_combine(CierreCedulaService::LADOS, array_map(fn (string $lado): bool => $this->cierre->tieneFirma($cedula, $lado), CierreCedulaService::LADOS))
+            ),
         ]);
     }
 
@@ -130,5 +139,29 @@ class CedulaController extends Controller
             'minuto' => $incidencia->minuto,
             'descripcion' => $incidencia->descripcion,
         ]);
+    }
+
+    // HU-075: reporte arbitral; una clave repetida responde igual que la primera vez
+    public function informe(GuardarInformeRequest $request, Partido $partido): JsonResponse
+    {
+        $cedula = $this->cedulas->guardarInforme($this->cedulas->abierta($partido), $request->informe(), $request->clave());
+
+        return response()->json(['informe_arbitral' => $cedula->informe_arbitral]);
+    }
+
+    // HU-075: anular un gol o una tarjeta mal capturados, con motivo
+    public function anularEvento(AnularRegistroRequest $request, Partido $partido, string $evento): RedirectResponse
+    {
+        $this->cedulas->anularEvento($this->cedulas->abierta($partido), (int) $evento, $request->motivo());
+
+        return redirect()->route('cedulas.show', $partido)->with('success', 'Evento anulado.');
+    }
+
+    // HU-075: anular una incidencia mal capturada, con motivo
+    public function anularIncidencia(AnularRegistroRequest $request, Partido $partido, string $incidencia): RedirectResponse
+    {
+        $this->cedulas->anularIncidencia($this->cedulas->abierta($partido), (int) $incidencia, $request->motivo());
+
+        return redirect()->route('cedulas.show', $partido)->with('success', 'Incidencia anulada.');
     }
 }
