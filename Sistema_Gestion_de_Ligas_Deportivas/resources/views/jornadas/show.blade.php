@@ -293,7 +293,7 @@
                                 </a>
                             @endcan
 
-                            @can('delete', $partido)
+                            @if ($partido->esEliminable() && Auth::user()?->can('delete', $partido))
                                 <form action="{{ route('partidos.destroy', $partido) }}" method="POST" class="inline" onsubmit="return confirm('¿Deseas eliminar este partido en borrador?');">
                                     @csrf
                                     @method('DELETE')
@@ -305,7 +305,7 @@
                                 <span class="text-xs text-gray-500 italic" title="Historial oficial protegido contra eliminación (HU-031)">
                                     Historial protegido
                                 </span>
-                            @endcan
+                            @endif
                         </td>
                     </tr>
                 @empty

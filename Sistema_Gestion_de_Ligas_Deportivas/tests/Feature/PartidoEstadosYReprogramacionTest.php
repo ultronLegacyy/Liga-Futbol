@@ -892,6 +892,122 @@ class PartidoEstadosYReprogramacionTest extends TestCase
         $this->assertNull($this->jornada->fecha_aprobacion);
     }
 
+    public function test_servicio_gestion_estado_rechaza_transiciones_invalidas_segun_matriz(): void
+    {
+        $partidoBorrador = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_BORRADOR,
+        ]);
+
+        $servicio = app(\App\Services\GestionEstadoPartidoService::class);
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        $servicio->cambiarEstado($partidoBorrador, Partido::ESTADO_EN_JUEGO, 'Intento directo a en juego', $this->admin);
+    }
+
+    public function test_servicio_gestion_estado_impide_pasar_a_programado_sin_cancha_u_horario(): void
+    {
+        $partidoSinCancha = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => null,
+            'fecha_partido' => null,
+            'hora_partido' => null,
+            'estado' => Partido::ESTADO_BORRADOR,
+        ]);
+
+        $servicio = app(\App\Services\GestionEstadoPartidoService::class);
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        $servicio->cambiarEstado($partidoSinCancha, Partido::ESTADO_PROGRAMADO, 'Paso a programado incompleto', $this->admin);
+    }
+
+    public function test_reprogramacion_valida_duracion_oficial_120_minutos_frente_a_90_minutos(): void
+    {
+        // Partido base a las 10:00 en Cancha 1 (ocupa de 10:00 a 12:00 por duración oficial de 120 min)
+        Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha1->id,
+            'arbitro_id' => $this->arbitro1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        $equipo3 = $this->crearEquipo('Tigres Terceros');
+        $equipo4 = $this->crearEquipo('Leones Cuartos');
+
+        $partido2 = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $equipo3->id,
+            'equipo_visitante_id' => $equipo4->id,
+            'cancha_id' => $this->cancha2->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '16:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        // Si la duración fuera de 90 min (10:00 a 11:30), reprogramar a las 11:30 no colisionaría.
+        // Con la duración oficial de 120 min (10:00 a 12:00), reprogramar a las 11:30 debe ser RECHAZADO.
+        $this->actingAs($this->programador)
+            ->post(route('partidos.reprogramar.store', $partido2), [
+                'fecha_partido' => '2026-11-20',
+                'hora_partido' => '11:30',
+                'cancha_id' => $this->cancha1->id,
+                'motivo' => 'Reprogramación en slot intermedio dentro de los 120 minutos oficiales.',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors(['cancha_id']);
+    }
+
+    public function test_servicio_actualizar_partido_exige_motivo_en_partidos_no_borrador(): void
+    {
+        $partidoProgramado = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        $servicio = app(\App\Services\ProgramacionJornadaService::class);
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        $servicio->actualizarPartido($partidoProgramado, [
+            'fecha_partido' => '2026-11-21',
+            'hora_partido' => '14:00:00',
+            'cancha_id' => $this->cancha2->id,
+        ], $this->programador);
+    }
+
+    public function test_servicio_eliminar_jornada_bloquea_directamente_si_contiene_partidos_protegidos(): void
+    {
+        Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        $servicio = app(\App\Services\ProgramacionJornadaService::class);
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        $servicio->eliminarJornada($this->jornada);
+    }
+
     public function test_cambio_estado_partido_en_jornada_aprobada_revierte_jornada_a_borrador(): void
     {
         $partido = Partido::create([

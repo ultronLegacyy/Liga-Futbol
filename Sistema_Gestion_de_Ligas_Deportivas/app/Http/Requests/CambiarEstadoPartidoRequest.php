@@ -11,7 +11,12 @@ class CambiarEstadoPartidoRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        $partido = $this->route('partido');
+        if (! $partido instanceof Partido) {
+            return false;
+        }
+
+        return $this->user()?->can('cambiarEstado', $partido) ?? false;
     }
 
     protected function prepareForValidation(): void

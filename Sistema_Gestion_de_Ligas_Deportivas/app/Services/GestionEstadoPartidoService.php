@@ -51,6 +51,12 @@ class GestionEstadoPartidoService
                 ]);
             }
 
+            if ($nuevoEstado === Partido::ESTADO_PROGRAMADO && ($partidoBloqueado->cancha_id === null || $partidoBloqueado->fecha_partido === null || $partidoBloqueado->hora_partido === null)) {
+                throw ValidationException::withMessages([
+                    'nuevo_estado' => 'No es posible pasar un partido a estado programado sin tener asignada cancha, fecha y horario completo.',
+                ]);
+            }
+
             $partidoBloqueado->estado = $nuevoEstado;
             $partidoBloqueado->save();
 
