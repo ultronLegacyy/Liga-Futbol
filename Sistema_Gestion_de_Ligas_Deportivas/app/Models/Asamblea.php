@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\Auditable;
+use App\Services\GestionJugadorService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -89,5 +90,14 @@ class Asamblea extends Model
     public function tieneAsistenciaRegistrada(): bool
     {
         return $this->asistencia_registrada_en !== null;
+    }
+
+    /**
+     * La asistencia se registra el día de la asamblea o después, con la hora de México
+     * (decisión del Product Owner, respuesta 33 de la revisión del #73).
+     */
+    public function admiteAsistencia(): bool
+    {
+        return $this->fecha->toDateString() <= GestionJugadorService::hoy();
     }
 }

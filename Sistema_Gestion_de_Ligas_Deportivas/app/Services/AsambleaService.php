@@ -79,6 +79,15 @@ class AsambleaService
     {
         return $this->auditoria->conMotivo('Registro de asistencia a asamblea de delegados', function () use ($asamblea, $lista, $usuario): Asamblea {
             $asamblea = Asamblea::query()->whereKey($asamblea->getKey())->lockForUpdate()->firstOrFail();
+
+            // Decisión del Product Owner (respuesta 33 de la revisión del #73): la asistencia
+            // se registra el día de la asamblea o después, con la hora de México.
+            if (! $asamblea->admiteAsistencia()) {
+                throw ValidationException::withMessages([
+                    'asistencias' => 'La asistencia se registra el día de la asamblea ('.$asamblea->fecha->format('d/m/Y').') o después.',
+                ]);
+            }
+
             $clubes = $this->clubesConvocados($asamblea)->keyBy('id');
             $delegados = $this->delegadosPorClub($clubes->values());
             $errores = [];

@@ -211,6 +211,9 @@ class AsambleaValidacionTest extends TestCase
         $this->actingAs($this->secretario);
         $asamblea = $servicio->convocar($this->convocatoria() + ['temporada_id' => null], $this->secretario);
         $club = Club::query()->create(['nombre' => 'Club Celebrada '.str()->random(4), 'estado' => 'activo']);
+        // La asistencia se registra el día de la asamblea o después (hora de México).
+        $this->travelTo(Carbon::parse($asamblea->fecha->toDateString().' 19:30', 'America/Mexico_City'));
+        $this->flushSession(); // el salto de días no cuenta como inactividad de la sesión
 
         return $servicio->registrarAsistencia($asamblea, [$club->id => ['asistio' => '1', 'nombre_asistente' => 'Delegado presente']], $this->secretario);
     }

@@ -8,6 +8,7 @@ use App\Models\Club;
 use App\Models\User;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -43,7 +44,7 @@ class AsambleaConvocatoriaAsistenciaTest extends TestCase
     public function test_la_convocatoria_valida_sus_datos_y_no_acepta_fechas_pasadas(): void
     {
         $this->actingAs($this->usuario('Secretario'))
-            ->post(route('asambleas.store'), ['tipo' => 'Informal', 'fecha' => now()->subDay()->toDateString()])
+            ->post(route('asambleas.store'), ['tipo' => 'Informal', 'fecha' => now('America/Mexico_City')->subDay()->toDateString()])
             ->assertSessionHasErrors(['tipo', 'fecha', 'hora', 'lugar', 'orden_del_dia']);
 
         $this->assertDatabaseMissing('asambleas', ['lugar' => 'Salón de la Liga']);
@@ -172,11 +173,68 @@ class AsambleaConvocatoriaAsistenciaTest extends TestCase
             ->assertSee('Sin registrar');
     }
 
-    private function asambleaConvocada(User $secretario): Asamblea
+    public function test_la_asistencia_no_se_registra_antes_del_dia_de_la_asamblea(): void
+    {
+        $secretario = $this->usuario('Secretario');
+        $asamblea = $this->asambleaConvocada($secretario, llegarAlDia: false);
+        $club = Club::query()->create(['nombre' => 'Club Anticipado', 'estado' => 'activo']);
+        $dia = $asamblea->fecha->format('d/m/Y');
+
+        $this->actingAs($secretario)->get(route('asambleas.show', $asamblea))
+            ->assertOk()
+            ->assertSee('La asistencia se registra a partir del '.$dia.'.')
+            ->assertDontSee('Registrar asistencia');
+
+        $this->actingAs($secretario)->putJson(route('asambleas.asistencia.update', $asamblea), [
+            'asistencias' => [$club->id => ['asistio' => '1', 'nombre_asistente' => 'Delegado anticipado']],
+        ])->assertJsonValidationErrors(['asistencias' => 'La asistencia se registra el día de la asamblea ('.$dia.') o después.']);
+
+        $this->assertDatabaseCount('asistencias_asamblea', 0);
+        $this->assertSame(Asamblea::ESTADO_CONVOCADA, $asamblea->refresh()->estado);
+    }
+
+    public function test_el_dia_de_la_asamblea_se_cuenta_con_la_hora_de_mexico(): void
+    {
+        $secretario = $this->usuario('Secretario');
+        Carbon::setTestNow(Carbon::parse('2026-11-13 12:00', 'America/Mexico_City'));
+        $this->actingAs($secretario)
+            ->post(route('asambleas.store'), array_merge($this->convocatoria(), ['fecha' => '2026-11-14']))
+            ->assertSessionHasNoErrors();
+        $asamblea = Asamblea::query()->where('lugar', 'Salón de la Liga')->latest('id')->firstOrFail();
+        $club = Club::query()->create(['nombre' => 'Club Horario', 'estado' => 'activo']);
+        $lista = ['asistencias' => [$club->id => ['asistio' => '1', 'nombre_asistente' => 'Delegado puntual']]];
+
+        // 14/11 01:30 en UTC todavía es el 13/11 en México: aún no es el día de la asamblea.
+        Carbon::setTestNow(Carbon::parse('2026-11-14 01:30', 'UTC'));
+        $this->flushSession();
+        $this->actingAs($secretario)->putJson(route('asambleas.asistencia.update', $asamblea), $lista)
+            ->assertJsonValidationErrors(['asistencias']);
+
+        Carbon::setTestNow(Carbon::parse('2026-11-14 00:05', 'America/Mexico_City'));
+        $this->flushSession();
+        $this->actingAs($secretario)->put(route('asambleas.asistencia.update', $asamblea), $lista)
+            ->assertSessionHasNoErrors();
+        $this->assertSame(Asamblea::ESTADO_CELEBRADA, $asamblea->refresh()->estado);
+
+        // Después del día también se puede corregir.
+        Carbon::setTestNow(Carbon::parse('2026-11-20 10:00', 'America/Mexico_City'));
+        $this->flushSession();
+        $this->actingAs($secretario)->get(route('asambleas.show', $asamblea))->assertOk()->assertSee('Corregir asistencia');
+    }
+
+    /** Convoca una asamblea y, salvo que se indique otra cosa, avanza el reloj hasta su día. */
+    private function asambleaConvocada(User $secretario, bool $llegarAlDia = true): Asamblea
     {
         $this->actingAs($secretario)->post(route('asambleas.store'), $this->convocatoria())->assertSessionHasNoErrors();
 
-        return Asamblea::query()->where('lugar', 'Salón de la Liga')->latest('id')->firstOrFail();
+        $asamblea = Asamblea::query()->where('lugar', 'Salón de la Liga')->latest('id')->firstOrFail();
+
+        if ($llegarAlDia) {
+            $this->travelTo(Carbon::parse($asamblea->fecha->toDateString().' 19:30', 'America/Mexico_City'));
+            $this->flushSession(); // el salto de días no cuenta como inactividad de la sesión
+        }
+
+        return $asamblea;
     }
 
     /** @return array<string, string> */

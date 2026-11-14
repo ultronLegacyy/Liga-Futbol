@@ -12,9 +12,13 @@
         <div class="flex gap-3">
             <a href="{{ route('asambleas.index') }}" class="rounded-lg border border-gray-600 px-4 py-2 text-sm font-semibold text-gray-200 hover:bg-gray-700">Volver</a>
             @can('registrarAsistencia', $asamblea)
-                <a href="{{ route('asambleas.asistencia.edit', $asamblea) }}" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-500">
-                    {{ $asamblea->tieneAsistenciaRegistrada() ? 'Corregir asistencia' : 'Registrar asistencia' }}
-                </a>
+                @if ($asamblea->admiteAsistencia())
+                    <a href="{{ route('asambleas.asistencia.edit', $asamblea) }}" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-500">
+                        {{ $asamblea->tieneAsistenciaRegistrada() ? 'Corregir asistencia' : 'Registrar asistencia' }}
+                    </a>
+                @else
+                    <p role="status" class="rounded-lg border border-gray-600 px-4 py-2 text-sm text-gray-300">La asistencia se registra a partir del {{ $asamblea->fecha->format('d/m/Y') }}.</p>
+                @endif
             @endcan
         </div>
     </div>
