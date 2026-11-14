@@ -199,7 +199,6 @@ class RoleAndPermissionSeeder extends Seeder
             'clubes.ver',
             'equipos.ver',
             'campos.ver',
-            'partidos.ver',
             'finanzas.reportes',
         ];
         $rolesCreados['Presidente']->syncPermissions($permisosPresidente);
@@ -224,7 +223,6 @@ class RoleAndPermissionSeeder extends Seeder
             'personas.crear',
             'personas.editar',
             'campos.ver',
-            'partidos.ver',
         ];
         $rolesCreados['Secretario']->syncPermissions($permisosSecretario);
 
@@ -250,7 +248,6 @@ class RoleAndPermissionSeeder extends Seeder
             'jugadores.ver',
             'jugadores.validar_edad',
             'campos.ver',
-            'partidos.ver',
         ];
         $rolesCreados['Comision de la Rama Infantil']->syncPermissions($permisosComisionInfantil);
 
