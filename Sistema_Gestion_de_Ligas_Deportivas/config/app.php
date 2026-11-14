@@ -54,6 +54,10 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    // Proxies cuyos encabezados X-Forwarded-* se aceptan (túnel o balanceador, RNF-42). Por defecto, solo el
+    // cloudflared del mismo equipo: un cliente externo no puede falsificar su IP (la auditoría la guarda) ni el esquema
+    'proxies_confianza' => array_values(array_filter(array_map('trim', explode(',', (string) env('TRUSTED_PROXIES', '127.0.0.1,::1'))))),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone
