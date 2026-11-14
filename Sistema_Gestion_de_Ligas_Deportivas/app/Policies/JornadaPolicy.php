@@ -137,7 +137,7 @@ class JornadaPolicy
         }
 
         if ($jornada->estado !== Jornada::ESTADO_APROBADA) {
-            return Response::deny("Solo una jornada previamente aprobada por el Comité Ejecutivo puede ser publicada (estado actual: {$jornada->estado}).");
+            return Response::deny("Solo una jornada previamente aprobada puede ser publicada (estado actual: {$jornada->estado}).");
         }
 
         return ($usuario->can('partidos.programar') || $usuario->hasRole('Administrador General'))

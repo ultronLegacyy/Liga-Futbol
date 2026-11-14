@@ -168,7 +168,7 @@ class PublicacionProgramacionService
     }
 
     /**
-     * Aprueba la programación semanal (Comité Ejecutivo según Anexo B).
+     * Aprueba la programación semanal.
      *
      * @throws ValidationException
      */
@@ -176,7 +176,7 @@ class PublicacionProgramacionService
     {
         if ($jornada->estado !== Jornada::ESTADO_EN_REVISION) {
             throw ValidationException::withMessages([
-                'jornada' => "Solo una jornada en estado 'en_revision' puede ser aprobada por el Comité Ejecutivo. Estado actual: '{$jornada->estado}'.",
+                'jornada' => "Solo una jornada en estado 'en_revision' puede ser aprobada. Estado actual: '{$jornada->estado}'.",
             ]);
         }
 
@@ -187,7 +187,7 @@ class PublicacionProgramacionService
 
             if ($jornadaBloqueada->estado !== Jornada::ESTADO_EN_REVISION) {
                 throw ValidationException::withMessages([
-                    'jornada' => "Solo una jornada en estado 'en_revision' puede ser aprobada por el Comité Ejecutivo. Estado actual: '{$jornadaBloqueada->estado}'.",
+                    'jornada' => "Solo una jornada en estado 'en_revision' puede ser aprobada. Estado actual: '{$jornadaBloqueada->estado}'.",
                 ]);
             }
 
@@ -209,7 +209,7 @@ class PublicacionProgramacionService
     {
         if ($jornada->estado !== Jornada::ESTADO_APROBADA) {
             throw ValidationException::withMessages([
-                'jornada' => "Solo una jornada previamente aprobada por el Comité Ejecutivo puede ser publicada. Estado actual: '{$jornada->estado}'.",
+                'jornada' => "Solo una jornada previamente aprobada puede ser publicada. Estado actual: '{$jornada->estado}'.",
             ]);
         }
 
@@ -229,7 +229,7 @@ class PublicacionProgramacionService
 
             if ($jornadaBloqueada->estado !== Jornada::ESTADO_APROBADA) {
                 throw ValidationException::withMessages([
-                    'jornada' => "Solo una jornada previamente aprobada por el Comité Ejecutivo puede ser publicada. Estado actual: '{$jornadaBloqueada->estado}'.",
+                    'jornada' => "Solo una jornada previamente aprobada puede ser publicada. Estado actual: '{$jornadaBloqueada->estado}'.",
                 ]);
             }
 

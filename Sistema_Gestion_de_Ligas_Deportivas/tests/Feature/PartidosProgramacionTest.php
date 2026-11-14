@@ -61,7 +61,10 @@ class PartidosProgramacionTest extends TestCase
         $this->programador = $this->crearUsuario('programador_partidos@liga.com', 'Programador de Partidos');
         $this->tesoreroUser = $this->crearUsuario('tesorero_partidos@liga.com', 'Tesorero');
 
-        $this->temporada = Temporada::factory()->activa()->create();
+        $this->temporada = Temporada::factory()->activa()->create([
+            'fecha_inicio' => '2026-01-01',
+            'fecha_fin' => '2026-12-31',
+        ]);
         $categoria = Categoria::factory()->create(['temporada_id' => $this->temporada->id]);
         $this->grupo = Grupo::factory()->create(['categoria_id' => $categoria->id]);
 

@@ -61,7 +61,7 @@ class UpdatePartidoRequest extends FormRequest
             'arbitro_id' => ['bail', 'nullable', 'integer', Rule::exists('arbitros', 'id')],
             'fecha_partido' => $fechaRules,
             'hora_partido' => ['bail', 'nullable', 'date_format:H:i,H:i:s'],
-            'motivo' => ['bail', 'nullable', 'string', 'min:10', 'max:500'],
+            'motivo' => ['bail', 'nullable', 'string', 'min:10', 'max:1000'],
         ];
     }
 
@@ -84,7 +84,7 @@ class UpdatePartidoRequest extends FormRequest
             'fecha_partido.before_or_equal' => 'La fecha del partido no puede ser posterior al fin de la jornada.',
             'hora_partido.date_format' => 'La hora del partido debe tener el formato HH:MM.',
             'motivo.min' => 'El motivo de reprogramación debe contener al menos 10 caracteres explicativos.',
-            'motivo.max' => 'El motivo no puede exceder los 500 caracteres.',
+            'motivo.max' => 'El motivo no puede exceder los 1000 caracteres.',
         ];
     }
 }

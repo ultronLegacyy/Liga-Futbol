@@ -727,7 +727,7 @@ class GeneradorEnfrentamientosService
                             'hora_partido' => null,
                             'cancha_id' => null,
                             'arbitro_id' => null,
-                            'estado' => 'programado',
+                            'estado' => Partido::ESTADO_BORRADOR,
                         ]);
                         $totalPartidos++;
                     }
@@ -779,7 +779,7 @@ class GeneradorEnfrentamientosService
                         'hora_partido' => null,
                         'cancha_id' => null,
                         'arbitro_id' => null,
-                        'estado' => 'programado',
+                        'estado' => Partido::ESTADO_BORRADOR,
                     ]);
                 }
 

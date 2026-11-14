@@ -808,6 +808,122 @@ class PartidoEstadosYReprogramacionTest extends TestCase
         $this->assertEquals(Partido::ESTADO_REPROGRAMADO, $partidoReprogramado->estado);
     }
 
+    public function test_edicion_partido_en_juego_finalizado_o_cancelado_es_rechazada(): void
+    {
+        $partidoEnJuego = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_EN_JUEGO,
+        ]);
+
+        $this->actingAs($this->programador)
+            ->put(route('partidos.update', $partidoEnJuego), [
+                'equipo_local_id' => $this->local->id,
+                'equipo_visitante_id' => $this->visitante->id,
+                'cancha_id' => $this->cancha2->id,
+                'fecha_partido' => '2026-11-21',
+                'hora_partido' => '12:00',
+                'motivo' => 'Intento de modificar horario en juego',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors(['estado']);
+    }
+
+    public function test_edicion_partido_confirmado_con_campo_vacio_falla_validacion(): void
+    {
+        $partidoConfirmado = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_CONFIRMADO,
+        ]);
+
+        // Intentar quitar la cancha dejándola en null
+        $this->actingAs($this->programador)
+            ->put(route('partidos.update', $partidoConfirmado), [
+                'equipo_local_id' => $this->local->id,
+                'equipo_visitante_id' => $this->visitante->id,
+                'cancha_id' => null,
+                'fecha_partido' => '2026-11-20',
+                'hora_partido' => '10:00',
+                'motivo' => 'Intento de remover cancha asignada',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors(['cancha_id']);
+    }
+
+    public function test_reprogramar_partido_en_jornada_aprobada_revierte_jornada_a_borrador(): void
+    {
+        $partido = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        $this->jornada->update([
+            'estado' => Jornada::ESTADO_APROBADA,
+            'aprobado_por_id' => $this->admin->id,
+            'fecha_aprobacion' => now(),
+        ]);
+
+        $this->actingAs($this->programador)
+            ->post(route('partidos.reprogramar.store', $partido), [
+                'fecha_partido' => '2026-11-21',
+                'hora_partido' => '14:00',
+                'cancha_id' => $this->cancha2->id,
+                'motivo' => 'Reprogramación por evento institucional en cancha 1.',
+            ])
+            ->assertRedirect();
+
+        $this->jornada->refresh();
+        $this->assertSame(Jornada::ESTADO_BORRADOR, $this->jornada->estado);
+        $this->assertNull($this->jornada->aprobado_por_id);
+        $this->assertNull($this->jornada->fecha_aprobacion);
+    }
+
+    public function test_cambio_estado_partido_en_jornada_aprobada_revierte_jornada_a_borrador(): void
+    {
+        $partido = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        $this->jornada->update([
+            'estado' => Jornada::ESTADO_APROBADA,
+            'aprobado_por_id' => $this->admin->id,
+            'fecha_aprobacion' => now(),
+        ]);
+
+        $this->actingAs($this->programador)
+            ->patch(route('partidos.estado.update', $partido), [
+                'nuevo_estado' => Partido::ESTADO_CANCELADO,
+                'motivo' => 'Cancelación preventiva por fuerza mayor institucional.',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->jornada->refresh();
+        $this->assertSame(Jornada::ESTADO_BORRADOR, $this->jornada->estado);
+        $this->assertNull($this->jornada->aprobado_por_id);
+        $this->assertNull($this->jornada->fecha_aprobacion);
+    }
+
     private function crearEquipo(string $nombre, ?Grupo $grupo = null): Equipo
     {
         $this->clubIndex++;

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Jornada;
 use App\Models\Partido;
 use App\Models\ReprogramacionPartido;
 use App\Models\User;
@@ -67,6 +68,16 @@ class GestionEstadoPartidoService
                 'hora_nueva' => $partidoBloqueado->hora_partido,
                 'motivo' => $motivoLimpio,
             ]);
+
+            // Revertir la jornada a borrador si estaba en revisión o aprobada (Obligatorio 4 / HU-030)
+            $jornadaBloqueada = Jornada::query()->whereKey($partidoBloqueado->jornada_id)->lockForUpdate()->first();
+            if ($jornadaBloqueada !== null && in_array($jornadaBloqueada->estado, [Jornada::ESTADO_EN_REVISION, Jornada::ESTADO_APROBADA], true)) {
+                $jornadaBloqueada->update([
+                    'estado' => Jornada::ESTADO_BORRADOR,
+                    'aprobado_por_id' => null,
+                    'fecha_aprobacion' => null,
+                ]);
+            }
 
             return $partidoBloqueado;
         });

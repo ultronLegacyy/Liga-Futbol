@@ -169,7 +169,7 @@ class JornadaController extends Controller
     }
 
     /**
-     * Aprobación de la programación semanal por el Comité Ejecutivo (HU-030 / SCRUM-199).
+     * Aprobación de la programación semanal (HU-030 / SCRUM-199).
      */
     public function aprobar(Jornada $jornada): RedirectResponse
     {
@@ -178,7 +178,7 @@ class JornadaController extends Controller
         $this->publicacionService->aprobar($jornada, auth()->user());
 
         return redirect()->route('jornadas.show', $jornada)
-            ->with('success', 'La programación semanal ha sido aprobada por el Comité Ejecutivo.');
+            ->with('success', 'La programación semanal ha sido aprobada exitosamente.');
     }
 
     /**

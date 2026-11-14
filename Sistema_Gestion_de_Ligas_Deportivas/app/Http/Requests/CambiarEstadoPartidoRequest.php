@@ -57,7 +57,7 @@ class CambiarEstadoPartidoRequest extends FormRequest
         return [
             'nuevo_estado.required' => 'Debe seleccionar el nuevo estado del partido.',
             'nuevo_estado.in' => 'El estado seleccionado no es válido en el sistema.',
-            'motivo.required' => 'El motivo es obligatorio en todo cambio de estado (HU-029 Criterio 2).',
+            'motivo.required' => 'El motivo es obligatorio en todo cambio de estado.',
             'motivo.min' => 'El motivo debe contener al menos 10 caracteres descriptivos.',
             'motivo.max' => 'El motivo no debe exceder los 1000 caracteres.',
         ];

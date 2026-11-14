@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Arbitro;
 use App\Models\Cancha;
+use App\Models\Equipo;
+use App\Models\Jornada;
 use App\Models\Partido;
 use App\Models\ReprogramacionPartido;
 use App\Models\User;
@@ -165,8 +167,10 @@ class ReprogramacionPartidoService
                 ]);
             }
 
-            // Validar que ningún equipo del partido tenga otro partido en el mismo horario (Obligatorio 5)
+            // Validar que ningún equipo del partido tenga otro partido en el mismo horario (Obligatorio 2, 4 y 5)
             $equiposIds = [$partidoBloqueado->equipo_local_id, $partidoBloqueado->equipo_visitante_id];
+            Equipo::query()->whereIn('id', $equiposIds)->lockForUpdate()->get();
+
             $partidosEquipos = Partido::query()
                 ->whereKeyNot($partidoBloqueado->id)
                 ->whereNotIn('estado', [Partido::ESTADO_CANCELADO])
@@ -248,6 +252,16 @@ class ReprogramacionPartidoService
                 'hora_nueva' => $horaNueva,
                 'motivo' => $motivo,
             ]);
+
+            // Revertir la jornada a borrador si estaba en revisión o aprobada (Obligatorio 4 / HU-030)
+            $jornadaBloqueada = Jornada::query()->whereKey($partidoBloqueado->jornada_id)->lockForUpdate()->first();
+            if ($jornadaBloqueada !== null && in_array($jornadaBloqueada->estado, [Jornada::ESTADO_EN_REVISION, Jornada::ESTADO_APROBADA], true)) {
+                $jornadaBloqueada->update([
+                    'estado' => Jornada::ESTADO_BORRADOR,
+                    'aprobado_por_id' => null,
+                    'fecha_aprobacion' => null,
+                ]);
+            }
 
             return $partidoBloqueado;
         });

@@ -132,15 +132,23 @@ class JornadaPublicacionYConflictosTest extends TestCase
 
         $this->assertSame(Jornada::ESTADO_EN_REVISION, $this->jornada->fresh()->estado);
 
-        // 2. Aprobación por Comité Ejecutivo
+        // 2. Aprobación: solo Administrador General (Presidente y Programador no tienen programacion.aprobar)
+        $this->actingAs($this->programador)
+            ->post(route('jornadas.aprobar', $this->jornada))
+            ->assertForbidden();
+
         $this->actingAs($this->comiteUser)
+            ->post(route('jornadas.aprobar', $this->jornada))
+            ->assertForbidden();
+
+        $this->actingAs($this->admin)
             ->post(route('jornadas.aprobar', $this->jornada))
             ->assertRedirect(route('jornadas.show', $this->jornada))
             ->assertSessionHas('success');
 
         $jornadaAprobada = $this->jornada->fresh();
         $this->assertSame(Jornada::ESTADO_APROBADA, $jornadaAprobada->estado);
-        $this->assertSame($this->comiteUser->id, $jornadaAprobada->aprobado_por_id);
+        $this->assertSame($this->admin->id, $jornadaAprobada->aprobado_por_id);
         $this->assertNotNull($jornadaAprobada->fecha_aprobacion);
 
         // 3. Publicación oficial
@@ -277,7 +285,7 @@ class JornadaPublicacionYConflictosTest extends TestCase
         ]);
 
         // La jornada sigue en borrador, no se puede aprobar directamente
-        $this->actingAs($this->comiteUser)
+        $this->actingAs($this->admin)
             ->post(route('jornadas.aprobar', $this->jornada))
             ->assertForbidden();
 
@@ -385,7 +393,7 @@ class JornadaPublicacionYConflictosTest extends TestCase
 
         $this->jornada->update([
             'estado' => Jornada::ESTADO_APROBADA,
-            'aprobado_por_id' => $this->comiteUser->id,
+            'aprobado_por_id' => $this->admin->id,
             'fecha_aprobacion' => now(),
         ]);
 

@@ -71,10 +71,10 @@ class ReprogramarPartidoRequest extends FormRequest
             'fecha_partido.date_format' => 'La fecha ingresada debe tener un formato de fecha válido (YYYY-MM-DD).',
             'hora_partido.required' => 'El nuevo horario del partido es obligatorio para la reprogramación.',
             'hora_partido.date_format' => 'El horario debe especificarse en formato de 24 horas (HH:MM).',
-            'cancha_id.required' => 'La asignación de cancha es obligatoria para reprogramar el partido (HU-029).',
+            'cancha_id.required' => 'La asignación de cancha es obligatoria para reprogramar el partido.',
             'cancha_id.exists' => 'La cancha seleccionada no existe en el catálogo.',
             'arbitro_id.exists' => 'El árbitro seleccionado no existe en el sistema.',
-            'motivo.required' => 'El motivo de la reprogramación es obligatorio (HU-029 Criterio 2).',
+            'motivo.required' => 'El motivo de la reprogramación es obligatorio.',
             'motivo.min' => 'El motivo de reprogramación debe contener al menos 10 caracteres explicativos.',
             'motivo.max' => 'El motivo no debe superar los 1000 caracteres.',
         ];

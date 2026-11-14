@@ -334,6 +334,35 @@ class HistorialPartidosInmutabilidadTest extends TestCase
         $generador->guardarRolGenerado($this->grupo, $propuesta, true);
     }
 
+    public function test_partido_programado_con_cedula_vacia_no_puede_eliminarse_y_da_403(): void
+    {
+        $partido = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha->id,
+            'arbitro_id' => $this->arbitro->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        // Cédula abierta pero sin capturar aún (vacía, sin datos de captura)
+        CedulaArbitral::create([
+            'partido_id' => $partido->id,
+            'estado' => 'abierta',
+        ]);
+
+        $this->assertFalse($partido->fresh()->esEliminable());
+
+        // Debe retornar 403 Forbidden por la política de inmutabilidad HU-031 / D-040
+        $this->actingAs($this->programador)
+            ->delete(route('partidos.destroy', $partido))
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('partidos', ['id' => $partido->id]);
+    }
+
     private function crearEquipo(string $nombre, ?Grupo $grupo = null): Equipo
     {
         $this->clubIndex++;
