@@ -7,6 +7,7 @@ use App\Http\Controllers\CanchaBloqueoController;
 use App\Http\Controllers\CanchaController;
 use App\Http\Controllers\CargoFinancieroController;
 use App\Http\Controllers\CedulaController;
+use App\Http\Controllers\CierreCedulaController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\EquipoController;
@@ -20,6 +21,7 @@ use App\Http\Controllers\PagoController;
 use App\Http\Controllers\PartidoController;
 use App\Http\Controllers\PersonaController;
 use App\Http\Controllers\RecuperacionContrasenaController;
+use App\Http\Controllers\ReporteFinancieroController;
 use App\Http\Controllers\ReglaTemporadaController;
 use App\Http\Controllers\RolPermisoController;
 use App\Http\Controllers\TarjetonDigitalController;
@@ -104,10 +106,18 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/grupos/{grupo}/configuracion', [GrupoController::class, 'guardarConfiguracion'])
             ->name('grupos.configuracion.update');
 
-        // Programación de jornadas y descansos por grupo (HU-027, HU-028, RF-06.1, RF-06.2)
+        // Programación de jornadas y descansos por grupo (HU-027, HU-028, HU-030, RF-06.1, RF-06.2, RF-06.5)
         Route::resource('grupos.jornadas', JornadaController::class)->shallow()->only(['index', 'create', 'store', 'show', 'edit', 'update', 'destroy']);
         Route::match(['put', 'patch'], '/jornadas/{jornada}/descanso', [JornadaController::class, 'actualizarDescanso'])
             ->name('jornadas.descanso.update');
+        Route::post('/jornadas/{jornada}/enviar-revision', [JornadaController::class, 'enviarRevision'])
+            ->name('jornadas.enviar-revision');
+        Route::post('/jornadas/{jornada}/aprobar', [JornadaController::class, 'aprobar'])
+            ->name('jornadas.aprobar');
+        Route::post('/jornadas/{jornada}/publicar', [JornadaController::class, 'publicar'])
+            ->name('jornadas.publicar');
+        Route::get('/jornadas/{jornada}/conflictos', [JornadaController::class, 'conflictos'])
+            ->name('jornadas.conflictos');
 
         // Generación automática de rol regular y enfrentamientos (HU-032, RF-07.1)
         Route::get('/grupos/{grupo}/generar-rol', [GeneradorEnfrentamientosController::class, 'configurar'])
@@ -119,7 +129,15 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/jornadas/{jornada}/generar-partidos', [GeneradorEnfrentamientosController::class, 'generarJornada'])
             ->name('jornadas.generar-partidos');
 
-        // Alta manual y reprogramación de partidos en jornadas (HU-027, RF-06.1)
+        // Alta manual, reprogramación, gestión de estados e historial de partidos (HU-027, HU-029, HU-031, RF-06.1, RF-06.3, RF-06.4, RF-06.6)
+        Route::get('/partidos/{partido}/reprogramar', [PartidoController::class, 'formularioReprogramar'])
+            ->name('partidos.reprogramar');
+        Route::post('/partidos/{partido}/reprogramar', [PartidoController::class, 'reprogramar'])
+            ->name('partidos.reprogramar.store');
+        Route::patch('/partidos/{partido}/estado', [PartidoController::class, 'cambiarEstado'])
+            ->name('partidos.estado.update');
+        Route::get('/partidos/{partido}/historial', [PartidoController::class, 'historial'])
+            ->name('partidos.historial');
         Route::resource('jornadas.partidos', PartidoController::class)->shallow()->only(['create', 'store', 'show', 'edit', 'update', 'destroy']);
 
         // Padrón de personas y sus roles por temporada (HU-013, RF-03.2)
@@ -157,6 +175,30 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/partidos/{partido}/cedula/incidencias', [CedulaController::class, 'incidencia'])
             ->whereNumber('partido')
             ->name('cedulas.incidencias');
+        // HU-075: reporte arbitral, anulaciones, firmas de los capitanes y cierre
+        Route::put('/partidos/{partido}/cedula/informe', [CedulaController::class, 'informe'])
+            ->whereNumber('partido')
+            ->name('cedulas.informe');
+        Route::delete('/partidos/{partido}/cedula/eventos/{evento}', [CedulaController::class, 'anularEvento'])
+            ->whereNumber(['partido', 'evento'])
+            ->name('cedulas.eventos.anular');
+        Route::delete('/partidos/{partido}/cedula/incidencias/{incidencia}', [CedulaController::class, 'anularIncidencia'])
+            ->whereNumber(['partido', 'incidencia'])
+            ->name('cedulas.incidencias.anular');
+        Route::get('/partidos/{partido}/cedula/cierre', [CierreCedulaController::class, 'resumen'])
+            ->whereNumber('partido')
+            ->name('cedulas.cierre');
+        Route::post('/partidos/{partido}/cedula/firmas/{lado}', [CierreCedulaController::class, 'firmar'])
+            ->whereNumber('partido')
+            ->whereIn('lado', ['local', 'visitante'])
+            ->name('cedulas.firmar');
+        Route::get('/partidos/{partido}/cedula/firmas/{lado}', [CierreCedulaController::class, 'firma'])
+            ->whereNumber('partido')
+            ->whereIn('lado', ['local', 'visitante'])
+            ->name('cedulas.firma');
+        Route::post('/partidos/{partido}/cedula/cerrar', [CierreCedulaController::class, 'cerrar'])
+            ->whereNumber('partido')
+            ->name('cedulas.cerrar');
 
         Route::get('/partidos/{partido}/arbitro', [ArbitroController::class, 'editarAsignacion'])
             ->name('partidos.arbitro.edit');
@@ -188,6 +230,14 @@ Route::middleware(['auth'])->group(function () {
             ->name('cargos.pagos.store');
         Route::get('/pagos/{pago}/comprobante', [PagoController::class, 'comprobante'])
             ->name('pagos.comprobante');
+
+        // Reporte financiero por periodo, club, temporada y concepto, y su descarga (HU-052, RF-13.3)
+        Route::get('/reportes/financiero', [ReporteFinancieroController::class, 'index'])
+            ->name('reportes.financiero');
+        Route::get('/reportes/financiero/csv', [ReporteFinancieroController::class, 'csv'])
+            ->name('reportes.financiero.csv');
+        Route::get('/reportes/financiero/pdf', [ReporteFinancieroController::class, 'pdf'])
+            ->name('reportes.financiero.pdf');
 
         // Grupo de rutas de administracion de gobernanza y gestión de cuentas (S2-T13)
         Route::middleware(['role:Administrador General'])->prefix('admin')->name('admin.')->group(function () {

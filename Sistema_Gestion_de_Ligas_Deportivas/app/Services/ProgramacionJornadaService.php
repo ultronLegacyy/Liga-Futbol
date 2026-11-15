@@ -4,10 +4,12 @@ namespace App\Services;
 
 use App\Models\Arbitro;
 use App\Models\Cancha;
+use App\Models\CedulaArbitral;
 use App\Models\Equipo;
 use App\Models\Grupo;
 use App\Models\Jornada;
 use App\Models\Partido;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +20,8 @@ use Illuminate\Validation\ValidationException;
 class ProgramacionJornadaService
 {
     public function __construct(
-        private readonly AsignacionCanchaService $canchaService
+        private readonly AsignacionCanchaService $canchaService,
+        private readonly ReprogramacionPartidoService $reprogramacionService
     ) {
     }
 
@@ -96,6 +99,7 @@ class ProgramacionJornadaService
             ]);
         }
 
+        $numero = null;
         if (isset($datos['numero_jornada'])) {
             $numero = (int) $datos['numero_jornada'];
             if ($numero <= 0) {
@@ -103,37 +107,47 @@ class ProgramacionJornadaService
                     'numero_jornada' => 'El número de jornada debe ser un entero positivo.',
                 ]);
             }
-
-            $existeNumero = Jornada::query()
-                ->where('grupo_id', $jornada->grupo_id)
-                ->where('numero_jornada', $numero)
-                ->whereKeyNot($jornada->id)
-                ->exists();
-
-            if ($existeNumero) {
-                throw ValidationException::withMessages([
-                    'numero_jornada' => 'Ya existe otra jornada con ese número en este grupo.',
-                ]);
-            }
-            $jornada->numero_jornada = $numero;
         }
 
-        if (array_key_exists('equipo_descanso_id', $datos)) {
-            $equipoDescansoId = ! empty($datos['equipo_descanso_id']) ? (int) $datos['equipo_descanso_id'] : null;
-            if ($equipoDescansoId !== null) {
-                $this->validarEquipoDescanso($jornada->grupo, $equipoDescansoId, $jornada);
+        return DB::transaction(function () use ($jornada, $datos, $inicio, $fin, $numero): Jornada {
+            $jornadaBloqueada = Jornada::query()->whereKey($jornada->id)->lockForUpdate()->firstOrFail();
+
+            $atributos = [
+                'fecha_inicio' => $inicio->toDateString(),
+                'fecha_fin' => $fin->toDateString(),
+            ];
+
+            if ($numero !== null) {
+                $existeNumero = Jornada::query()
+                    ->where('grupo_id', $jornadaBloqueada->grupo_id)
+                    ->where('numero_jornada', $numero)
+                    ->whereKeyNot($jornadaBloqueada->id)
+                    ->exists();
+
+                if ($existeNumero) {
+                    throw ValidationException::withMessages([
+                        'numero_jornada' => 'Ya existe otra jornada con ese número en este grupo.',
+                    ]);
+                }
+                $atributos['numero_jornada'] = $numero;
             }
-            $jornada->equipo_descanso_id = $equipoDescansoId;
-        }
 
-        $jornada->fecha_inicio = $inicio->toDateString();
-        $jornada->fecha_fin = $fin->toDateString();
+            if (array_key_exists('equipo_descanso_id', $datos)) {
+                $equipoDescansoId = ! empty($datos['equipo_descanso_id']) ? (int) $datos['equipo_descanso_id'] : null;
+                if ($equipoDescansoId !== null) {
+                    $this->validarEquipoDescanso($jornadaBloqueada->grupo, $equipoDescansoId, $jornadaBloqueada);
+                }
+                $atributos['equipo_descanso_id'] = $equipoDescansoId;
+            }
 
-        return DB::transaction(function () use ($jornada): Jornada {
-            $jornada->save();
+            if ($jornadaBloqueada->debeRevertirsePorCambio(true)) {
+                $atributos += $jornadaBloqueada->datosReversionABorrador();
+            }
 
-            return $jornada;
-        });
+            $jornadaBloqueada->update($atributos);
+
+            return $jornadaBloqueada;
+        }, 3);
     }
 
     /**
@@ -152,10 +166,16 @@ class ProgramacionJornadaService
                 $this->validarEquipoDescanso($jornadaBloqueada->grupo, $equipoId, $jornadaBloqueada);
             }
 
-            $jornadaBloqueada->update(['equipo_descanso_id' => $equipoId]);
+            $atributos = ['equipo_descanso_id' => $equipoId];
+
+            if ($jornadaBloqueada->debeRevertirsePorCambio(true)) {
+                $atributos += $jornadaBloqueada->datosReversionABorrador();
+            }
+
+            $jornadaBloqueada->update($atributos);
 
             return $jornadaBloqueada;
-        });
+        }, 3);
     }
 
     /**
@@ -230,9 +250,12 @@ class ProgramacionJornadaService
         $temporada = $jornada->grupo->temporada;
 
         try {
-            return DB::transaction(function () use ($jornada, $local, $visitante, $localId, $visitanteId, $cancha, $arbitro, $fecha, $hora, $temporada, $datos): Partido {
+            return DB::transaction(function () use ($jornada, $local, $visitante, $localId, $visitanteId, $cancha, $arbitro, $fecha, $hora, $temporada): Partido {
                 // Bloquear la fila de la jornada con lockForUpdate() al inicio para serializar la programación concurrente (RNF-33)
                 $jornadaBloqueada = Jornada::query()->whereKey($jornada->id)->lockForUpdate()->firstOrFail();
+
+                // Si la jornada estaba en revisión, aprobada o publicada, regresa a borrador para requerir nueva revisión (HU-030)
+                $jornadaBloqueada->revertirABorradorPorModificacion(true);
 
                 // HU-028: un equipo que descansa en la jornada no puede ser programado a jugar
                 if ($jornadaBloqueada->equipo_descanso_id !== null && in_array($jornadaBloqueada->equipo_descanso_id, [$localId, $visitanteId], true)) {
@@ -298,7 +321,8 @@ class ProgramacionJornadaService
                     }
                 }
 
-                $estado = $datos['estado'] ?? (($cancha !== null && $fecha !== null && $hora !== null) ? 'programado' : 'borrador');
+                // Obligatorio 1: El estado no se recibe de la petición; se determina automáticamente
+                $estado = ($cancha !== null && $fecha !== null && $hora !== null) ? Partido::ESTADO_PROGRAMADO : Partido::ESTADO_BORRADOR;
 
                 return Partido::create([
                     'jornada_id' => $jornadaBloqueada->id,
@@ -310,7 +334,7 @@ class ProgramacionJornadaService
                     'hora_partido' => $hora,
                     'estado' => $estado,
                 ]);
-            });
+            }, 3);
         } catch (UniqueConstraintViolationException) {
             throw ValidationException::withMessages([
                 'arbitro_id' => 'El árbitro ya tiene asignado otro partido a la misma fecha y hora.',
@@ -321,14 +345,20 @@ class ProgramacionJornadaService
     /**
      * Actualizar o reprogramar un partido existente (HU-027, RF-06.1).
      *
-     * @param  array{equipo_local_id?: int|string, equipo_visitante_id?: int|string, cancha_id?: int|string|null, arbitro_id?: int|string|null, fecha_partido?: string|null, hora_partido?: string|null, estado?: string}  $datos
+     * @param  array{equipo_local_id?: int|string, equipo_visitante_id?: int|string, cancha_id?: int|string|null, arbitro_id?: int|string|null, fecha_partido?: string|null, hora_partido?: string|null, estado?: string, motivo?: string|null}  $datos
      *
      * @throws ValidationException
      */
-    public function actualizarPartido(Partido $partido, array $datos): Partido
+    public function actualizarPartido(Partido $partido, array $datos, ?User $usuario = null): Partido
     {
         $jornada = $partido->jornada;
         $this->validarTemporadaGrupo($jornada->grupo);
+
+        if (in_array($partido->estado, [Partido::ESTADO_FINALIZADO, Partido::ESTADO_CANCELADO], true)) {
+            throw ValidationException::withMessages([
+                'estado' => 'No es posible modificar un partido que ya ha finalizado o ha sido cancelado.',
+            ]);
+        }
 
         $localId = isset($datos['equipo_local_id']) ? (int) $datos['equipo_local_id'] : $partido->equipo_local_id;
         $visitanteId = isset($datos['equipo_visitante_id']) ? (int) $datos['equipo_visitante_id'] : $partido->equipo_visitante_id;
@@ -373,7 +403,9 @@ class ProgramacionJornadaService
         }
 
         // HU-027: Validar que la fecha del partido esté comprendida dentro del margen de la jornada
-        if ($fecha !== null) {
+        // (si el partido ya no es borrador y conserva intacta su fecha reprogramada previa dentro de la temporada, se respeta)
+        $fechaActualPartido = $partido->fecha_partido ? Carbon::parse($partido->fecha_partido)->toDateString() : null;
+        if ($fecha !== null && ($partido->esBorrador() || $fecha !== $fechaActualPartido)) {
             $inicioJornada = Carbon::parse($jornada->fecha_inicio)->toDateString();
             $finJornada = Carbon::parse($jornada->fecha_fin)->toDateString();
             if ($fecha < $inicioJornada || $fecha > $finJornada) {
@@ -388,9 +420,41 @@ class ProgramacionJornadaService
         $temporada = $jornada->grupo->temporada;
 
         try {
-            return DB::transaction(function () use ($partido, $jornada, $local, $visitante, $localId, $visitanteId, $cancha, $arbitro, $fecha, $hora, $temporada, $datos): Partido {
-                // Bloquear la jornada con lockForUpdate() al inicio para serializar modificaciones concurrentes (RNF-33)
+            return DB::transaction(function () use ($partido, $jornada, $local, $visitante, $localId, $visitanteId, $cancha, $arbitro, $fecha, $hora, $temporada, $datos, $usuario): Partido {
+                // Concurrencia jerárquica estricta: Jornada -> Partido -> Cancha -> Equipos -> Arbitro (RNF-33)
                 $jornadaBloqueada = Jornada::query()->whereKey($jornada->id)->lockForUpdate()->firstOrFail();
+                $partidoBloqueado = Partido::query()->whereKey($partido->id)->lockForUpdate()->firstOrFail();
+
+                $cambioProgramacion = ($fecha !== ($partidoBloqueado->fecha_partido ? Carbon::parse($partidoBloqueado->fecha_partido)->toDateString() : null))
+                    || ($hora !== ($partidoBloqueado->hora_partido ? Carbon::parse($partidoBloqueado->hora_partido)->format('H:i:s') : null))
+                    || (($cancha?->id) !== $partidoBloqueado->cancha_id);
+
+                if (in_array($partidoBloqueado->estado, [Partido::ESTADO_FINALIZADO, Partido::ESTADO_CANCELADO], true)) {
+                    throw ValidationException::withMessages([
+                        'estado' => 'No es posible modificar un partido que ya ha finalizado o ha sido cancelado.',
+                    ]);
+                }
+
+                if ($partidoBloqueado->estado === Partido::ESTADO_EN_JUEGO) {
+                    throw ValidationException::withMessages([
+                        'estado' => $cambioProgramacion
+                            ? "Un partido en estado 'en juego' no puede ser reprogramado ni modificar su fecha, hora o cancha."
+                            : "Un partido en estado 'en juego' no puede ser modificado. Debe suspenderse previamente.",
+                    ]);
+                }
+
+                if ($partidoBloqueado->cedula()->where('estado', CedulaArbitral::CERRADA)->exists()) {
+                    throw ValidationException::withMessages([
+                        'estado' => 'No es posible modificar un partido cuya cédula arbitral ya fue cerrada.',
+                    ]);
+                }
+
+                if (($localId !== $partidoBloqueado->equipo_local_id || $visitanteId !== $partidoBloqueado->equipo_visitante_id)
+                    && Partido::query()->whereKey($partidoBloqueado->id)->conCedulaCapturada()->exists()) {
+                    throw ValidationException::withMessages([
+                        'equipo_local_id' => 'No es posible cambiar los equipos de un partido cuya cédula arbitral ya tiene datos capturados.',
+                    ]);
+                }
 
                 if ($jornadaBloqueada->equipo_descanso_id !== null && in_array($jornadaBloqueada->equipo_descanso_id, [$localId, $visitanteId], true)) {
                     $descansando = ($localId === $jornadaBloqueada->equipo_descanso_id) ? $local->nombre : $visitante->nombre;
@@ -421,6 +485,7 @@ class ProgramacionJornadaService
                     ]);
                 }
 
+                // 3. Bloquear Cancha antes de Equipos para coincidir con ReprogramacionPartidoService
                 if ($cancha !== null && $fecha !== null && $hora !== null) {
                     $inicio = Carbon::parse($fecha)->setTimeFromTimeString($hora);
                     $fin = $inicio->copy()->addMinutes($this->duracionPartidoMinutos());
@@ -432,6 +497,46 @@ class ProgramacionJornadaService
                     }
                 }
 
+                // 4. Bloquear Equipos en orden determinista de ID y validar empalme entre jornadas
+                if ($fecha !== null && $hora !== null) {
+                    $duracionMinutos = $this->duracionPartidoMinutos();
+                    $inicio = Carbon::parse($fecha)->setTimeFromTimeString($hora);
+                    $fin = $inicio->copy()->addMinutes($duracionMinutos);
+                    $equiposIds = [$localId, $visitanteId];
+
+                    Equipo::query()->whereIn('id', $equiposIds)->orderBy('id')->lockForUpdate()->get();
+
+                    $partidosEquipos = Partido::query()
+                        ->whereKeyNot($partido->id)
+                        ->whereNotIn('estado', [Partido::ESTADO_CANCELADO])
+                        ->where('fecha_partido', $fecha)
+                        ->where(function ($consulta) use ($equiposIds) {
+                            $consulta->whereIn('equipo_local_id', $equiposIds)
+                                ->orWhereIn('equipo_visitante_id', $equiposIds);
+                        })
+                        ->with(['local', 'visitante'])
+                        ->get();
+
+                    foreach ($partidosEquipos as $otroPartido) {
+                        if ($otroPartido->hora_partido === null) {
+                            continue;
+                        }
+                        $otroInicio = Carbon::parse($otroPartido->fecha_partido)->setTimeFromTimeString((string) $otroPartido->hora_partido);
+                        $otroFin = $otroInicio->copy()->addMinutes($duracionMinutos);
+
+                        if ($inicio->lessThan($otroFin) && $fin->greaterThan($otroInicio)) {
+                            $equipoColision = in_array($otroPartido->equipo_local_id, $equiposIds, true)
+                                ? ($otroPartido->local->nombre ?? 'Equipo local')
+                                : ($otroPartido->visitante->nombre ?? 'Equipo visitante');
+
+                            throw ValidationException::withMessages([
+                                'equipo_local_id' => "El equipo '{$equipoColision}' ya tiene asignado otro partido el {$inicio->format('d/m/Y')} de {$otroInicio->format('H:i')} a {$otroFin->format('H:i')}.",
+                            ]);
+                        }
+                    }
+                }
+
+                // 5. Bloquear Arbitro y validar disponibilidad/empalme
                 if ($arbitro !== null && $fecha !== null && $hora !== null) {
                     $arbitroBloqueado = Arbitro::query()->whereKey($arbitro->id)->lockForUpdate()->firstOrFail();
 
@@ -455,20 +560,50 @@ class ProgramacionJornadaService
                     }
                 }
 
-                $estado = $datos['estado'] ?? $partido->estado;
+                if (! $partidoBloqueado->esBorrador()) {
+                    if ($cambioProgramacion) {
+                        if ($cancha === null || $fecha === null || $hora === null) {
+                            throw ValidationException::withMessages([
+                                'cancha_id' => 'La asignación de cancha, fecha y hora es obligatoria para reprogramar un partido oficial.',
+                            ]);
+                        }
 
-                $partido->update([
+                        $datosReprogramacion = [
+                            'cancha_id' => $cancha->id,
+                            'fecha_partido' => $fecha,
+                            'hora_partido' => $hora,
+                            'arbitro_id' => $arbitro?->id,
+                            'motivo' => (string) ($datos['motivo'] ?? ''),
+                            'estado' => Partido::ESTADO_REPROGRAMADO,
+                            'equipo_local_id' => $localId,
+                            'equipo_visitante_id' => $visitanteId,
+                        ];
+
+                        return $this->reprogramacionService->reprogramar($partidoBloqueado, $datosReprogramacion, $usuario);
+                    }
+
+                    $nuevoEstado = $partidoBloqueado->estado;
+                } else {
+                    $nuevoEstado = ($cancha !== null && $fecha !== null && $hora !== null)
+                        ? Partido::ESTADO_PROGRAMADO
+                        : Partido::ESTADO_BORRADOR;
+                }
+
+                // Si la jornada estaba en revisión, aprobada o publicada, regresa a borrador por cambio no reprogramado (HU-030)
+                $jornadaBloqueada->revertirABorradorPorModificacion(true);
+
+                $partidoBloqueado->update([
                     'equipo_local_id' => $localId,
                     'equipo_visitante_id' => $visitanteId,
                     'cancha_id' => $cancha?->id,
                     'arbitro_id' => $arbitro?->id,
                     'fecha_partido' => $fecha,
                     'hora_partido' => $hora,
-                    'estado' => $estado,
+                    'estado' => $nuevoEstado,
                 ]);
 
-                return $partido;
-            });
+                return $partidoBloqueado;
+            }, 3);
         } catch (UniqueConstraintViolationException) {
             throw ValidationException::withMessages([
                 'arbitro_id' => 'El árbitro ya tiene asignado otro partido a la misma fecha y hora.',
@@ -477,7 +612,8 @@ class ProgramacionJornadaService
     }
 
     /**
-     * Eliminar un partido programado.
+     * Eliminar un partido programado (HU-031 / RF-06.6 / SCRUM-203).
+     * Regla estricta: solo se eliminan partidos en estado borrador sin historial ni cédula.
      *
      * @throws ValidationException
      */
@@ -485,20 +621,27 @@ class ProgramacionJornadaService
     {
         $this->validarTemporadaGrupo($partido->jornada->grupo);
 
-        if (in_array($partido->estado, ['finalizado', 'en juego'], true)) {
-            throw ValidationException::withMessages([
-                'estado' => 'No se puede eliminar un partido que ya se encuentra en juego o ha finalizado.',
-            ]);
-        }
+        DB::transaction(function () use ($partido): void {
+            $jornadaBloqueada = Jornada::query()->whereKey($partido->jornada_id)->lockForUpdate()->firstOrFail();
+            $partidoBloqueado = Partido::query()->whereKey($partido->id)->lockForUpdate()->firstOrFail();
 
-        // HU-036: el borrado en cascada se llevaría la cédula capturada sin dejarla en la auditoría (RNF-30)
-        if (Partido::query()->whereKey($partido->id)->conCedulaCapturada()->exists()) {
-            throw ValidationException::withMessages([
-                'estado' => 'No se puede eliminar un partido cuya cédula arbitral ya tiene datos capturados.',
-            ]);
-        }
+            // HU-036: el borrado en cascada se llevaría la cédula capturada sin dejarla en la auditoría (RNF-30)
+            if (Partido::query()->whereKey($partidoBloqueado->id)->conCedulaCapturada()->exists()) {
+                throw ValidationException::withMessages([
+                    'estado' => 'No se puede eliminar un partido cuya cédula arbitral ya tiene datos capturados.',
+                ]);
+            }
 
-        DB::transaction(fn () => $partido->delete());
+            if (! $partidoBloqueado->esEliminable()) {
+                throw ValidationException::withMessages([
+                    'estado' => 'Solo se permite eliminar partidos en estado borrador que no cuenten con cédula ni historial deportivo oficial.',
+                ]);
+            }
+
+            $jornadaBloqueada->revertirABorradorPorModificacion(true);
+
+            $partidoBloqueado->delete();
+        }, 3);
     }
 
     /**
@@ -510,24 +653,39 @@ class ProgramacionJornadaService
     {
         $this->validarTemporadaGrupo($jornada->grupo);
 
-        $partidosJugados = $jornada->partidos()
-            ->whereIn('estado', ['finalizado', 'en juego'])
-            ->exists();
+        DB::transaction(function () use ($jornada): void {
+            $jornadaBloqueada = Jornada::query()->whereKey($jornada->id)->lockForUpdate()->firstOrFail();
 
-        if ($partidosJugados) {
-            throw ValidationException::withMessages([
-                'jornada_id' => 'No se puede eliminar una jornada con partidos ya disputados o en juego.',
-            ]);
-        }
+            // HU-036: igual que al eliminar un partido, una cédula con datos capturados no se borra en cascada
+            if ($jornadaBloqueada->partidos()->conCedulaCapturada()->exists()) {
+                throw ValidationException::withMessages([
+                    'jornada_id' => 'No se puede eliminar una jornada con partidos cuya cédula arbitral ya tiene datos capturados.',
+                ]);
+            }
 
-        // HU-036: igual que al eliminar un partido, una cédula con datos capturados no se borra en cascada
-        if ($jornada->partidos()->conCedulaCapturada()->exists()) {
-            throw ValidationException::withMessages([
-                'jornada_id' => 'No se puede eliminar una jornada con partidos cuya cédula arbitral ya tiene datos capturados.',
-            ]);
-        }
+            // Obligatorio 2: Solo se pueden eliminar jornadas en estado borrador
+            if (! $jornadaBloqueada->esBorrador()) {
+                throw ValidationException::withMessages([
+                    'jornada_id' => "No se puede eliminar una jornada en estado '{$jornadaBloqueada->estado}'. Solo jornadas en estado borrador pueden eliminarse.",
+                ]);
+            }
 
-        DB::transaction(fn () => $jornada->delete());
+            // Obligatorio 2: Todos los partidos de la jornada deben ser eliminables físicamente (HU-031)
+            $partidos = $jornadaBloqueada->partidos()->orderBy('id')->lockForUpdate()->get();
+            $partidosNoEliminables = $partidos->reject(fn (Partido $p) => $p->esEliminable());
+            if ($partidosNoEliminables->isNotEmpty()) {
+                throw ValidationException::withMessages([
+                    'jornada_id' => 'No se puede eliminar la jornada porque contiene partidos protegidos (con cédula, bitácora de reprogramación o fuera de borrador).',
+                ]);
+            }
+
+            // Eliminar individualmente para disparar eventos del modelo y auditoría Eloquent
+            foreach ($partidos as $partido) {
+                $partido->delete();
+            }
+
+            $jornadaBloqueada->delete();
+        }, 3);
     }
 
     /**
@@ -583,8 +741,8 @@ class ProgramacionJornadaService
 
     private function duracionPartidoMinutos(): int
     {
-        $minutos = (int) config('programacion.duracion_partido_minutos', 90);
+        $minutos = (int) config('programacion.duracion_partido_minutos', 120);
 
-        return $minutos > 0 ? $minutos : 90;
+        return $minutos > 0 ? $minutos : 120;
     }
 }

@@ -139,6 +139,24 @@
                 @endforeach
             </ul>
         @endif
+
+        {{-- HU-075: reporte arbitral y firmas de los capitanes --}}
+        <h3 class="text-lg font-semibold text-white mt-8 mb-3">Reporte arbitral</h3>
+        <p class="text-sm text-gray-300 whitespace-pre-line">{{ $cedula->informe_arbitral ?? 'Sin reporte.' }}</p>
+
+        <h3 class="text-lg font-semibold text-white mt-8 mb-3">Firmas de los capitanes</h3>
+        <div class="grid gap-4 sm:grid-cols-2">
+            @foreach (['local' => $partido->local?->nombre, 'visitante' => $partido->visitante?->nombre] as $lado => $equipoNombre)
+                <div>
+                    <p class="text-sm text-gray-400 mb-1">{{ $equipoNombre }}</p>
+                    @if (! empty($firmas[$lado]))
+                        <img src="{{ route('cedulas.firma', [$partido, $lado]) }}" alt="Firma del capitán de {{ $equipoNombre }}" class="bg-white rounded-lg max-h-32">
+                    @else
+                        <p class="text-sm text-gray-500">Sin firma.</p>
+                    @endif
+                </div>
+            @endforeach
+        </div>
     @endif
 </div>
 @endsection

@@ -665,19 +665,6 @@ class GeneradorEnfrentamientosService
                         ]);
                     }
 
-                    // Verificar en memoria si hay partidos ya jugados, en juego, suspendidos o confirmados
-                    foreach ($jornadasExistentes as $jornadaEx) {
-                        $tieneProtegidos = $jornadaEx->partidos->contains(function (Partido $p) {
-                            return in_array($p->estado, ['confirmado', 'en juego', 'suspendido', 'finalizado'], true);
-                        });
-
-                        if ($tieneProtegidos) {
-                            throw ValidationException::withMessages([
-                                'grupo' => "La jornada {$jornadaEx->numero_jornada} contiene partidos en estado confirmado, en juego, suspendido o finalizado y no puede ser reemplazada.",
-                            ]);
-                        }
-                    }
-
                     // HU-036: una cédula con datos capturados no se borra en cascada al reemplazar el rol (RNF-30)
                     $conCedula = Partido::query()
                         ->whereIn('jornada_id', $jornadasExistentes->pluck('id'))
@@ -688,6 +675,25 @@ class GeneradorEnfrentamientosService
                         throw ValidationException::withMessages([
                             'grupo' => 'El grupo tiene partidos cuya cédula arbitral ya tiene datos capturados y su rol no puede ser reemplazado.',
                         ]);
+                    }
+
+                    // Obligatorio 2: Verificar que las jornadas estén en borrador y que todos sus partidos sean eliminables (HU-031)
+                    foreach ($jornadasExistentes as $jornadaEx) {
+                        if (! $jornadaEx->esBorrador()) {
+                            throw ValidationException::withMessages([
+                                'grupo' => "La jornada {$jornadaEx->numero_jornada} se encuentra en estado '{$jornadaEx->estado}' y no puede ser reemplazada.",
+                            ]);
+                        }
+
+                        $tieneNoEliminables = $jornadaEx->partidos->contains(function (Partido $p) {
+                            return ! $p->esEliminable();
+                        });
+
+                        if ($tieneNoEliminables) {
+                            throw ValidationException::withMessages([
+                                'grupo' => "La jornada {$jornadaEx->numero_jornada} contiene partidos protegidos (con cédula, bitácora de reprogramación o fuera de borrador) y no puede ser reemplazada.",
+                            ]);
+                        }
                     }
 
                     // Eliminar jornadas y partidos previos individualmente para disparar auditoría (RNF-30)
@@ -721,7 +727,7 @@ class GeneradorEnfrentamientosService
                             'hora_partido' => null,
                             'cancha_id' => null,
                             'arbitro_id' => null,
-                            'estado' => 'programado',
+                            'estado' => Partido::ESTADO_BORRADOR,
                         ]);
                         $totalPartidos++;
                     }
@@ -750,6 +756,12 @@ class GeneradorEnfrentamientosService
             function () use ($jornada): Jornada {
                 $jornadaBloqueada = Jornada::query()->whereKey($jornada->id)->lockForUpdate()->firstOrFail();
 
+                if (! $jornadaBloqueada->esBorrador()) {
+                    throw ValidationException::withMessages([
+                        'jornada' => "La jornada se encuentra en estado '{$jornadaBloqueada->estado}' y no admite la generación automática de partidos.",
+                    ]);
+                }
+
                 // Concurrencia serializada (RNF-33): comprobar existencia de partidos dentro del lock
                 if ($jornadaBloqueada->partidos()->exists()) {
                     throw ValidationException::withMessages([
@@ -773,7 +785,7 @@ class GeneradorEnfrentamientosService
                         'hora_partido' => null,
                         'cancha_id' => null,
                         'arbitro_id' => null,
-                        'estado' => 'programado',
+                        'estado' => Partido::ESTADO_BORRADOR,
                     ]);
                 }
 
