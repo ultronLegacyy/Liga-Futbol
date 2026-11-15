@@ -287,7 +287,7 @@ class JornadasTest extends TestCase
             'arbitro_id' => $arbitro->id,
             'fecha_partido' => '2026-11-10',
             'hora_partido' => '10:00:00',
-            'estado' => 'programado',
+            'estado' => 'borrador',
         ]);
 
         $this->actingAs($this->admin)
