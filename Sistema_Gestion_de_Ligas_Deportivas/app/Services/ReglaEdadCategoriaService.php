@@ -13,8 +13,8 @@ use Illuminate\Validation\ValidationException;
  * Requisitos de edad de una categoría (reglas de la temporada vigente).
  *
  * La comparten el registro (HU-016), la renovación y la transferencia (HU-017).
- * Fecha de corte provisional: el inicio de la temporada destino, pendiente de
- * confirmación del Product Owner.
+ * Fecha de corte: el inicio de la temporada destino (respuesta 14 del Product Owner
+ * en la revisión del #73; por ejemplo, «18 años o más» en la rama Libre).
  */
 class ReglaEdadCategoriaService
 {

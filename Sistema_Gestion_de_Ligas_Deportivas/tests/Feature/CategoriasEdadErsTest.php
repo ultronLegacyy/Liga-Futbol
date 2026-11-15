@@ -54,6 +54,9 @@ class CategoriasEdadErsTest extends TestCase
         return [
             'Libre: mayor de 18 sin edad máxima' => ['Libre', 'Primera Fuerza', $libre, '1980-03-10', true],
             'Libre: menor de 18 no entra' => ['Libre', 'Primera Fuerza', $libre, '2010-03-10', false],
+            // Respuesta 14: los 18 se cuentan al inicio de la temporada (01/08/2026), no al registrarse.
+            'Libre: cumple 18 después del inicio de la temporada no entra' => ['Libre', 'Primera Fuerza', $libre, '2008-09-01', false],
+            'Libre: cumple 18 el día que empieza la temporada' => ['Libre', 'Primera Fuerza', $libre, '2008-08-01', true],
             'Juvenil: nacido en 2009' => ['Libre', 'Juvenil', $juvenil, '2009-05-01', true],
             'Juvenil: nacido en 2010' => ['Libre', 'Juvenil', $juvenil, '2010-12-31', true],
             'Juvenil: nacido en 2008 no entra' => ['Libre', 'Juvenil', $juvenil, '2008-12-31', false],

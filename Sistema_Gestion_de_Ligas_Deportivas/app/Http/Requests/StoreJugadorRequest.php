@@ -8,6 +8,7 @@ use App\Models\Equipo;
 use App\Models\Jugador;
 use App\Models\User;
 use Closure;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -15,7 +16,27 @@ use Illuminate\Validation\Validator;
 
 class StoreJugadorRequest extends FormRequest
 {
-    use DescartaArreglosEnCamposDeTexto;
+    use DescartaArreglosEnCamposDeTexto {
+        prepareForValidation as descartarArreglosEnCamposDeTexto;
+    }
+
+    /** Mensaje de cada campo de texto que llegó como arreglo (revisión del #83, recomendado 3). */
+    private const MENSAJES_ARREGLO = [
+        'nombre' => 'El nombre del jugador debe ser texto.',
+        'apellidos' => 'Los apellidos del jugador deben ser texto.',
+        'fecha_nacimiento' => 'La fecha de nacimiento no es válida; usa el calendario (AAAA-MM-DD).',
+        'curp' => 'La CURP debe ser texto de 18 caracteres.',
+        'dorsal' => 'El dorsal debe ser un número entero.',
+        'fotografia_base64' => 'La fotografía capturada no es válida; vuelve a capturarla.',
+        'tutor.nombre_completo' => 'El nombre del tutor debe ser texto.',
+        'tutor.parentesco' => 'Selecciona un parentesco válido para el tutor.',
+        'tutor.telefono' => 'El teléfono del tutor debe tener 10 dígitos.',
+        'tutor.correo' => 'El correo del tutor no es válido.',
+        'tutor.consentimiento' => 'El consentimiento del tutor no es válido.',
+    ];
+
+    /** @var list<string> */
+    private array $camposConArreglo = [];
 
     /**
      * Campos de texto del formulario: si llegan como arreglo se descartan antes de
@@ -29,6 +50,26 @@ class StoreJugadorRequest extends FormRequest
             'nombre', 'apellidos', 'fecha_nacimiento', 'curp', 'dorsal', 'fotografia_base64',
             'tutor.nombre_completo', 'tutor.parentesco', 'tutor.telefono', 'tutor.correo', 'tutor.consentimiento',
         ];
+    }
+
+    /**
+     * Antes de descartar los arreglos se anota en qué campos llegaron, para responder con un
+     * error en lugar de guardar el registro sin el dato (por ejemplo `dorsal[]=x`).
+     */
+    protected function prepareForValidation(): void
+    {
+        foreach ($this->camposDeTexto() as $campo) {
+            if (is_array($this->input($campo))) {
+                $this->camposConArreglo[] = $campo;
+            }
+        }
+
+        $this->descartarArreglosEnCamposDeTexto();
+    }
+
+    protected function failedAuthorization(): void
+    {
+        throw new AuthorizationException('No cuenta con autorización para registrar jugadores en este equipo.');
     }
 
     public function authorize(): bool
@@ -176,6 +217,12 @@ class StoreJugadorRequest extends FormRequest
     public function after(): array
     {
         return [function (Validator $validator): void {
+            foreach ($this->camposConArreglo as $campo) {
+                if (! $validator->errors()->has($campo)) {
+                    $validator->errors()->add($campo, self::MENSAJES_ARREGLO[$campo] ?? 'El dato no es válido.');
+                }
+            }
+
             $equipo = $this->equipoSeleccionado();
 
             if (! $equipo instanceof Equipo) {
@@ -222,6 +269,29 @@ class StoreJugadorRequest extends FormRequest
             'persona_id.required' => 'El jugador es obligatorio.',
             'persona_id.exists' => 'El jugador seleccionado no existe.',
             'persona_id.unique' => 'El jugador ya está registrado en este equipo.',
+            'persona_id.integer' => 'El jugador seleccionado no es válido.',
+            'equipo_id.required' => 'Selecciona el equipo.',
+            'equipo_id.integer' => 'Selecciona un equipo válido.',
+            'temporada_id.required' => 'Selecciona la temporada.',
+            'temporada_id.integer' => 'Selecciona una temporada válida.',
+            'categoria_id.required' => 'Selecciona la categoría.',
+            'categoria_id.integer' => 'Selecciona una categoría válida.',
+            'nombre.string' => 'El nombre del jugador debe ser texto.',
+            'nombre.max' => 'El nombre del jugador no debe superar los :max caracteres.',
+            'apellidos.string' => 'Los apellidos del jugador deben ser texto.',
+            'apellidos.max' => 'Los apellidos del jugador no deben superar los :max caracteres.',
+            'fecha_nacimiento.required_without' => 'La fecha de nacimiento del jugador es obligatoria.',
+            'fecha_nacimiento.date_format' => 'La fecha de nacimiento no es válida; usa el calendario (AAAA-MM-DD).',
+            'fecha_nacimiento.before' => 'La fecha de nacimiento debe ser anterior a hoy.',
+            'curp.string' => 'La CURP debe ser texto.',
+            'curp.size' => 'La CURP debe tener 18 caracteres.',
+            'documentos.array' => 'Los documentos adjuntos no son válidos.',
+            'documentos.ine.file' => 'La identificación oficial debe ser un archivo.',
+            'documentos.curp.file' => 'El documento de CURP debe ser un archivo.',
+            'documentos.comprobante.file' => 'El comprobante de domicilio debe ser un archivo.',
+            'fotografia_base64.required_without' => 'Debes subir una fotografía o capturarla con la cámara.',
+            'fotografia_base64.string' => 'La fotografía capturada no es válida; vuelve a capturarla.',
+            'fotografia_base64.max' => 'La fotografía capturada es demasiado grande.',
             'dorsal.integer' => 'El dorsal debe ser un número entero.',
             'dorsal.min' => 'El dorsal debe ser al menos :min.',
             'dorsal.max' => 'El dorsal no debe ser mayor que :max.',

@@ -1,6 +1,7 @@
 {{--
     Aviso de privacidad del registro de jugadores (HU-020, OR-01).
-    Texto provisional pendiente de validar por el Product Owner y la Liga.
+    Texto provisional hasta que la Liga entregue el definitivo (respuesta 32 del Product
+    Owner en la revisión del #73).
     Si cambia el texto, sube la versión en config/privacidad.php.
 --}}
 <div class="space-y-3 text-sm leading-relaxed text-gray-200">

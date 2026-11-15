@@ -19,6 +19,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -295,6 +296,127 @@ class JugadorAvisoPrivacidadTest extends TestCase
         } finally {
             Carbon::setTestNow();
         }
+    }
+
+    /** @return array<string, array{string, array<string, mixed>}> */
+    public static function arreglosDesdeOtroFormulario(): array
+    {
+        return [
+            'renovar con nombre[]' => ['jugadores.renovar', ['nombre' => ['x']]],
+            'renovar con tutor[telefono][]' => ['jugadores.renovar', ['tutor' => ['telefono' => ['x']]]],
+            'transferir con curp[]' => ['jugadores.transferir', ['curp' => ['x']]],
+        ];
+    }
+
+    /**
+     * Revisión del #83, obligatorio 1: renovar y transferir regresan a jugadores/create con
+     * toda su petición en old(); un arreglo ahí no debe provocar un error 500.
+     *
+     * @param  array<string, mixed>  $datos
+     */
+    #[DataProvider('arreglosDesdeOtroFormulario')]
+    public function test_un_arreglo_que_llega_desde_otro_formulario_no_rompe_el_registro(string $ruta, array $datos): void
+    {
+        [$delegado, $equipo, $temporada, $categoria] = $this->contexto('Libre', 'Primera Fuerza');
+        $this->actingAs($delegado)->post(route('jugadores.store'), $this->datos($equipo, $temporada, $categoria, self::ADULTO))
+            ->assertSessionHasNoErrors();
+        $jugador = Jugador::query()->sole();
+
+        $this->actingAs($delegado)->from(route('jugadores.create'))
+            ->post(route($ruta, $jugador), $datos)
+            ->assertRedirect(route('jugadores.create'))
+            ->assertSessionHasErrors();
+
+        // La página que ve el Delegado después de la redirección.
+        $this->actingAs($delegado)->from(route('jugadores.create'))->followingRedirects()
+            ->post(route($ruta, $jugador), $datos)
+            ->assertOk()
+            ->assertSee('Registrar jugador');
+    }
+
+    /** @return array<string, array{string, string}> */
+    public static function arreglosEnCamposOpcionales(): array
+    {
+        return [
+            'dorsal[]' => ['dorsal', 'El dorsal debe ser un número entero.'],
+            'tutor[correo][]' => ['tutor.correo', 'El correo del tutor no es válido.'],
+        ];
+    }
+
+    /** Revisión del #83, recomendado 3: no se guarda el registro sin el dato y sin avisar. */
+    #[DataProvider('arreglosEnCamposOpcionales')]
+    public function test_un_arreglo_en_un_campo_opcional_se_rechaza_con_su_mensaje(string $campo, string $mensaje): void
+    {
+        [$delegado, $equipo, $temporada, $categoria] = $this->contexto('Infantil', 'Infantil A');
+        $datos = $this->datos($equipo, $temporada, $categoria, self::MENOR);
+        data_set($datos, $campo, ['x']);
+
+        $this->actingAs($delegado)->postJson(route('jugadores.store'), $datos)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([$campo => $mensaje]);
+
+        $this->assertDatabaseCount('jugadores_equipos', 0);
+    }
+
+    public function test_los_errores_de_formato_responden_en_espanol(): void
+    {
+        [$delegado, $equipo, $temporada, $categoria] = $this->contexto('Libre', 'Primera Fuerza');
+        $datos = $this->datos($equipo, $temporada, $categoria, self::ADULTO);
+        $datos['fecha_nacimiento'] = '01/05/2009';
+        unset($datos['documentos']['fotografia']);
+        $datos['fotografia_base64'] = ['x'];
+
+        $this->actingAs($delegado)->postJson(route('jugadores.store'), $datos)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'fecha_nacimiento' => 'La fecha de nacimiento no es válida; usa el calendario (AAAA-MM-DD).',
+                'fotografia_base64' => 'Debes subir una fotografía o capturarla con la cámara.',
+            ]);
+    }
+
+    /** Revisión del #83, recomendado 1: el servicio protege cualquier otra entrada futura. */
+    public function test_el_servicio_exige_el_aviso_aunque_no_pase_por_el_formulario(): void
+    {
+        $servicio = app(ConsentimientoPrivacidadService::class);
+        $persona = Persona::factory()->make(['fecha_nacimiento' => self::ADULTO]);
+        $categoria = Categoria::factory()->make(['rama' => 'Libre', 'nombre' => 'Primera Fuerza']);
+
+        foreach ([[], ['aviso_privacidad_aceptado' => '0']] as $datos) {
+            try {
+                $servicio->exigir($persona, $categoria, $datos);
+                $this->fail('El servicio aceptó un registro sin el aviso de privacidad.');
+            } catch (ValidationException $error) {
+                $this->assertArrayHasKey('aviso_privacidad_aceptado', $error->errors());
+            }
+        }
+
+        $this->assertSame(['motivo' => null, 'tutor' => null], $servicio->exigir($persona, $categoria, ['aviso_privacidad_aceptado' => '1']));
+    }
+
+    /** Revisión del #83, recomendado 7 (RNF-29). */
+    public function test_solo_el_club_del_equipo_y_quien_tiene_permiso_registran_jugadores(): void
+    {
+        [$delegado] = $this->contexto('Libre', 'Primera Fuerza');
+        [, $equipoAjeno, $temporada, $categoria] = $this->contexto('Libre', 'Primera Fuerza');
+        $datos = $this->datos($equipoAjeno, $temporada, $categoria, self::ADULTO);
+
+        $this->actingAs($delegado)->postJson(route('jugadores.store'), $datos)
+            ->assertForbidden()
+            ->assertJsonPath('mensaje', 'No cuenta con autorización para registrar jugadores en este equipo.');
+
+        $sinPermiso = User::query()->create([
+            'name' => 'Usuario sin permiso',
+            'email' => str()->uuid().'@liga.test',
+            'password' => Hash::make('secreto123'),
+            'rol' => 'Jugador',
+            'estatus' => 'activo',
+        ]);
+
+        $this->actingAs($sinPermiso)->get(route('jugadores.create'))->assertForbidden();
+        $this->actingAs($sinPermiso)->postJson(route('jugadores.store'), $datos)->assertForbidden();
+
+        $this->assertDatabaseCount('jugadores_equipos', 0);
+        $this->assertDatabaseCount('consentimientos_privacidad_jugador', 0);
     }
 
     /** @return array{User, Equipo, Temporada, Categoria} */

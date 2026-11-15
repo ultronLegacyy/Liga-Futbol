@@ -3,6 +3,11 @@
 @section('title', 'Registro de jugador')
 
 @section('content')
+@php
+    // Otros formularios (renovar, transferir) pueden volver aquí con un arreglo en old():
+    // solo se pintan valores de texto para no provocar un error 500 (revisión del #83).
+    $anterior = static fn (string $campo): string => is_scalar($valor = old($campo)) ? (string) $valor : '';
+@endphp
 <main class="mx-auto max-w-5xl p-6" x-data>
     <div class="mb-8">
         <p class="text-sm font-semibold uppercase tracking-widest text-emerald-400">HU-016 · Alta de jugador</p>
@@ -27,22 +32,22 @@
                 <div class="grid gap-5 md:grid-cols-2">
                     <div>
                         <label for="nombre" class="mb-1 block text-sm font-medium text-gray-200">Nombre(s)</label>
-                        <input id="nombre" name="nombre" value="{{ old('nombre') }}" required maxlength="120" autocomplete="given-name" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
+                        <input id="nombre" name="nombre" value="{{ $anterior('nombre') }}" required maxlength="120" autocomplete="given-name" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
                         @error('nombre') <p class="mt-1 text-sm text-red-300">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label for="apellidos" class="mb-1 block text-sm font-medium text-gray-200">Apellidos</label>
-                        <input id="apellidos" name="apellidos" value="{{ old('apellidos') }}" required maxlength="160" autocomplete="family-name" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
+                        <input id="apellidos" name="apellidos" value="{{ $anterior('apellidos') }}" required maxlength="160" autocomplete="family-name" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
                         @error('apellidos') <p class="mt-1 text-sm text-red-300">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label for="fecha_nacimiento" class="mb-1 block text-sm font-medium text-gray-200">Fecha de nacimiento</label>
-                        <input id="fecha_nacimiento" name="fecha_nacimiento" type="date" value="{{ old('fecha_nacimiento') }}" required max="{{ now()->toDateString() }}" autocomplete="bday" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
+                        <input id="fecha_nacimiento" name="fecha_nacimiento" type="date" value="{{ $anterior('fecha_nacimiento') }}" required max="{{ now()->toDateString() }}" autocomplete="bday" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
                         @error('fecha_nacimiento') <p class="mt-1 text-sm text-red-300">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label for="curp" class="mb-1 block text-sm font-medium text-gray-200">CURP</label>
-                        <input id="curp" name="curp" value="{{ old('curp') }}" required minlength="18" maxlength="18" autocomplete="off" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 uppercase text-white focus:border-emerald-500 focus:outline-none">
+                        <input id="curp" name="curp" value="{{ $anterior('curp') }}" required minlength="18" maxlength="18" autocomplete="off" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 uppercase text-white focus:border-emerald-500 focus:outline-none">
                         @error('curp') <p class="mt-1 text-sm text-red-300">{{ $message }}</p> @enderror
                     </div>
                 </div>
@@ -83,7 +88,7 @@
                     </div>
                     <div>
                         <label for="dorsal" class="mb-1 block text-sm font-medium text-gray-200">Dorsal (opcional)</label>
-                        <input id="dorsal" name="dorsal" type="number" min="1" max="99" value="{{ old('dorsal') }}" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white">
+                        <input id="dorsal" name="dorsal" type="number" min="1" max="99" value="{{ $anterior('dorsal') }}" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white">
                         @error('dorsal') <p class="mt-1 text-sm text-red-300">{{ $message }}</p> @enderror
                     </div>
                 </div>
@@ -126,7 +131,7 @@
                         <video id="vista-camara" autoplay playsinline muted class="hidden max-h-64 w-full rounded-lg bg-black" aria-label="Vista previa de la cámara"></video>
                         <img id="vista-fotografia" alt="Vista previa de la fotografía" class="hidden max-h-64 rounded-lg border border-gray-700">
                         <canvas id="lienzo-fotografia" class="hidden"></canvas>
-                        <input id="fotografia-base64" name="fotografia_base64" type="hidden" value="{{ old('fotografia_base64') }}">
+                        <input id="fotografia-base64" name="fotografia_base64" type="hidden" value="{{ $anterior('fotografia_base64') }}">
                         <p id="estado-camara" role="status" aria-live="polite" class="text-sm text-gray-400"></p>
                     </div>
                 </div>
@@ -140,7 +145,7 @@
                 <div class="mt-4 grid gap-5 md:grid-cols-2">
                     <div>
                         <label for="tutor-nombre" class="mb-1 block text-sm font-medium text-gray-200">Nombre completo del tutor</label>
-                        <input id="tutor-nombre" name="tutor[nombre_completo]" value="{{ old('tutor.nombre_completo') }}" maxlength="200" autocomplete="off" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
+                        <input id="tutor-nombre" name="tutor[nombre_completo]" value="{{ $anterior('tutor.nombre_completo') }}" maxlength="200" autocomplete="off" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
                         @error('tutor.nombre_completo') <p class="mt-1 text-sm text-red-300">{{ $message }}</p> @enderror
                     </div>
                     <div>
@@ -155,12 +160,12 @@
                     </div>
                     <div>
                         <label for="tutor-telefono" class="mb-1 block text-sm font-medium text-gray-200">Teléfono (10 dígitos)</label>
-                        <input id="tutor-telefono" name="tutor[telefono]" type="tel" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" value="{{ old('tutor.telefono') }}" autocomplete="off" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
+                        <input id="tutor-telefono" name="tutor[telefono]" type="tel" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" value="{{ $anterior('tutor.telefono') }}" autocomplete="off" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
                         @error('tutor.telefono') <p class="mt-1 text-sm text-red-300">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label for="tutor-correo" class="mb-1 block text-sm font-medium text-gray-200">Correo (opcional)</label>
-                        <input id="tutor-correo" name="tutor[correo]" type="email" maxlength="160" value="{{ old('tutor.correo') }}" autocomplete="off" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
+                        <input id="tutor-correo" name="tutor[correo]" type="email" maxlength="160" value="{{ $anterior('tutor.correo') }}" autocomplete="off" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
                         @error('tutor.correo') <p class="mt-1 text-sm text-red-300">{{ $message }}</p> @enderror
                     </div>
                 </div>
