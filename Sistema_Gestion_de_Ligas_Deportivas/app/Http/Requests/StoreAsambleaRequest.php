@@ -22,18 +22,13 @@ class StoreAsambleaRequest extends FormRequest
         return true;
     }
 
-    /** «Hoy» con la hora de México: desde las 18:00 la zona de la app (UTC) ya va en el día siguiente. */
-    public static function hoy(): string
-    {
-        return now(GestionJugadorService::ZONA_HORARIA)->toDateString();
-    }
-
     /** @return array<string, array<int, mixed>> */
     public function rules(): array
     {
         return [
             'tipo' => ['bail', 'required', 'string', Rule::in(Asamblea::TIPOS)],
-            'fecha' => ['bail', 'required', 'string', 'date_format:Y-m-d', 'after_or_equal:'.self::hoy()],
+            'fecha' => ['bail', 'required', 'string', 'date_format:Y-m-d', // «Hoy» con la hora de México (GestionJugadorService::hoy), no en UTC.
+                'after_or_equal:'.GestionJugadorService::hoy()],
             'hora' => ['bail', 'required', 'string', 'date_format:H:i'],
             'lugar' => ['bail', 'required', 'string', 'min:3', 'max:200'],
             'orden_del_dia' => ['bail', 'required', 'string', 'min:5', 'max:5000'],

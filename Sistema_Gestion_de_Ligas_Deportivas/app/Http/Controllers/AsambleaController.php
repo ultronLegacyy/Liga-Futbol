@@ -74,9 +74,16 @@ class AsambleaController extends Controller
         ]);
     }
 
-    public function editarAsistencia(Asamblea $asamblea): View
+    public function editarAsistencia(Asamblea $asamblea): View|RedirectResponse
     {
         Gate::authorize('registrarAsistencia', $asamblea);
+
+        // Respuesta 33 del Product Owner (revisión del #73): la asistencia se registra el día de la asamblea o después.
+        if (! $asamblea->admiteAsistencia()) {
+            return redirect()->route('asambleas.show', $asamblea)
+                ->with('aviso', 'La asistencia se registra a partir del '.$asamblea->fecha->format('d/m/Y').'.');
+        }
+
         $clubes = $this->asambleas->clubesConvocados($asamblea);
 
         return view('asambleas.asistencia', [

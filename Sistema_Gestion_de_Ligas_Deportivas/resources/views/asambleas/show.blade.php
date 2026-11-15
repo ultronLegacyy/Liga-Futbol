@@ -27,6 +27,10 @@
         <div role="status" class="mb-6 rounded-lg border border-emerald-700 bg-emerald-950 p-4 text-emerald-200">{{ session('success') }}</div>
     @endif
 
+    @if (session('aviso'))
+        <div role="status" class="mb-6 rounded-lg border border-amber-700 bg-amber-950 p-4 text-amber-100">{{ session('aviso') }}</div>
+    @endif
+
     <section aria-labelledby="convocatoria-titulo" class="mb-6 rounded-xl border border-gray-700 bg-gray-800 p-6">
         <h2 id="convocatoria-titulo" class="mb-4 text-xl font-semibold text-white">Convocatoria</h2>
         <dl class="grid gap-4 text-sm md:grid-cols-2">

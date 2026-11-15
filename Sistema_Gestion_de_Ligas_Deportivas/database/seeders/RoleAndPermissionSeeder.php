@@ -207,7 +207,8 @@ class RoleAndPermissionSeeder extends Seeder
             'equipos.ver',
             'campos.ver',
             'finanzas.reportes',
-            // Consulta las asambleas y autoriza que un acuerdo se vuelva regla permanente (RF-14.3, supuesto pendiente del PO)
+            // Consulta las asambleas y autoriza que un acuerdo se vuelva regla permanente (RF-14.3; la ERS le asigna la
+            // «validación de acuerdos extraordinarios»). Respuesta 33 del Product Owner en la revisión del #73.
             'asambleas.ver',
             'asambleas.acuerdos.autorizar',
         ];

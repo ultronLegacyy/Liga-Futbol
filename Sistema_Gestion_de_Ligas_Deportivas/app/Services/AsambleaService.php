@@ -225,14 +225,18 @@ class AsambleaService
         });
     }
 
-    /** Los acuerdos y comunicados salen de la reunión: la asamblea debe tener su asistencia registrada. */
+    /**
+     * Los acuerdos y comunicados salen de la reunión: la asamblea debe estar «Celebrada».
+     * Una asamblea se celebra al registrar su asistencia; las anteriores al sistema, que ya
+     * tienen acta, quedan «Celebradas» desde la migración y también admiten acuerdos.
+     */
     private function asambleaCelebrada(Asamblea $asamblea): Asamblea
     {
         $asamblea = Asamblea::query()->whereKey($asamblea->getKey())->lockForUpdate()->firstOrFail();
 
         if ($asamblea->estado !== Asamblea::ESTADO_CELEBRADA) {
             throw ValidationException::withMessages([
-                'asamblea' => 'Registra primero la asistencia: los acuerdos y comunicados solo se registran en una asamblea celebrada.',
+                'asamblea' => 'Los acuerdos y comunicados solo se registran en una asamblea celebrada: registra primero su asistencia.',
             ]);
         }
 

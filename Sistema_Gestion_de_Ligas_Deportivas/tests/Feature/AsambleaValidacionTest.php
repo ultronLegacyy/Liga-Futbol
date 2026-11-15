@@ -115,6 +115,69 @@ class AsambleaValidacionTest extends TestCase
         $this->actingAs($this->secretario)->get(route('asambleas.show', $asamblea))->assertOk();
     }
 
+    /** @return array<string, array{string, array<string, mixed>, string}> */
+    public static function arreglosEnOtroFormulario(): array
+    {
+        return [
+            'comunicado con descripcion[] del acuerdo' => ['asambleas.comunicados.store', ['titulo' => '', 'contenido' => '', 'descripcion' => ['x']], 'titulo'],
+            'acuerdo con titulo[] del comunicado' => ['asambleas.acuerdos.store', ['descripcion' => '', 'modifica_reglamento' => '0', 'titulo' => ['x']], 'descripcion'],
+            'acuerdo con contenido[] del comunicado' => ['asambleas.acuerdos.store', ['descripcion' => '', 'modifica_reglamento' => '0', 'contenido' => ['x']], 'descripcion'],
+        ];
+    }
+
+    /**
+     * Revisión del #82, obligatorio 1: el detalle pinta 3 formularios con old(); un arreglo en
+     * un campo de otro formulario no debe llegar a la vista.
+     *
+     * @param  array<string, mixed>  $datos
+     */
+    #[DataProvider('arreglosEnOtroFormulario')]
+    public function test_un_arreglo_en_un_campo_de_otro_formulario_no_provoca_un_error_500(string $ruta, array $datos, string $campoConError): void
+    {
+        $asamblea = $this->asambleaCelebrada();
+
+        $this->actingAs($this->secretario)->from(route('asambleas.show', $asamblea))
+            ->post(route($ruta, $asamblea), $datos)
+            ->assertRedirect(route('asambleas.show', $asamblea))
+            ->assertSessionHasErrors($campoConError);
+
+        // La página que ve el Secretario después de la redirección.
+        $this->actingAs($this->secretario)->from(route('asambleas.show', $asamblea))->followingRedirects()
+            ->post(route($ruta, $asamblea), $datos)
+            ->assertOk();
+    }
+
+    public function test_el_formulario_de_asistencia_no_abre_antes_del_dia_de_la_asamblea(): void
+    {
+        $this->actingAs($this->secretario)->post(route('asambleas.store'), $this->convocatoria())->assertSessionHasNoErrors();
+        $asamblea = Asamblea::query()->latest('id')->firstOrFail();
+        $aviso = 'La asistencia se registra a partir del '.$asamblea->fecha->format('d/m/Y').'.';
+
+        $this->actingAs($this->secretario)->get(route('asambleas.asistencia.edit', $asamblea))
+            ->assertRedirect(route('asambleas.show', $asamblea))
+            ->assertSessionHas('aviso', $aviso);
+
+        $this->actingAs($this->secretario)->followingRedirects()->get(route('asambleas.asistencia.edit', $asamblea))
+            ->assertOk()
+            ->assertSee($aviso)
+            ->assertDontSee('Guardar asistencia');
+    }
+
+    public function test_solo_quien_autoriza_ve_el_boton_de_regla_permanente(): void
+    {
+        $asamblea = $this->asambleaCelebrada();
+        $this->acuerdoQueModifica($asamblea);
+
+        $this->actingAs($this->secretario)->get(route('asambleas.show', $asamblea))
+            ->assertOk()
+            ->assertSee('Modifica el reglamento')
+            ->assertDontSee('Autorizar como regla permanente');
+
+        $this->actingAs($this->usuario('Presidente'))->get(route('asambleas.show', $asamblea))
+            ->assertOk()
+            ->assertSee('Autorizar como regla permanente');
+    }
+
     public function test_hoy_se_calcula_con_la_hora_de_mexico_al_convocar(): void
     {
         // 19:30 en México ya es el día siguiente en UTC, la zona de la app.
