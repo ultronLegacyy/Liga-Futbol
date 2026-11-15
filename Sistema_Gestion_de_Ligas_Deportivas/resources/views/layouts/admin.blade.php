@@ -87,6 +87,11 @@
                     Adeudos por club
                 </a>
             @endcan
+            @can('verReporte', App\Models\CargoFinanciero::class)
+                <a href="{{ route('reportes.financiero') }}" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-lg {{ request()->routeIs('reportes.financiero*') ? 'bg-green-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white' }}">
+                    Reporte financiero
+                </a>
+            @endcan
         </nav>
 
         <div class="p-4 border-t border-gray-700">

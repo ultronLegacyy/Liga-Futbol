@@ -20,6 +20,7 @@ use App\Http\Controllers\PagoController;
 use App\Http\Controllers\PartidoController;
 use App\Http\Controllers\PersonaController;
 use App\Http\Controllers\RecuperacionContrasenaController;
+use App\Http\Controllers\ReporteFinancieroController;
 use App\Http\Controllers\ReglaTemporadaController;
 use App\Http\Controllers\RolPermisoController;
 use App\Http\Controllers\TarjetonDigitalController;
@@ -215,6 +216,14 @@ Route::middleware(['auth'])->group(function () {
             ->name('cargos.pagos.store');
         Route::get('/pagos/{pago}/comprobante', [PagoController::class, 'comprobante'])
             ->name('pagos.comprobante');
+
+        // Reporte financiero por periodo, club, temporada y concepto, y su descarga (HU-052, RF-13.3)
+        Route::get('/reportes/financiero', [ReporteFinancieroController::class, 'index'])
+            ->name('reportes.financiero');
+        Route::get('/reportes/financiero/csv', [ReporteFinancieroController::class, 'csv'])
+            ->name('reportes.financiero.csv');
+        Route::get('/reportes/financiero/pdf', [ReporteFinancieroController::class, 'pdf'])
+            ->name('reportes.financiero.pdf');
 
         // Grupo de rutas de administracion de gobernanza y gestión de cuentas (S2-T13)
         Route::middleware(['role:Administrador General'])->prefix('admin')->name('admin.')->group(function () {
