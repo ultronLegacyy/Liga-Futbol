@@ -756,6 +756,12 @@ class GeneradorEnfrentamientosService
             function () use ($jornada): Jornada {
                 $jornadaBloqueada = Jornada::query()->whereKey($jornada->id)->lockForUpdate()->firstOrFail();
 
+                if (! $jornadaBloqueada->esBorrador()) {
+                    throw ValidationException::withMessages([
+                        'jornada' => "La jornada se encuentra en estado '{$jornadaBloqueada->estado}' y no admite la generación automática de partidos.",
+                    ]);
+                }
+
                 // Concurrencia serializada (RNF-33): comprobar existencia de partidos dentro del lock
                 if ($jornadaBloqueada->partidos()->exists()) {
                     throw ValidationException::withMessages([

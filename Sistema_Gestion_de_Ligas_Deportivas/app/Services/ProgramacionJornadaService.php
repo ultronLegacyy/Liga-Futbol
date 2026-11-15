@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Arbitro;
 use App\Models\Cancha;
+use App\Models\CedulaArbitral;
 use App\Models\Equipo;
 use App\Models\Grupo;
 use App\Models\Jornada;
@@ -431,7 +432,9 @@ class ProgramacionJornadaService
         }
 
         // HU-027: Validar que la fecha del partido esté comprendida dentro del margen de la jornada
-        if ($fecha !== null) {
+        // (si el partido ya no es borrador y conserva intacta su fecha reprogramada previa dentro de la temporada, se respeta)
+        $fechaActualPartido = $partido->fecha_partido ? Carbon::parse($partido->fecha_partido)->toDateString() : null;
+        if ($fecha !== null && ($partido->esBorrador() || $fecha !== $fechaActualPartido)) {
             $inicioJornada = Carbon::parse($jornada->fecha_inicio)->toDateString();
             $finJornada = Carbon::parse($jornada->fecha_fin)->toDateString();
             if ($fecha < $inicioJornada || $fecha > $finJornada) {
@@ -466,6 +469,19 @@ class ProgramacionJornadaService
                         'estado' => $cambioProgramacion
                             ? "Un partido en estado 'en juego' no puede ser reprogramado ni modificar su fecha, hora o cancha."
                             : "Un partido en estado 'en juego' no puede ser modificado. Debe suspenderse previamente.",
+                    ]);
+                }
+
+                if ($partidoBloqueado->cedula()->where('estado', CedulaArbitral::CERRADA)->exists()) {
+                    throw ValidationException::withMessages([
+                        'estado' => 'No es posible modificar un partido cuya cédula arbitral ya fue cerrada.',
+                    ]);
+                }
+
+                if ($jornadaBloqueada->esPublicada()
+                    && ($localId !== $partidoBloqueado->equipo_local_id || $visitanteId !== $partidoBloqueado->equipo_visitante_id)) {
+                    throw ValidationException::withMessages([
+                        'equipo_local_id' => 'En una jornada publicada oficialmente no es posible cambiar los equipos de un partido.',
                     ]);
                 }
 

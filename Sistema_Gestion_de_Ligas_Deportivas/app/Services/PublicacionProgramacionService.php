@@ -139,18 +139,6 @@ class PublicacionProgramacionService
      */
     public function enviarARevision(Jornada $jornada, ?User $usuario = null): Jornada
     {
-        if ($jornada->estado !== Jornada::ESTADO_BORRADOR) {
-            throw ValidationException::withMessages([
-                'jornada' => "Solo una jornada en estado 'borrador' puede enviarse a revisión. Estado actual: '{$jornada->estado}'.",
-            ]);
-        }
-
-        if ($jornada->partidos()->count() === 0) {
-            throw ValidationException::withMessages([
-                'jornada' => 'No se puede enviar a revisión una jornada sin partidos programados.',
-            ]);
-        }
-
         return DB::transaction(function () use ($jornada): Jornada {
             $jornadaBloqueada = Jornada::query()->whereKey($jornada->id)->lockForUpdate()->firstOrFail();
 
@@ -160,11 +148,17 @@ class PublicacionProgramacionService
                 ]);
             }
 
+            if ($jornadaBloqueada->partidos()->count() === 0) {
+                throw ValidationException::withMessages([
+                    'jornada' => 'No se puede enviar a revisión una jornada sin partidos programados.',
+                ]);
+            }
+
             $jornadaBloqueada->estado = Jornada::ESTADO_EN_REVISION;
             $jornadaBloqueada->save();
 
             return $jornadaBloqueada;
-        });
+        }, 3);
     }
 
     /**
@@ -197,7 +191,7 @@ class PublicacionProgramacionService
             $jornadaBloqueada->save();
 
             return $jornadaBloqueada;
-        });
+        }, 3);
     }
 
     /**
@@ -207,21 +201,6 @@ class PublicacionProgramacionService
      */
     public function publicar(Jornada $jornada, ?User $usuario = null): Jornada
     {
-        if ($jornada->estado !== Jornada::ESTADO_APROBADA) {
-            throw ValidationException::withMessages([
-                'jornada' => "Solo una jornada previamente aprobada puede ser publicada. Estado actual: '{$jornada->estado}'.",
-            ]);
-        }
-
-        // Validar que no existan conflictos antes de permitir la publicación
-        $conflictos = $this->detectarConflictos($jornada);
-        if (! empty($conflictos)) {
-            throw ValidationException::withMessages([
-                'publicacion' => 'La programación contiene conflictos no resueltos y no puede publicarse: '.implode('; ', $conflictos),
-                'conflictos' => $conflictos,
-            ]);
-        }
-
         $usuarioActuante = $usuario ?? auth()->user();
 
         return DB::transaction(function () use ($jornada, $usuarioActuante): Jornada {
@@ -233,15 +212,26 @@ class PublicacionProgramacionService
                 ]);
             }
 
+            $partidosBorrador = $jornadaBloqueada->partidos()
+                ->where('estado', Partido::ESTADO_BORRADOR)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            // Validar conflictos dentro del bloqueo para garantizar consistencia frente a concurrencia
+            $conflictos = $this->detectarConflictos($jornadaBloqueada);
+            if (! empty($conflictos)) {
+                throw ValidationException::withMessages([
+                    'publicacion' => 'La programación contiene conflictos no resueltos y no puede publicarse: '.implode('; ', $conflictos),
+                    'conflictos' => $conflictos,
+                ]);
+            }
+
             $jornadaBloqueada->estado = Jornada::ESTADO_PUBLICADA;
             $jornadaBloqueada->fecha_publicacion = now();
             $jornadaBloqueada->save();
 
             // Obligatorio 3: Actualizar individualmente cada partido en borrador y registrar en bitácora auditable
-            $partidosBorrador = $jornadaBloqueada->partidos()
-                ->where('estado', Partido::ESTADO_BORRADOR)
-                ->get();
-
             foreach ($partidosBorrador as $partidoBorrador) {
                 $partidoBorrador->estado = Partido::ESTADO_PROGRAMADO;
                 $partidoBorrador->save();
@@ -264,6 +254,6 @@ class PublicacionProgramacionService
             }
 
             return $jornadaBloqueada;
-        });
+        }, 3);
     }
 }

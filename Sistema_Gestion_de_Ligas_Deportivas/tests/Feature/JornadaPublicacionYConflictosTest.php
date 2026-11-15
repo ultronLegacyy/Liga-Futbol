@@ -537,6 +537,94 @@ class JornadaPublicacionYConflictosTest extends TestCase
         ]);
     }
 
+    public function test_en_jornada_publicada_solo_se_permiten_reprogramaciones_con_bitacora_y_no_cambios_de_equipos(): void
+    {
+        $partido = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->equipoA->id,
+            'equipo_visitante_id' => $this->equipoB->id,
+            'cancha_id' => $this->cancha1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        $this->jornada->update([
+            'estado' => Jornada::ESTADO_PUBLICADA,
+            'aprobado_por_id' => $this->admin->id,
+            'fecha_aprobacion' => now()->subHour(),
+            'fecha_publicacion' => now(),
+        ]);
+
+        // Bloquea edición directa de la jornada incluso para Administrador General
+        $this->actingAs($this->admin)
+            ->put(route('jornadas.update', $this->jornada), [
+                'numero_jornada' => 1,
+                'fecha_inicio' => '2026-11-20',
+                'fecha_fin' => '2026-11-25',
+            ])
+            ->assertForbidden();
+
+        // Bloquea cambio de equipos en partido publicado
+        $this->actingAs($this->programador)
+            ->put(route('partidos.update', $partido), [
+                'equipo_local_id' => $this->equipoC->id,
+                'equipo_visitante_id' => $this->equipoB->id,
+                'cancha_id' => $this->cancha1->id,
+                'fecha_partido' => '2026-11-20',
+                'hora_partido' => '10:00:00',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors(['equipo_local_id']);
+
+        $this->assertSame($this->equipoA->id, $partido->fresh()->equipo_local_id);
+
+        // Bloquea generación automática sobre jornada no borrador
+        $jornadaVaciaAprobada = Jornada::create([
+            'grupo_id' => $this->grupo->id,
+            'numero_jornada' => 9,
+            'fecha_inicio' => '2026-11-27',
+            'fecha_fin' => '2026-11-29',
+            'estado' => Jornada::ESTADO_PUBLICADA,
+        ]);
+
+        try {
+            app(\App\Services\GeneradorEnfrentamientosService::class)->aplicarEnfrentamientosAJornada($jornadaVaciaAprobada);
+            $this->fail('Se esperaba ValidationException en jornada publicada.');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->assertArrayHasKey('jornada', $e->errors());
+        }
+
+        // Reprogramación oficial fuera de la semana de la jornada (dentro de temporada) con bitácora sí está permitida
+        $this->actingAs($this->programador)
+            ->post(route('partidos.reprogramar.store', $partido), [
+                'cancha_id' => $this->cancha2->id,
+                'fecha_partido' => '2026-12-05',
+                'hora_partido' => '16:00',
+                'motivo' => 'Reprogramación oficial dentro de temporada con bitácora.',
+            ])
+            ->assertRedirect();
+
+        $this->assertSame(Partido::ESTADO_REPROGRAMADO, $partido->fresh()->estado);
+        $this->assertSame('2026-12-05', $partido->fresh()->fecha_partido?->format('Y-m-d'));
+
+        // Editar después el árbitro o datos conservando la fecha reprogramada previa fuera de la semana no debe bloquearse
+        $arbitro = $this->crearArbitro('ARBZ900101HDFRRL01');
+        $this->actingAs($this->programador)
+            ->put(route('partidos.update', $partido->fresh()), [
+                'equipo_local_id' => $this->equipoA->id,
+                'equipo_visitante_id' => $this->equipoB->id,
+                'cancha_id' => $this->cancha2->id,
+                'arbitro_id' => $arbitro->id,
+                'fecha_partido' => '2026-12-05',
+                'hora_partido' => '16:00',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame($arbitro->id, $partido->fresh()->arbitro_id);
+    }
+
     private function crearEquipo(string $nombre, ?Grupo $grupo = null): Equipo
     {
         $this->clubIndex++;

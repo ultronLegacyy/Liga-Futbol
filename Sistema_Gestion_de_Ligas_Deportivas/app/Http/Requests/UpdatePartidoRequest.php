@@ -36,12 +36,25 @@ class UpdatePartidoRequest extends FormRequest
             ? Carbon::parse($jornada->fecha_fin)->toDateString()
             : null;
 
+        $fechaActual = $partido instanceof Partido && $partido->fecha_partido
+            ? Carbon::parse($partido->fecha_partido)->toDateString()
+            : null;
+        $fechaSolicitada = is_string($this->input('fecha_partido')) && $this->input('fecha_partido') !== ''
+            ? $this->input('fecha_partido')
+            : null;
+        $conservaFechaReprogramada = $partido instanceof Partido
+            && ! $partido->esBorrador()
+            && $fechaActual !== null
+            && ($fechaSolicitada === null || $fechaSolicitada === $fechaActual);
+
         $fechaRules = ['bail', 'nullable', 'date_format:Y-m-d'];
-        if ($fechaInicio !== null) {
-            $fechaRules[] = 'after_or_equal:'.$fechaInicio;
-        }
-        if ($fechaFin !== null) {
-            $fechaRules[] = 'before_or_equal:'.$fechaFin;
+        if (! $conservaFechaReprogramada) {
+            if ($fechaInicio !== null) {
+                $fechaRules[] = 'after_or_equal:'.$fechaInicio;
+            }
+            if ($fechaFin !== null) {
+                $fechaRules[] = 'before_or_equal:'.$fechaFin;
+            }
         }
 
         return [

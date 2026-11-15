@@ -6,6 +6,7 @@ use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use LogicException;
 
 // Registro y auditoría de reprogramaciones y cambios de estado de partidos (HU-029 / RF-06.4 / RNF-22)
 class ReprogramacionPartido extends Model
@@ -28,6 +29,17 @@ class ReprogramacionPartido extends Model
         'hora_nueva',
         'motivo',
     ];
+
+    protected static function booted(): void
+    {
+        static::updating(function (): void {
+            throw new LogicException('La bitácora oficial de reprogramaciones es inmutable y no puede modificarse.');
+        });
+
+        static::deleting(function (): void {
+            throw new LogicException('La bitácora oficial de reprogramaciones es inmutable y no puede eliminarse.');
+        });
+    }
 
     /**
      * @return array<string, string>

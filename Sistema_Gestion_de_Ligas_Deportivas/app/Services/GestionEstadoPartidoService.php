@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\CedulaArbitral;
 use App\Models\Jornada;
 use App\Models\Partido;
 use App\Models\ReprogramacionPartido;
@@ -21,9 +22,9 @@ class GestionEstadoPartidoService
     {
         // El motivo es obligatorio en todo cambio de estado con al menos 10 caracteres
         $motivoLimpio = trim((string) $motivo);
-        if (mb_strlen($motivoLimpio) < 10) {
+        if (mb_strlen($motivoLimpio) < 10 || mb_strlen($motivoLimpio) > 1000) {
             throw ValidationException::withMessages([
-                'motivo' => 'El motivo es obligatorio en todo cambio de estado y debe contener al menos 10 caracteres explicativos.',
+                'motivo' => 'El motivo es obligatorio en todo cambio de estado y debe contener entre 10 y 1000 caracteres explicativos.',
             ]);
         }
 
@@ -50,6 +51,20 @@ class GestionEstadoPartidoService
 
                 throw ValidationException::withMessages([
                     'nuevo_estado' => $mensaje,
+                ]);
+            }
+
+            if ($partidoBloqueado->cedula()->where('estado', CedulaArbitral::CERRADA)->exists()
+                && ! ($estadoActual === Partido::ESTADO_EN_JUEGO && $nuevoEstado === Partido::ESTADO_FINALIZADO)) {
+                throw ValidationException::withMessages([
+                    'nuevo_estado' => 'No es posible cambiar el estado de un partido cuya cédula arbitral ya fue cerrada.',
+                ]);
+            }
+
+            if ($nuevoEstado === Partido::ESTADO_CANCELADO
+                && Partido::query()->whereKey($partidoBloqueado->id)->conCedulaCapturada()->exists()) {
+                throw ValidationException::withMessages([
+                    'nuevo_estado' => 'No es posible cancelar un partido cuya cédula arbitral ya tiene datos capturados.',
                 ]);
             }
 

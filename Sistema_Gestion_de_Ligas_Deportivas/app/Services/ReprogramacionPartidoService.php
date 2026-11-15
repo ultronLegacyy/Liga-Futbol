@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Arbitro;
 use App\Models\Cancha;
+use App\Models\CedulaArbitral;
 use App\Models\Equipo;
 use App\Models\Jornada;
 use App\Models\Partido;
@@ -40,9 +41,9 @@ class ReprogramacionPartidoService
     public function reprogramar(Partido $partido, array $datos, ?User $usuario = null): Partido
     {
         $motivo = trim($datos['motivo']);
-        if (mb_strlen($motivo) < 10) {
+        if (mb_strlen($motivo) < 10 || mb_strlen($motivo) > 1000) {
             throw ValidationException::withMessages([
-                'motivo' => 'El motivo de reprogramación es obligatorio y debe tener al menos 10 caracteres explicativos.',
+                'motivo' => 'El motivo de reprogramación es obligatorio y debe tener entre 10 y 1000 caracteres explicativos.',
             ]);
         }
 
@@ -136,6 +137,19 @@ class ReprogramacionPartidoService
             if ($partidoBloqueado->estado === Partido::ESTADO_EN_JUEGO) {
                 throw ValidationException::withMessages([
                     'estado' => 'No es posible reprogramar un partido en juego. Debe suspenderse previamente.',
+                ]);
+            }
+
+            if ($partidoBloqueado->cedula()->where('estado', CedulaArbitral::CERRADA)->exists()) {
+                throw ValidationException::withMessages([
+                    'estado' => 'No es posible reprogramar un partido cuya cédula arbitral ya fue cerrada.',
+                ]);
+            }
+
+            if ($jornadaBloqueada->esPublicada()
+                && ($localId !== $partidoBloqueado->equipo_local_id || $visitanteId !== $partidoBloqueado->equipo_visitante_id)) {
+                throw ValidationException::withMessages([
+                    'equipo_local_id' => 'En una jornada publicada oficialmente no es posible cambiar los equipos de un partido.',
                 ]);
             }
 

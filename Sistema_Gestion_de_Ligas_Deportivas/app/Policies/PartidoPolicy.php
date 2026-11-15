@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Models\CedulaArbitral;
 use App\Models\Jornada;
 use App\Models\Partido;
 use App\Models\User;
@@ -60,6 +61,10 @@ class PartidoPolicy
             return Response::deny('Un partido finalizado o cancelado no puede ser modificado.');
         }
 
+        if ($partido->cedula()->where('estado', CedulaArbitral::CERRADA)->exists()) {
+            return Response::deny('Un partido cuya cédula arbitral ya fue cerrada es inmutable y no puede ser modificado.');
+        }
+
         return ($usuario->hasRole('Administrador General') || $usuario->can('partidos.reprogramar') || $usuario->can('partidos.programar'))
             ? Response::allow()
             : Response::deny('No cuenta con privilegios para modificar o reprogramar partidos.');
@@ -73,6 +78,10 @@ class PartidoPolicy
 
         if (in_array($partido->estado, [Partido::ESTADO_FINALIZADO, Partido::ESTADO_CANCELADO], true)) {
             return Response::deny('Un partido finalizado o cancelado no puede ser reprogramado.');
+        }
+
+        if ($partido->cedula()->where('estado', CedulaArbitral::CERRADA)->exists()) {
+            return Response::deny('Un partido cuya cédula arbitral ya fue cerrada es inmutable y no puede ser reprogramado.');
         }
 
         if (in_array($partido->estado, [Partido::ESTADO_BORRADOR, Partido::ESTADO_EN_JUEGO], true)) {
@@ -92,6 +101,10 @@ class PartidoPolicy
 
         if (in_array($partido->estado, [Partido::ESTADO_FINALIZADO, Partido::ESTADO_CANCELADO], true)) {
             return Response::deny('Un partido finalizado o cancelado no admite cambios de estado.');
+        }
+
+        if ($partido->estado !== Partido::ESTADO_EN_JUEGO && $partido->cedula()->where('estado', CedulaArbitral::CERRADA)->exists()) {
+            return Response::deny('Un partido cuya cédula arbitral ya fue cerrada es inmutable y no admite cambios de estado.');
         }
 
         return ($usuario->hasRole('Administrador General') || $usuario->can('partidos.reprogramar') || $usuario->can('partidos.programar'))
@@ -117,7 +130,7 @@ class PartidoPolicy
         }
 
         if (! $partido->esEliminable()) {
-            return Response::deny('No es posible eliminar un partido que cuenta con programación activa, cédula arbitral o historial oficial (HU-031).');
+            return Response::deny('No es posible eliminar un partido que cuenta con programación activa, cédula arbitral o historial oficial.');
         }
 
         return $usuario->can('partidos.programar')

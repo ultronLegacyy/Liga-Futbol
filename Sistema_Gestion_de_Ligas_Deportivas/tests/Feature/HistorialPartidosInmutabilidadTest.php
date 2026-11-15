@@ -363,6 +363,137 @@ class HistorialPartidosInmutabilidadTest extends TestCase
         $this->assertDatabaseHas('partidos', ['id' => $partido->id]);
     }
 
+    public function test_administrador_general_no_puede_modificar_ni_reprogramar_partido_con_cedula_cerrada(): void
+    {
+        $partido = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha->id,
+            'arbitro_id' => $this->arbitro->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        CedulaArbitral::create([
+            'partido_id' => $partido->id,
+            'estado' => CedulaArbitral::CERRADA,
+            'goles_local' => 2,
+            'goles_visitante' => 0,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->put(route('partidos.update', $partido), [
+                'equipo_local_id' => $this->local->id,
+                'equipo_visitante_id' => $this->visitante->id,
+                'cancha_id' => $this->cancha->id,
+                'fecha_partido' => '2026-11-21',
+                'hora_partido' => '12:00',
+                'motivo' => 'Intento de alterar partido con cédula cerrada.',
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($this->admin)
+            ->post(route('partidos.reprogramar.store', $partido), [
+                'cancha_id' => $this->cancha->id,
+                'fecha_partido' => '2026-11-21',
+                'hora_partido' => '12:00',
+                'motivo' => 'Intento de reprogramar partido con cédula cerrada.',
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($this->admin)
+            ->patch(route('partidos.estado.update', $partido), [
+                'nuevo_estado' => Partido::ESTADO_CANCELADO,
+                'motivo' => 'Intento de cancelar partido con cédula cerrada.',
+            ])
+            ->assertForbidden();
+
+        // Un partido en juego con cédula cerrada sí permite finalizarse oficialmente
+        $partidoEnJuego = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha->id,
+            'arbitro_id' => $this->arbitro->id,
+            'fecha_partido' => '2026-11-21',
+            'hora_partido' => '14:00:00',
+            'estado' => Partido::ESTADO_EN_JUEGO,
+        ]);
+
+        CedulaArbitral::create([
+            'partido_id' => $partidoEnJuego->id,
+            'estado' => CedulaArbitral::CERRADA,
+            'goles_local' => 1,
+            'goles_visitante' => 1,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->patch(route('partidos.estado.update', $partidoEnJuego), [
+                'nuevo_estado' => Partido::ESTADO_FINALIZADO,
+                'motivo' => 'Cierre oficial del encuentro tras cerrar la cédula arbitral.',
+            ])
+            ->assertRedirect();
+
+        $this->assertSame(Partido::ESTADO_FINALIZADO, $partidoEnJuego->fresh()->estado);
+    }
+
+    public function test_no_se_puede_cancelar_partido_con_cedula_capturada_ni_alterar_bitacora(): void
+    {
+        $partido = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha->id,
+            'arbitro_id' => $this->arbitro->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        CedulaArbitral::create([
+            'partido_id' => $partido->id,
+            'estado' => CedulaArbitral::ABIERTA,
+            'goles_local' => 2,
+            'goles_visitante' => 1,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->patch(route('partidos.estado.update', $partido), [
+                'nuevo_estado' => Partido::ESTADO_CANCELADO,
+                'motivo' => 'Intento de cancelar un partido con marcador capturado.',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors(['nuevo_estado']);
+
+        $this->assertSame(Partido::ESTADO_PROGRAMADO, $partido->fresh()->estado);
+
+        $bitacora = ReprogramacionPartido::create([
+            'partido_id' => $partido->id,
+            'usuario_id' => $this->admin->id,
+            'estado_anterior' => Partido::ESTADO_BORRADOR,
+            'estado_nuevo' => Partido::ESTADO_PROGRAMADO,
+            'cancha_anterior_id' => $this->cancha->id,
+            'cancha_nueva_id' => $this->cancha->id,
+            'fecha_anterior' => '2026-11-20',
+            'fecha_nueva' => '2026-11-20',
+            'hora_anterior' => '10:00:00',
+            'hora_nueva' => '10:00:00',
+            'motivo' => 'Registro inicial inmutable en bitácora oficial.',
+        ]);
+
+        try {
+            $bitacora->update(['motivo' => 'Alteración indebida']);
+            $this->fail('Se esperaba LogicException al intentar modificar bitácora.');
+        } catch (\LogicException $e) {
+            $this->assertStringContainsString('inmutable', $e->getMessage());
+        }
+
+        $this->expectException(\LogicException::class);
+        $bitacora->delete();
+    }
+
     private function crearEquipo(string $nombre, ?Grupo $grupo = null): Equipo
     {
         $this->clubIndex++;

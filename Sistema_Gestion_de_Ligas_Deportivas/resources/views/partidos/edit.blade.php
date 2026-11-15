@@ -125,6 +125,15 @@
         </div>
 
         {{-- Fecha y Hora --}}
+        @php
+            $minFechaEdit = \Carbon\Carbon::parse($partido->jornada->fecha_inicio)->format('Y-m-d');
+            $maxFechaEdit = \Carbon\Carbon::parse($partido->jornada->fecha_fin)->format('Y-m-d');
+            $fechaPartidoStr = $partido->fecha_partido ? \Carbon\Carbon::parse($partido->fecha_partido)->format('Y-m-d') : null;
+            if (! $partido->esBorrador() && $fechaPartidoStr !== null) {
+                $minFechaEdit = min($minFechaEdit, $fechaPartidoStr);
+                $maxFechaEdit = max($maxFechaEdit, $fechaPartidoStr);
+            }
+        @endphp
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <x-form.field name="fecha_partido" label="Fecha del Partido" required :error="$errors->first('fecha_partido')">
                 <input
@@ -132,9 +141,9 @@
                     id="fecha_partido"
                     name="fecha_partido"
                     required
-                    min="{{ \Carbon\Carbon::parse($partido->jornada->fecha_inicio)->format('Y-m-d') }}"
-                    max="{{ \Carbon\Carbon::parse($partido->jornada->fecha_fin)->format('Y-m-d') }}"
-                    value="{{ is_string(old('fecha_partido')) ? old('fecha_partido') : ($partido->fecha_partido ? \Carbon\Carbon::parse($partido->fecha_partido)->format('Y-m-d') : '') }}"
+                    min="{{ $minFechaEdit }}"
+                    max="{{ $maxFechaEdit }}"
+                    value="{{ is_string(old('fecha_partido')) ? old('fecha_partido') : ($fechaPartidoStr ?? '') }}"
                     class="{{ $campo }} {{ $errors->has('fecha_partido') ? 'border-red-500' : 'border-gray-600' }}"
                     @if ($errors->has('fecha_partido')) aria-invalid="true" aria-describedby="fecha_partido-error" @endif
                 >
