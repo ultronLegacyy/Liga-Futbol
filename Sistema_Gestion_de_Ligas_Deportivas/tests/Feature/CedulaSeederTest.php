@@ -6,6 +6,7 @@ use App\Models\CedulaArbitral;
 use App\Models\Partido;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
+use Database\Seeders\PruebaUsabilidadCedulaSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
 
@@ -40,5 +41,21 @@ class CedulaSeederTest extends TestCase
             ->assertSee('Azul Demo, Diego')
             ->assertSee('Halcon Demo, Alejandro')
             ->assertSee('(Suspendido)');
+    }
+
+    // HU-075 (SCRUM-224): un partido programado por persona de la prueba, asignado al árbitro sembrado
+    public function test_los_datos_de_la_prueba_de_usabilidad(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $this->seed(PruebaUsabilidadCedulaSeeder::class);
+        $this->seed(PruebaUsabilidadCedulaSeeder::class);
+
+        $partidos = Partido::query()->whereHas('jornada.grupo.temporada', fn ($consulta) => $consulta->where('nombre', PruebaUsabilidadCedulaSeeder::NOMBRE))->get();
+        $this->assertCount(PruebaUsabilidadCedulaSeeder::PARTIDOS, $partidos);
+
+        $arbitro = User::query()->where('email', PruebaUsabilidadCedulaSeeder::CORREO_ARBITRO)->sole();
+        $this->actingAs($arbitro)->get(route('cedulas.mis-partidos'))->assertOk()->assertSee(route('cedulas.show', $partidos->first()));
+        $this->post(route('cedulas.abrir', $partidos->first()))->assertSessionHasNoErrors();
+        $this->assertSame(14, CedulaArbitral::query()->where('partido_id', $partidos->first()->id)->sole()->alineaciones()->count());
     }
 }
