@@ -499,7 +499,7 @@ class JornadaPublicacionYConflictosTest extends TestCase
         ]);
     }
 
-    public function test_actualizar_jornada_o_asignar_descanso_revierte_aprobada_y_bloquea_publicada(): void
+    public function test_actualizar_jornada_asignar_descanso_o_agregar_partido_revierte_aprobada_y_publicada_a_borrador(): void
     {
         $this->jornada->update([
             'estado' => Jornada::ESTADO_APROBADA,
@@ -527,17 +527,45 @@ class JornadaPublicacionYConflictosTest extends TestCase
 
         $this->jornada->update([
             'estado' => Jornada::ESTADO_PUBLICADA,
+            'aprobado_por_id' => $this->admin->id,
+            'fecha_aprobacion' => now()->subHour(),
             'fecha_publicacion' => now(),
         ]);
 
-        $this->expectException(\Illuminate\Validation\ValidationException::class);
         $servicio->actualizarJornada($this->jornada, [
             'fecha_inicio' => '2026-11-20',
             'fecha_fin' => '2026-11-24',
         ]);
+
+        $this->jornada->refresh();
+        $this->assertSame(Jornada::ESTADO_BORRADOR, $this->jornada->estado);
+        $this->assertNull($this->jornada->aprobado_por_id);
+        $this->assertNull($this->jornada->fecha_aprobacion);
+        $this->assertNull($this->jornada->fecha_publicacion);
+
+        // Agregar un partido sobre jornada publicada también regresa a borrador
+        $this->jornada->update([
+            'estado' => Jornada::ESTADO_PUBLICADA,
+            'aprobado_por_id' => $this->admin->id,
+            'fecha_aprobacion' => now()->subHour(),
+            'fecha_publicacion' => now(),
+        ]);
+
+        $this->actingAs($this->programador)
+            ->post(route('jornadas.partidos.store', $this->jornada), [
+                'equipo_local_id' => $this->equipoB->id,
+                'equipo_visitante_id' => $this->equipoC->id,
+                'cancha_id' => $this->cancha1->id,
+                'fecha_partido' => '2026-11-21',
+                'hora_partido' => '12:00',
+            ])
+            ->assertRedirect();
+
+        $this->assertSame(Jornada::ESTADO_BORRADOR, $this->jornada->fresh()->estado);
+        $this->assertNull($this->jornada->fresh()->fecha_publicacion);
     }
 
-    public function test_en_jornada_publicada_solo_se_permiten_reprogramaciones_con_bitacora_y_no_cambios_de_equipos(): void
+    public function test_en_jornada_publicada_reprogramacion_individual_mantiene_publicada_y_otros_cambios_regresan_a_borrador(): void
     {
         $partido = Partido::create([
             'jornada_id' => $this->jornada->id,
@@ -556,46 +584,7 @@ class JornadaPublicacionYConflictosTest extends TestCase
             'fecha_publicacion' => now(),
         ]);
 
-        // Bloquea edición directa de la jornada incluso para Administrador General
-        $this->actingAs($this->admin)
-            ->put(route('jornadas.update', $this->jornada), [
-                'numero_jornada' => 1,
-                'fecha_inicio' => '2026-11-20',
-                'fecha_fin' => '2026-11-25',
-            ])
-            ->assertForbidden();
-
-        // Bloquea cambio de equipos en partido publicado
-        $this->actingAs($this->programador)
-            ->put(route('partidos.update', $partido), [
-                'equipo_local_id' => $this->equipoC->id,
-                'equipo_visitante_id' => $this->equipoB->id,
-                'cancha_id' => $this->cancha1->id,
-                'fecha_partido' => '2026-11-20',
-                'hora_partido' => '10:00:00',
-            ])
-            ->assertRedirect()
-            ->assertSessionHasErrors(['equipo_local_id']);
-
-        $this->assertSame($this->equipoA->id, $partido->fresh()->equipo_local_id);
-
-        // Bloquea generación automática sobre jornada no borrador
-        $jornadaVaciaAprobada = Jornada::create([
-            'grupo_id' => $this->grupo->id,
-            'numero_jornada' => 9,
-            'fecha_inicio' => '2026-11-27',
-            'fecha_fin' => '2026-11-29',
-            'estado' => Jornada::ESTADO_PUBLICADA,
-        ]);
-
-        try {
-            app(\App\Services\GeneradorEnfrentamientosService::class)->aplicarEnfrentamientosAJornada($jornadaVaciaAprobada);
-            $this->fail('Se esperaba ValidationException en jornada publicada.');
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            $this->assertArrayHasKey('jornada', $e->errors());
-        }
-
-        // Reprogramación oficial fuera de la semana de la jornada (dentro de temporada) con bitácora sí está permitida
+        // 1. Reprogramación individual oficial con motivo (dentro de temporada) mantiene la jornada publicada
         $this->actingAs($this->programador)
             ->post(route('partidos.reprogramar.store', $partido), [
                 'cancha_id' => $this->cancha2->id,
@@ -607,12 +596,39 @@ class JornadaPublicacionYConflictosTest extends TestCase
 
         $this->assertSame(Partido::ESTADO_REPROGRAMADO, $partido->fresh()->estado);
         $this->assertSame('2026-12-05', $partido->fresh()->fecha_partido?->format('Y-m-d'));
+        $this->assertSame(Jornada::ESTADO_PUBLICADA, $this->jornada->fresh()->estado);
 
-        // Editar después el árbitro o datos conservando la fecha reprogramada previa fuera de la semana no debe bloquearse
+        // 2. Cambio de equipos en partido dentro de jornada publicada regresa la jornada a borrador
+        $this->actingAs($this->programador)
+            ->put(route('partidos.update', $partido->fresh()), [
+                'equipo_local_id' => $this->equipoC->id,
+                'equipo_visitante_id' => $this->equipoB->id,
+                'cancha_id' => $this->cancha2->id,
+                'fecha_partido' => '2026-12-05',
+                'hora_partido' => '16:00',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame($this->equipoC->id, $partido->fresh()->equipo_local_id);
+        $this->jornada->refresh();
+        $this->assertSame(Jornada::ESTADO_BORRADOR, $this->jornada->estado);
+        $this->assertNull($this->jornada->aprobado_por_id);
+        $this->assertNull($this->jornada->fecha_aprobacion);
+        $this->assertNull($this->jornada->fecha_publicacion);
+
+        // 3. Al re-publicar, la edición de árbitro conservando fecha reprogramada respeta la fecha y regresa a borrador
+        $this->jornada->update([
+            'estado' => Jornada::ESTADO_PUBLICADA,
+            'aprobado_por_id' => $this->admin->id,
+            'fecha_aprobacion' => now()->subHour(),
+            'fecha_publicacion' => now(),
+        ]);
+
         $arbitro = $this->crearArbitro('ARBZ900101HDFRRL01');
         $this->actingAs($this->programador)
             ->put(route('partidos.update', $partido->fresh()), [
-                'equipo_local_id' => $this->equipoA->id,
+                'equipo_local_id' => $this->equipoC->id,
                 'equipo_visitante_id' => $this->equipoB->id,
                 'cancha_id' => $this->cancha2->id,
                 'arbitro_id' => $arbitro->id,
@@ -623,6 +639,23 @@ class JornadaPublicacionYConflictosTest extends TestCase
             ->assertSessionHasNoErrors();
 
         $this->assertSame($arbitro->id, $partido->fresh()->arbitro_id);
+        $this->assertSame(Jornada::ESTADO_BORRADOR, $this->jornada->fresh()->estado);
+
+        // 4. Sigue bloqueada la regeneración masiva automática sobre jornadas no borrador
+        $jornadaPublicada = Jornada::create([
+            'grupo_id' => $this->grupo->id,
+            'numero_jornada' => 9,
+            'fecha_inicio' => '2026-11-27',
+            'fecha_fin' => '2026-11-29',
+            'estado' => Jornada::ESTADO_PUBLICADA,
+        ]);
+
+        try {
+            app(\App\Services\GeneradorEnfrentamientosService::class)->aplicarEnfrentamientosAJornada($jornadaPublicada);
+            $this->fail('Se esperaba ValidationException en jornada publicada.');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->assertArrayHasKey('jornada', $e->errors());
+        }
     }
 
     private function crearEquipo(string $nombre, ?Grupo $grupo = null): Equipo

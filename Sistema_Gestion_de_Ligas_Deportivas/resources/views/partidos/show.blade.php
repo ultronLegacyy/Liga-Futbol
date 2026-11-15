@@ -69,7 +69,9 @@
     {{-- Cambio de estado del partido (HU-029 / SCRUM-195) --}}
     @can('cambiarEstado', $partido)
         @php
-            $permitidos = $partido->transicionesPermitidas();
+            $permitidos = $partido->cedula()->exists()
+                ? array_values(array_diff($partido->transicionesPermitidas(), [\App\Models\Partido::ESTADO_FINALIZADO]))
+                : $partido->transicionesPermitidas();
         @endphp
         @if (! empty($permitidos))
             <div class="bg-gray-900/50 border border-gray-700 rounded-lg p-4 space-y-3">

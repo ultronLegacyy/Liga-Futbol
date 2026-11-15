@@ -115,4 +115,43 @@ class Jornada extends Model
     {
         return $this->equipo_descanso_id !== null;
     }
+
+    /**
+     * Atributos necesarios para devolver la jornada a borrador cuando sufre cambios tras enviarse, aprobarse o publicarse.
+     *
+     * @return array{estado: string, aprobado_por_id: null, fecha_aprobacion: null, fecha_publicacion: null}
+     */
+    public function datosReversionABorrador(): array
+    {
+        return [
+            'estado' => self::ESTADO_BORRADOR,
+            'aprobado_por_id' => null,
+            'fecha_aprobacion' => null,
+            'fecha_publicacion' => null,
+        ];
+    }
+
+    /**
+     * Devuelve true si la jornada requiere volver a borrador ante el cambio realizado.
+     */
+    public function debeRevertirsePorCambio(bool $incluirPublicada = true): bool
+    {
+        $estados = $incluirPublicada
+            ? [self::ESTADO_EN_REVISION, self::ESTADO_APROBADA, self::ESTADO_PUBLICADA]
+            : [self::ESTADO_EN_REVISION, self::ESTADO_APROBADA];
+
+        return in_array($this->estado, $estados, true);
+    }
+
+    /**
+     * Revierte la jornada a estado borrador (anulando aprobación y publicación previas).
+     */
+    public function revertirABorradorPorModificacion(bool $incluirPublicada = true): void
+    {
+        if (! $this->debeRevertirsePorCambio($incluirPublicada)) {
+            return;
+        }
+
+        $this->update($this->datosReversionABorrador());
+    }
 }

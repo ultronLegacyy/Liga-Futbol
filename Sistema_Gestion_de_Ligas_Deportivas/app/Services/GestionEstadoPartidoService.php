@@ -54,10 +54,15 @@ class GestionEstadoPartidoService
                 ]);
             }
 
-            if ($partidoBloqueado->cedula()->where('estado', CedulaArbitral::CERRADA)->exists()
-                && ! ($estadoActual === Partido::ESTADO_EN_JUEGO && $nuevoEstado === Partido::ESTADO_FINALIZADO)) {
+            if ($partidoBloqueado->cedula()->where('estado', CedulaArbitral::CERRADA)->exists()) {
                 throw ValidationException::withMessages([
                     'nuevo_estado' => 'No es posible cambiar el estado de un partido cuya cédula arbitral ya fue cerrada.',
+                ]);
+            }
+
+            if ($nuevoEstado === Partido::ESTADO_FINALIZADO && $partidoBloqueado->cedula()->exists()) {
+                throw ValidationException::withMessages([
+                    'nuevo_estado' => 'Un partido con cédula arbitral registrada pasa a finalizado automáticamente al cerrarse la cédula.',
                 ]);
             }
 
@@ -93,13 +98,7 @@ class GestionEstadoPartidoService
             ]);
 
             // Revertir la jornada a borrador si estaba en revisión o aprobada (Obligatorio 4 / HU-030)
-            if (in_array($jornadaBloqueada->estado, [Jornada::ESTADO_EN_REVISION, Jornada::ESTADO_APROBADA], true)) {
-                $jornadaBloqueada->update([
-                    'estado' => Jornada::ESTADO_BORRADOR,
-                    'aprobado_por_id' => null,
-                    'fecha_aprobacion' => null,
-                ]);
-            }
+            $jornadaBloqueada->revertirABorradorPorModificacion(false);
 
             return $partidoBloqueado;
         }, 3);

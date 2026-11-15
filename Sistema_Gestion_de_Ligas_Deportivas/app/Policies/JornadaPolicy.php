@@ -14,8 +14,8 @@ class JornadaPolicy
     public function before(User $usuario, string $habilidad): ?bool
     {
         if ($usuario->hasRole('Administrador General')) {
-            // El Administrador General no puede omitir el orden de las etapas del flujo formal ni modificar jornadas publicadas
-            if (in_array($habilidad, ['update', 'enviarRevision', 'aprobar', 'publicar'], true)) {
+            // El Administrador General no puede omitir el orden de las etapas del flujo formal
+            if (in_array($habilidad, ['enviarRevision', 'aprobar', 'publicar'], true)) {
                 return null;
             }
 
@@ -54,10 +54,6 @@ class JornadaPolicy
     {
         if ($jornada->grupo->temporada?->estado === 'cerrada') {
             return Response::deny('Una temporada cerrada no admite cambios en sus jornadas.');
-        }
-
-        if ($jornada->esPublicada()) {
-            return Response::deny('No se pueden modificar los datos de una jornada ya publicada oficialmente.');
         }
 
         return ($usuario->hasRole('Administrador General') || $usuario->can('partidos.programar'))

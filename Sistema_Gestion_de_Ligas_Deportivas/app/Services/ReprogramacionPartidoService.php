@@ -146,12 +146,7 @@ class ReprogramacionPartidoService
                 ]);
             }
 
-            if ($jornadaBloqueada->esPublicada()
-                && ($localId !== $partidoBloqueado->equipo_local_id || $visitanteId !== $partidoBloqueado->equipo_visitante_id)) {
-                throw ValidationException::withMessages([
-                    'equipo_local_id' => 'En una jornada publicada oficialmente no es posible cambiar los equipos de un partido.',
-                ]);
-            }
+            $cambiaronEquipos = ($localId !== $partidoBloqueado->equipo_local_id || $visitanteId !== $partidoBloqueado->equipo_visitante_id);
 
             // Validar transición en la máquina de estados
             if ($partidoBloqueado->estado === Partido::ESTADO_REPROGRAMADO && $nuevoEstado === Partido::ESTADO_REPROGRAMADO) {
@@ -280,14 +275,8 @@ class ReprogramacionPartidoService
                 'motivo' => $motivo,
             ]);
 
-            // Revertir la jornada a borrador si estaba en revisión o aprobada (Obligatorio 4 / HU-030)
-            if (in_array($jornadaBloqueada->estado, [Jornada::ESTADO_EN_REVISION, Jornada::ESTADO_APROBADA], true)) {
-                $jornadaBloqueada->update([
-                    'estado' => Jornada::ESTADO_BORRADOR,
-                    'aprobado_por_id' => null,
-                    'fecha_aprobacion' => null,
-                ]);
-            }
+            // Revertir la jornada a borrador si estaba en revisión, aprobada o (si cambiaron equipos) publicada (HU-030)
+            $jornadaBloqueada->revertirABorradorPorModificacion($cambiaronEquipos);
 
             return $partidoBloqueado;
         }, 3);

@@ -112,12 +112,6 @@ class ProgramacionJornadaService
         return DB::transaction(function () use ($jornada, $datos, $inicio, $fin, $numero): Jornada {
             $jornadaBloqueada = Jornada::query()->whereKey($jornada->id)->lockForUpdate()->firstOrFail();
 
-            if ($jornadaBloqueada->esPublicada()) {
-                throw ValidationException::withMessages([
-                    'jornada_id' => 'No se pueden modificar las fechas o datos de una jornada ya publicada oficialmente.',
-                ]);
-            }
-
             $atributos = [
                 'fecha_inicio' => $inicio->toDateString(),
                 'fecha_fin' => $fin->toDateString(),
@@ -146,10 +140,8 @@ class ProgramacionJornadaService
                 $atributos['equipo_descanso_id'] = $equipoDescansoId;
             }
 
-            if ($jornadaBloqueada->estado === Jornada::ESTADO_EN_REVISION || $jornadaBloqueada->estado === Jornada::ESTADO_APROBADA) {
-                $atributos['estado'] = Jornada::ESTADO_BORRADOR;
-                $atributos['aprobado_por_id'] = null;
-                $atributos['fecha_aprobacion'] = null;
+            if ($jornadaBloqueada->debeRevertirsePorCambio(true)) {
+                $atributos += $jornadaBloqueada->datosReversionABorrador();
             }
 
             $jornadaBloqueada->update($atributos);
@@ -170,22 +162,14 @@ class ProgramacionJornadaService
         return DB::transaction(function () use ($jornada, $equipoId): Jornada {
             $jornadaBloqueada = Jornada::query()->whereKey($jornada->id)->lockForUpdate()->firstOrFail();
 
-            if ($jornadaBloqueada->esPublicada()) {
-                throw ValidationException::withMessages([
-                    'jornada_id' => 'No se puede cambiar el equipo en descanso de una jornada ya publicada oficialmente.',
-                ]);
-            }
-
             if ($equipoId !== null) {
                 $this->validarEquipoDescanso($jornadaBloqueada->grupo, $equipoId, $jornadaBloqueada);
             }
 
             $atributos = ['equipo_descanso_id' => $equipoId];
 
-            if ($jornadaBloqueada->estado === Jornada::ESTADO_EN_REVISION || $jornadaBloqueada->estado === Jornada::ESTADO_APROBADA) {
-                $atributos['estado'] = Jornada::ESTADO_BORRADOR;
-                $atributos['aprobado_por_id'] = null;
-                $atributos['fecha_aprobacion'] = null;
+            if ($jornadaBloqueada->debeRevertirsePorCambio(true)) {
+                $atributos += $jornadaBloqueada->datosReversionABorrador();
             }
 
             $jornadaBloqueada->update($atributos);
@@ -270,21 +254,8 @@ class ProgramacionJornadaService
                 // Bloquear la fila de la jornada con lockForUpdate() al inicio para serializar la programación concurrente (RNF-33)
                 $jornadaBloqueada = Jornada::query()->whereKey($jornada->id)->lockForUpdate()->firstOrFail();
 
-                // Obligatorio 10: No se pueden agregar partidos a una jornada ya publicada oficialmente
-                if ($jornadaBloqueada->esPublicada()) {
-                    throw ValidationException::withMessages([
-                        'jornada_id' => 'No se pueden agregar partidos a una jornada ya publicada oficialmente.',
-                    ]);
-                }
-
-                // Obligatorio 10: Si la jornada estaba en revisión o aprobada, regresa a borrador para requerir nueva revisión
-                if ($jornadaBloqueada->estado === Jornada::ESTADO_EN_REVISION || $jornadaBloqueada->estado === Jornada::ESTADO_APROBADA) {
-                    $jornadaBloqueada->update([
-                        'estado' => Jornada::ESTADO_BORRADOR,
-                        'aprobado_por_id' => null,
-                        'fecha_aprobacion' => null,
-                    ]);
-                }
+                // Si la jornada estaba en revisión, aprobada o publicada, regresa a borrador para requerir nueva revisión (HU-030)
+                $jornadaBloqueada->revertirABorradorPorModificacion(true);
 
                 // HU-028: un equipo que descansa en la jornada no puede ser programado a jugar
                 if ($jornadaBloqueada->equipo_descanso_id !== null && in_array($jornadaBloqueada->equipo_descanso_id, [$localId, $visitanteId], true)) {
@@ -478,13 +449,6 @@ class ProgramacionJornadaService
                     ]);
                 }
 
-                if ($jornadaBloqueada->esPublicada()
-                    && ($localId !== $partidoBloqueado->equipo_local_id || $visitanteId !== $partidoBloqueado->equipo_visitante_id)) {
-                    throw ValidationException::withMessages([
-                        'equipo_local_id' => 'En una jornada publicada oficialmente no es posible cambiar los equipos de un partido.',
-                    ]);
-                }
-
                 if (($localId !== $partidoBloqueado->equipo_local_id || $visitanteId !== $partidoBloqueado->equipo_visitante_id)
                     && Partido::query()->whereKey($partidoBloqueado->id)->conCedulaCapturada()->exists()) {
                     throw ValidationException::withMessages([
@@ -625,14 +589,8 @@ class ProgramacionJornadaService
                         : Partido::ESTADO_BORRADOR;
                 }
 
-                // Obligatorio 10: Si la jornada estaba en revisión o aprobada, regresa a borrador
-                if ($jornadaBloqueada->estado === Jornada::ESTADO_EN_REVISION || $jornadaBloqueada->estado === Jornada::ESTADO_APROBADA) {
-                    $jornadaBloqueada->update([
-                        'estado' => Jornada::ESTADO_BORRADOR,
-                        'aprobado_por_id' => null,
-                        'fecha_aprobacion' => null,
-                    ]);
-                }
+                // Si la jornada estaba en revisión, aprobada o publicada, regresa a borrador por cambio no reprogramado (HU-030)
+                $jornadaBloqueada->revertirABorradorPorModificacion(true);
 
                 $partidoBloqueado->update([
                     'equipo_local_id' => $localId,
@@ -667,13 +625,6 @@ class ProgramacionJornadaService
             $jornadaBloqueada = Jornada::query()->whereKey($partido->jornada_id)->lockForUpdate()->firstOrFail();
             $partidoBloqueado = Partido::query()->whereKey($partido->id)->lockForUpdate()->firstOrFail();
 
-            // Obligatorio 10: No se pueden eliminar partidos de una jornada ya publicada oficialmente
-            if ($jornadaBloqueada->esPublicada()) {
-                throw ValidationException::withMessages([
-                    'jornada_id' => 'No se pueden eliminar partidos de una jornada ya publicada oficialmente.',
-                ]);
-            }
-
             // HU-036: el borrado en cascada se llevaría la cédula capturada sin dejarla en la auditoría (RNF-30)
             if (Partido::query()->whereKey($partidoBloqueado->id)->conCedulaCapturada()->exists()) {
                 throw ValidationException::withMessages([
@@ -687,13 +638,7 @@ class ProgramacionJornadaService
                 ]);
             }
 
-            if ($jornadaBloqueada->estado === Jornada::ESTADO_EN_REVISION || $jornadaBloqueada->estado === Jornada::ESTADO_APROBADA) {
-                $jornadaBloqueada->update([
-                    'estado' => Jornada::ESTADO_BORRADOR,
-                    'aprobado_por_id' => null,
-                    'fecha_aprobacion' => null,
-                ]);
-            }
+            $jornadaBloqueada->revertirABorradorPorModificacion(true);
 
             $partidoBloqueado->delete();
         }, 3);

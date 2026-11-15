@@ -410,7 +410,7 @@ class HistorialPartidosInmutabilidadTest extends TestCase
             ])
             ->assertForbidden();
 
-        // Un partido en juego con cédula cerrada sí permite finalizarse oficialmente
+        // Tampoco un partido en juego con cédula cerrada permite transiciones manuales
         $partidoEnJuego = Partido::create([
             'jornada_id' => $this->jornada->id,
             'equipo_local_id' => $this->local->id,
@@ -432,11 +432,58 @@ class HistorialPartidosInmutabilidadTest extends TestCase
         $this->actingAs($this->admin)
             ->patch(route('partidos.estado.update', $partidoEnJuego), [
                 'nuevo_estado' => Partido::ESTADO_FINALIZADO,
-                'motivo' => 'Cierre oficial del encuentro tras cerrar la cédula arbitral.',
+                'motivo' => 'Intento de finalizar manualmente un partido con cédula cerrada.',
             ])
-            ->assertRedirect();
+            ->assertForbidden();
 
-        $this->assertSame(Partido::ESTADO_FINALIZADO, $partidoEnJuego->fresh()->estado);
+        $this->assertSame(Partido::ESTADO_EN_JUEGO, $partidoEnJuego->fresh()->estado);
+    }
+
+    public function test_no_se_puede_finalizar_manualmente_un_partido_que_tiene_cedula_abierta_ni_cerrada(): void
+    {
+        $partido = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha->id,
+            'arbitro_id' => $this->arbitro->id,
+            'fecha_partido' => '2026-11-22',
+            'hora_partido' => '16:00:00',
+            'estado' => Partido::ESTADO_EN_JUEGO,
+        ]);
+
+        CedulaArbitral::create([
+            'partido_id' => $partido->id,
+            'estado' => CedulaArbitral::ABIERTA,
+        ]);
+
+        // Un partido con cédula registrada no puede pasarse a finalizado manualmente ni en vista ni vía PATCH
+        $this->actingAs($this->programador)
+            ->patch(route('partidos.estado.update', $partido), [
+                'nuevo_estado' => Partido::ESTADO_FINALIZADO,
+                'motivo' => 'Intento manual de finalizar partido teniendo cédula abierta.',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors(['nuevo_estado']);
+
+        $this->assertSame(Partido::ESTADO_EN_JUEGO, $partido->fresh()->estado);
+
+        // La vista de detalle tampoco ofrece 'finalizado' en las opciones mientras tenga cédula
+        $this->actingAs($this->programador)
+            ->get(route('partidos.show', $partido))
+            ->assertOk()
+            ->assertDontSee('<option value="finalizado">', false);
+
+        // Sí permite suspender el encuentro en curso por causa justificada
+        $this->actingAs($this->programador)
+            ->patch(route('partidos.estado.update', $partido), [
+                'nuevo_estado' => Partido::ESTADO_SUSPENDIDO,
+                'motivo' => 'Tormenta eléctrica obliga a suspender el encuentro en curso.',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(Partido::ESTADO_SUSPENDIDO, $partido->fresh()->estado);
     }
 
     public function test_no_se_puede_cancelar_partido_con_cedula_capturada_ni_alterar_bitacora(): void

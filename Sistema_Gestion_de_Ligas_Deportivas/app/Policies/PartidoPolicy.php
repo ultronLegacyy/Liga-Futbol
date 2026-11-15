@@ -103,7 +103,7 @@ class PartidoPolicy
             return Response::deny('Un partido finalizado o cancelado no admite cambios de estado.');
         }
 
-        if ($partido->estado !== Partido::ESTADO_EN_JUEGO && $partido->cedula()->where('estado', CedulaArbitral::CERRADA)->exists()) {
+        if ($partido->cedula()->where('estado', CedulaArbitral::CERRADA)->exists()) {
             return Response::deny('Un partido cuya cédula arbitral ya fue cerrada es inmutable y no admite cambios de estado.');
         }
 
