@@ -24,9 +24,11 @@ Proyecto base desarrollado con Laravel 13 y MariaDB/MySQL para la administracion
 
 ## 2. Requisitos Previos
 
-- PHP >= 8.2 (Recomendado PHP 8.4) con extensiones `pdo_mysql`, `mbstring`, `openssl`
-- Composer 2.x
-- MariaDB >= 10.5 o MySQL >= 8.0
+La instalación completa, paso a paso, está en el [manual técnico de instalación](docs/manual-tecnico-instalacion.md) (HU-010). En resumen:
+
+- PHP 8.5 con las extensiones del manual (entre ellas `pdo_mysql`, `mbstring`, `openssl` y `sodium`)
+- Composer 2.x, Node.js 22 LTS o más reciente y Docker
+- MariaDB 12.3 LTS
 - Base de datos creada: `sgld_db`
 
 ---
@@ -338,6 +340,6 @@ Para mostrar la aplicación en las Reviews con HTTPS (RNF-32) se usa el túnel r
    ```
    `cloudflared` muestra una URL `https://<aleatorio>.trycloudflare.com` que cambia en cada ejecución; esa es la que se comparte en la Review.
 
-- La aplicación solo confía en los encabezados `X-Forwarded-*` cuando la petición llega desde `127.0.0.1` o `::1` (ver `bootstrap/app.php`); así genera enlaces `https://` detrás del túnel y registra la IP real del visitante sin que un cliente externo pueda falsificarla.
+- La aplicación solo confía en los encabezados `X-Forwarded-*` cuando la petición llega de un proxy de `TRUSTED_PROXIES` (por defecto `127.0.0.1` y `::1`, ver `config/app.php`); así genera enlaces `https://` detrás del túnel y registra la IP real del visitante sin que un cliente externo pueda falsificarla.
 - Cerrar el túnel (`Ctrl+C`) al terminar la Review: mientras esté abierto, cualquiera con la URL puede entrar.
 - Usarlo solo con datos de prueba (`php artisan migrate:fresh --seed`), nunca con datos reales.
