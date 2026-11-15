@@ -15,7 +15,7 @@
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
             <div>
                 <div class="flex items-center gap-3">
-                    <h2 class="text-2xl font-bold text-white">Historial de Partido (HU-029 / HU-031)</h2>
+                    <h2 class="text-2xl font-bold text-white">Historial de Partido</h2>
                     <x-badge variant="info">{{ $partido->estado }}</x-badge>
                 </div>
                 <p class="text-sm text-gray-400 mt-1">
@@ -49,7 +49,7 @@
         <div>
             <h3 class="text-lg font-bold text-white">Bitácora de Reprogramaciones y Cambios de Estado</h3>
             <p class="text-xs text-gray-400">
-                Registro inmutable auditable con usuario, fechas, estados y justificación obligatoria (RNF-22 / HU-031 CA3).
+                Registro inmutable auditable con usuario, fechas, estados y justificación obligatoria.
             </p>
         </div>
 

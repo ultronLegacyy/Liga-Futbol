@@ -13,7 +13,7 @@
 <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 sm:p-6 max-w-3xl space-y-6">
     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
         <div>
-            <h2 class="text-xl font-bold text-white">Reprogramar Partido (HU-029 / SCRUM-196)</h2>
+            <h2 class="text-xl font-bold text-white">Reprogramar Partido</h2>
             <p class="text-sm text-gray-400">
                 Jornada {{ $jornada->numero_jornada }} · {{ $grupo->nombre }} ({{ $grupo->categoria->nombre }})
             </p>
@@ -163,7 +163,7 @@
                 class="{{ $campo }} {{ $errors->has('motivo') ? 'border-red-500' : 'border-gray-600' }}"
                 @if ($errors->has('motivo')) aria-invalid="true" aria-describedby="motivo-error" @endif
             >{{ is_string(old('motivo')) ? old('motivo') : '' }}</textarea>
-            <p class="text-xs text-gray-400 mt-1">Este motivo quedará auditado de forma permanente en la bitácora histórica del partido (HU-031 / RNF-22).</p>
+            <p class="text-xs text-gray-400 mt-1">Este motivo quedará auditado de forma permanente en la bitácora histórica del partido.</p>
         </x-form.field>
 
         <div class="flex items-center gap-4 pt-4 border-t border-gray-700">

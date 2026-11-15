@@ -73,7 +73,7 @@
         @endphp
         @if (! empty($permitidos))
             <div class="bg-gray-900/50 border border-gray-700 rounded-lg p-4 space-y-3">
-                <h3 class="text-sm font-semibold text-white">Transición de Estado (HU-029)</h3>
+                <h3 class="text-sm font-semibold text-white">Transición de Estado</h3>
                 <form action="{{ route('partidos.estado.update', $partido) }}" method="POST" class="space-y-3">
                     @csrf
                     @method('PATCH')
@@ -98,7 +98,9 @@
                                 type="text"
                                 name="motivo"
                                 id="motivo_estado"
-                                placeholder="Requerido para cancelado, suspendido o reprogramado (mín. 5 letras)"
+                                required
+                                minlength="10"
+                                placeholder="Obligatorio para todo cambio de estado (mín. 10 caracteres)"
                                 class="w-full rounded-lg bg-gray-900 border border-gray-600 text-white text-sm p-2 focus:ring-2 focus:ring-green-400 focus:outline-none"
                             >
                         </div>
@@ -173,7 +175,7 @@
                 </button>
             </form>
         @else
-            <span class="text-xs text-gray-500 italic p-2" title="Historial oficial protegido contra eliminación (HU-031)">
+            <span class="text-xs text-gray-500 italic p-2" title="Historial oficial protegido contra eliminación">
                 Historial protegido
             </span>
         @endcan

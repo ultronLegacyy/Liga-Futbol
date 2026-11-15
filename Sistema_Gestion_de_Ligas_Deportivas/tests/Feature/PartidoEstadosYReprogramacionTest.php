@@ -1194,6 +1194,189 @@ class PartidoEstadosYReprogramacionTest extends TestCase
         $response->assertSee("Un partido en estado 'en juego' no puede ser reprogramado ni modificar su fecha, hora o cancha.");
     }
 
+    public function test_edicion_solo_equipo_en_partido_en_juego_es_rechazada(): void
+    {
+        $partidoEnJuego = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_EN_JUEGO,
+        ]);
+
+        $equipoAlterno = $this->crearEquipo('Panteras');
+
+        $this->actingAs($this->programador)
+            ->from(route('partidos.edit', $partidoEnJuego))
+            ->put(route('partidos.update', $partidoEnJuego), [
+                'equipo_local_id' => $equipoAlterno->id,
+                'equipo_visitante_id' => $this->visitante->id,
+                'cancha_id' => $this->cancha1->id,
+                'fecha_partido' => '2026-11-20',
+                'hora_partido' => '10:00:00',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors(['estado']);
+
+        $this->assertSame($this->local->id, $partidoEnJuego->fresh()->equipo_local_id);
+    }
+
+    public function test_edicion_solo_equipo_sin_cambiar_horario_valida_traslape_en_otra_jornada(): void
+    {
+        Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        $jornada2 = Jornada::create([
+            'grupo_id' => $this->grupo->id,
+            'numero_jornada' => 2,
+            'fecha_inicio' => '2026-11-20',
+            'fecha_fin' => '2026-11-22',
+            'estado' => Jornada::ESTADO_BORRADOR,
+        ]);
+
+        $equipo3 = $this->crearEquipo('Cuervos');
+        $equipo4 = $this->crearEquipo('Halcones');
+
+        $partidoJornada2 = Partido::create([
+            'jornada_id' => $jornada2->id,
+            'equipo_local_id' => $equipo3->id,
+            'equipo_visitante_id' => $equipo4->id,
+            'cancha_id' => $this->cancha2->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        // Solo cambia equipo_local_id a Tigres Dorados sin tocar fecha, hora ni cancha
+        $this->actingAs($this->programador)
+            ->put(route('partidos.update', $partidoJornada2), [
+                'equipo_local_id' => $this->local->id,
+                'equipo_visitante_id' => $equipo4->id,
+                'cancha_id' => $this->cancha2->id,
+                'fecha_partido' => '2026-11-20',
+                'hora_partido' => '10:00:00',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors(['equipo_local_id']);
+
+        $this->assertSame($equipo3->id, $partidoJornada2->fresh()->equipo_local_id);
+    }
+
+    public function test_reprogramacion_antes_de_partido_ocupado_detecta_empalme_de_120_minutos(): void
+    {
+        $equipo3 = $this->crearEquipo('Búhos');
+        $equipo4 = $this->crearEquipo('Zorros');
+
+        // Partido ya programado a las 10:00 en cancha1
+        Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        $jornada2 = Jornada::create([
+            'grupo_id' => $this->grupo->id,
+            'numero_jornada' => 2,
+            'fecha_inicio' => '2026-11-20',
+            'fecha_fin' => '2026-11-22',
+            'estado' => Jornada::ESTADO_BORRADOR,
+        ]);
+
+        $partidoReprogramar = Partido::create([
+            'jornada_id' => $jornada2->id,
+            'equipo_local_id' => $equipo3->id,
+            'equipo_visitante_id' => $equipo4->id,
+            'cancha_id' => $this->cancha2->id,
+            'fecha_partido' => '2026-11-21',
+            'hora_partido' => '14:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        // 08:15 + 120m = 10:15 -> empalma con 10:00 (con 90m acabaría 09:45 y no chocaría)
+        $this->actingAs($this->programador)
+            ->post(route('partidos.reprogramar.store', $partidoReprogramar), [
+                'cancha_id' => $this->cancha1->id,
+                'fecha_partido' => '2026-11-20',
+                'hora_partido' => '08:15',
+                'motivo' => 'Intento de reprogramación previa con empalme de 120 minutos.',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors(['cancha_id']);
+
+        // Partido con mismo equipo en otra cancha a los 100 minutos (11:40 vs 10:00) también empalma por duración de 120 min
+        $partidoMismoEquipo = Partido::create([
+            'jornada_id' => $jornada2->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $equipo4->id,
+            'cancha_id' => $this->cancha2->id,
+            'fecha_partido' => '2026-11-22',
+            'hora_partido' => '16:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        $this->actingAs($this->programador)
+            ->post(route('partidos.reprogramar.store', $partidoMismoEquipo), [
+                'cancha_id' => $this->cancha2->id,
+                'fecha_partido' => '2026-11-20',
+                'hora_partido' => '11:40',
+                'motivo' => 'Intento con 100 minutos de diferencia para el mismo equipo.',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors(['fecha_partido']);
+    }
+
+    public function test_edicion_de_equipo_en_partido_con_cedula_capturada_es_rechazada(): void
+    {
+        $arbitro = $this->crearArbitro('ARBZ880312HDFRRL09');
+
+        $partido = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'arbitro_id' => $arbitro->id,
+            'cancha_id' => $this->cancha1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        \App\Models\CedulaArbitral::create([
+            'partido_id' => $partido->id,
+            'estado' => \App\Models\CedulaArbitral::ABIERTA,
+            'goles_local' => 1,
+            'goles_visitante' => 0,
+        ]);
+
+        $equipoAlterno = $this->crearEquipo('Toros');
+
+        $this->actingAs($this->programador)
+            ->put(route('partidos.update', $partido), [
+                'equipo_local_id' => $equipoAlterno->id,
+                'equipo_visitante_id' => $this->visitante->id,
+                'arbitro_id' => $arbitro->id,
+                'cancha_id' => $this->cancha1->id,
+                'fecha_partido' => '2026-11-20',
+                'hora_partido' => '10:00:00',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors(['equipo_local_id']);
+
+        $this->assertSame($this->local->id, $partido->fresh()->equipo_local_id);
+    }
+
     private function crearEquipo(string $nombre, ?Grupo $grupo = null): Equipo
     {
         $this->clubIndex++;

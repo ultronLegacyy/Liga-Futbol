@@ -33,7 +33,7 @@
                 </p>
                 @if ($jornada->aprobado_por_id)
                     <p class="text-xs text-indigo-300 mt-1">
-                        Aprobada por: <span class="font-semibold">{{ $jornada->aprobadoPor->name ?? 'Comité' }}</span>
+                        Aprobada por: <span class="font-semibold">{{ $jornada->aprobadoPor->name ?? 'Administrador General' }}</span>
                         @if ($jornada->fecha_aprobacion)
                             el {{ \Carbon\Carbon::parse($jornada->fecha_aprobacion)->format('d/m/Y H:i') }} hrs
                         @endif
@@ -127,7 +127,7 @@
                 <div class="flex items-start gap-3">
                     <div class="flex-shrink-0 text-red-400 font-bold text-base mt-0.5">!</div>
                     <div class="space-y-1">
-                        <h4 class="text-sm font-bold text-red-200">Conflictos de programación detectados (HU-030):</h4>
+                        <h4 class="text-sm font-bold text-red-200">Conflictos de programación detectados:</h4>
                         <p class="text-xs text-red-300">La programación contiene solapamientos o colisiones que deben corregirse antes de su publicación:</p>
                         <ul class="list-disc list-inside text-xs text-red-300 space-y-0.5 mt-2">
                             @foreach ($conflictos as $conflicto)
@@ -302,7 +302,7 @@
                                     </button>
                                 </form>
                             @else
-                                <span class="text-xs text-gray-500 italic" title="Historial oficial protegido contra eliminación (HU-031)">
+                                <span class="text-xs text-gray-500 italic" title="Historial oficial protegido contra eliminación">
                                     Historial protegido
                                 </span>
                             @endif

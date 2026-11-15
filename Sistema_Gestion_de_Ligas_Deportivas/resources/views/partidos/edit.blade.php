@@ -163,7 +163,7 @@
                     placeholder="Registra el motivo por el cual se modifica la fecha, hora o cancha de este partido..."
                     class="{{ $campo }} {{ $errors->has('motivo') ? 'border-red-500' : 'border-gray-600' }}"
                 >{{ is_string(old('motivo')) ? old('motivo') : '' }}</textarea>
-                <p class="text-xs text-gray-400 mt-1">Este partido se encuentra en estado '{{ $partido->estado }}'. Todo cambio de programación quedará auditado en la bitácora oficial (HU-029).</p>
+                <p class="text-xs text-gray-400 mt-1">Este partido se encuentra en estado '{{ $partido->estado }}'. Todo cambio de programación quedará auditado en la bitácora oficial.</p>
             </x-form.field>
         @endif
 

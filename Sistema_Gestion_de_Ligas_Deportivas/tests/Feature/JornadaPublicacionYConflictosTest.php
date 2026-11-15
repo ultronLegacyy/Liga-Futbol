@@ -499,6 +499,44 @@ class JornadaPublicacionYConflictosTest extends TestCase
         ]);
     }
 
+    public function test_actualizar_jornada_o_asignar_descanso_revierte_aprobada_y_bloquea_publicada(): void
+    {
+        $this->jornada->update([
+            'estado' => Jornada::ESTADO_APROBADA,
+            'aprobado_por_id' => $this->admin->id,
+            'fecha_aprobacion' => now(),
+        ]);
+
+        $servicio = app(\App\Services\ProgramacionJornadaService::class);
+        $servicio->asignarDescanso($this->jornada, $this->equipoA->id);
+
+        $this->jornada->refresh();
+        $this->assertSame(Jornada::ESTADO_BORRADOR, $this->jornada->estado);
+        $this->assertNull($this->jornada->aprobado_por_id);
+
+        $this->jornada->update([
+            'estado' => Jornada::ESTADO_EN_REVISION,
+        ]);
+
+        $servicio->actualizarJornada($this->jornada, [
+            'fecha_inicio' => '2026-11-20',
+            'fecha_fin' => '2026-11-23',
+        ]);
+
+        $this->assertSame(Jornada::ESTADO_BORRADOR, $this->jornada->fresh()->estado);
+
+        $this->jornada->update([
+            'estado' => Jornada::ESTADO_PUBLICADA,
+            'fecha_publicacion' => now(),
+        ]);
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        $servicio->actualizarJornada($this->jornada, [
+            'fecha_inicio' => '2026-11-20',
+            'fecha_fin' => '2026-11-24',
+        ]);
+    }
+
     private function crearEquipo(string $nombre, ?Grupo $grupo = null): Equipo
     {
         $this->clubIndex++;

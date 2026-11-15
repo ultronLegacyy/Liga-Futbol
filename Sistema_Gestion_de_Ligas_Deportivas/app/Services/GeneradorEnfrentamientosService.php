@@ -681,7 +681,7 @@ class GeneradorEnfrentamientosService
                     foreach ($jornadasExistentes as $jornadaEx) {
                         if (! $jornadaEx->esBorrador()) {
                             throw ValidationException::withMessages([
-                                'grupo' => "La jornada {$jornadaEx->numero_jornada} se encuentra en estado '{$jornadaEx->estado}' y no puede ser reemplazada (HU-030).",
+                                'grupo' => "La jornada {$jornadaEx->numero_jornada} se encuentra en estado '{$jornadaEx->estado}' y no puede ser reemplazada.",
                             ]);
                         }
 
@@ -691,7 +691,7 @@ class GeneradorEnfrentamientosService
 
                         if ($tieneNoEliminables) {
                             throw ValidationException::withMessages([
-                                'grupo' => "La jornada {$jornadaEx->numero_jornada} contiene partidos protegidos (con cédula, bitácora de reprogramación o fuera de borrador) y no puede ser reemplazada (HU-031).",
+                                'grupo' => "La jornada {$jornadaEx->numero_jornada} contiene partidos protegidos (con cédula, bitácora de reprogramación o fuera de borrador) y no puede ser reemplazada.",
                             ]);
                         }
                     }
