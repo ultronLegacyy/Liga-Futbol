@@ -5,17 +5,21 @@ namespace App\Http\Requests;
 use App\Models\Jornada;
 use App\Models\Partido;
 use Carbon\Carbon;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 // Validación de alta manual de partidos (HU-027, RF-06.1)
 class StorePartidoRequest extends FormRequest
 {
-    public function authorize(): bool
+    public function authorize(): Response
     {
         $jornada = $this->route('jornada');
 
-        return $this->user()?->can('create', [Partido::class, $jornada]) ?? false;
+        return $jornada instanceof Jornada
+            ? Gate::forUser($this->user())->inspect('create', [Partido::class, $jornada])
+            : Response::deny('La jornada no existe.');
     }
 
     /**

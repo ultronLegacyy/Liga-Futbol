@@ -411,6 +411,94 @@ class JornadaPublicacionYConflictosTest extends TestCase
         $this->assertNull($this->jornada->fresh()->aprobado_por_id);
     }
 
+    public function test_edicion_partido_en_jornada_aprobada_la_regresa_a_borrador(): void
+    {
+        $partido = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->equipoA->id,
+            'equipo_visitante_id' => $this->equipoB->id,
+            'cancha_id' => $this->cancha1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_BORRADOR,
+        ]);
+
+        $this->jornada->update([
+            'estado' => Jornada::ESTADO_APROBADA,
+            'aprobado_por_id' => $this->admin->id,
+            'fecha_aprobacion' => now(),
+        ]);
+
+        app(\App\Services\ProgramacionJornadaService::class)->actualizarPartido($partido, [
+            'equipo_local_id' => $this->equipoA->id,
+            'equipo_visitante_id' => $this->equipoB->id,
+            'cancha_id' => $this->cancha2->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '12:00:00',
+        ], $this->programador);
+
+        $this->jornada->refresh();
+        $this->assertSame(Jornada::ESTADO_BORRADOR, $this->jornada->estado);
+        $this->assertNull($this->jornada->aprobado_por_id);
+        $this->assertNull($this->jornada->fecha_aprobacion);
+    }
+
+    public function test_publicacion_de_jornada_registra_bitacora_de_reprogramacion_para_cada_partido(): void
+    {
+        $partido1 = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->equipoA->id,
+            'equipo_visitante_id' => $this->equipoB->id,
+            'cancha_id' => $this->cancha1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_BORRADOR,
+        ]);
+
+        $partido2 = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->equipoC->id,
+            'equipo_visitante_id' => $this->equipoD->id,
+            'cancha_id' => $this->cancha2->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '12:00:00',
+            'estado' => Partido::ESTADO_BORRADOR,
+        ]);
+
+        $this->jornada->update([
+            'estado' => Jornada::ESTADO_APROBADA,
+            'aprobado_por_id' => $this->admin->id,
+            'fecha_aprobacion' => now(),
+        ]);
+
+        $servicio = app(\App\Services\PublicacionProgramacionService::class);
+        $servicio->publicar($this->jornada, $this->admin);
+
+        $this->jornada->refresh();
+        $this->assertSame(Jornada::ESTADO_PUBLICADA, $this->jornada->estado);
+
+        $partido1->refresh();
+        $partido2->refresh();
+        $this->assertSame(Partido::ESTADO_PROGRAMADO, $partido1->estado);
+        $this->assertSame(Partido::ESTADO_PROGRAMADO, $partido2->estado);
+
+        $this->assertDatabaseHas('reprogramaciones_partidos', [
+            'partido_id' => $partido1->id,
+            'usuario_id' => $this->admin->id,
+            'estado_anterior' => Partido::ESTADO_BORRADOR,
+            'estado_nuevo' => Partido::ESTADO_PROGRAMADO,
+            'motivo' => 'Publicación oficial de la jornada semanal.',
+        ]);
+
+        $this->assertDatabaseHas('reprogramaciones_partidos', [
+            'partido_id' => $partido2->id,
+            'usuario_id' => $this->admin->id,
+            'estado_anterior' => Partido::ESTADO_BORRADOR,
+            'estado_nuevo' => Partido::ESTADO_PROGRAMADO,
+            'motivo' => 'Publicación oficial de la jornada semanal.',
+        ]);
+    }
+
     private function crearEquipo(string $nombre, ?Grupo $grupo = null): Equipo
     {
         $this->clubIndex++;

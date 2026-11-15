@@ -3,21 +3,22 @@
 namespace App\Http\Requests;
 
 use App\Models\Partido;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 // Validación de reprogramación de fecha, hora o cancha con motivo obligatorio (HU-029 / RF-06.4 / SCRUM-196, SCRUM-197)
 class ReprogramarPartidoRequest extends FormRequest
 {
-    public function authorize(): bool
+    public function authorize(): Response
     {
         $partido = $this->route('partido');
-        if (! $partido instanceof Partido) {
-            return false;
-        }
 
-        return $this->user()?->can('reprogramar', $partido) ?? false;
+        return $partido instanceof Partido
+            ? Gate::forUser($this->user())->inspect('reprogramar', $partido)
+            : Response::deny('El partido no existe.');
     }
 
     /**

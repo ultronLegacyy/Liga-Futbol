@@ -19,24 +19,26 @@ class GestionEstadoPartidoService
      */
     public function cambiarEstado(Partido $partido, string $nuevoEstado, ?string $motivo = null, ?User $usuario = null): Partido
     {
-        // El motivo es obligatorio en todo cambio de estado con al menos 10 caracteres (HU-029 Criterio 2)
+        // El motivo es obligatorio en todo cambio de estado con al menos 10 caracteres
         $motivoLimpio = trim((string) $motivo);
         if (mb_strlen($motivoLimpio) < 10) {
             throw ValidationException::withMessages([
-                'motivo' => 'El motivo es obligatorio en todo cambio de estado y debe contener al menos 10 caracteres explicativos (HU-029).',
+                'motivo' => 'El motivo es obligatorio en todo cambio de estado y debe contener al menos 10 caracteres explicativos.',
             ]);
         }
 
         $usuarioActuante = $usuario ?? auth()->user();
         if (! $usuarioActuante instanceof User) {
             throw ValidationException::withMessages([
-                'usuario' => 'Se requiere un usuario autenticado para registrar el cambio de estado en la bitácora oficial (HU-029).',
+                'usuario' => 'Se requiere un usuario autenticado para registrar el cambio de estado en la bitácora oficial.',
             ]);
         }
         $usuarioId = $usuarioActuante->id;
 
         return DB::transaction(function () use ($partido, $nuevoEstado, $motivoLimpio, $usuarioId): Partido {
-            // Concurrencia (Obligatorio 4): bloquear la fila en base de datos antes de validar la transición
+            // Concurrencia jerárquica estricta (Obligatorio Nuevo A):
+            // 1. Jornada -> 2. Partido
+            $jornadaBloqueada = Jornada::query()->whereKey($partido->jornada_id)->lockForUpdate()->firstOrFail();
             $partidoBloqueado = Partido::query()->whereKey($partido->id)->lockForUpdate()->firstOrFail();
             $estadoActual = $partidoBloqueado->estado;
 
@@ -76,8 +78,7 @@ class GestionEstadoPartidoService
             ]);
 
             // Revertir la jornada a borrador si estaba en revisión o aprobada (Obligatorio 4 / HU-030)
-            $jornadaBloqueada = Jornada::query()->whereKey($partidoBloqueado->jornada_id)->lockForUpdate()->first();
-            if ($jornadaBloqueada !== null && in_array($jornadaBloqueada->estado, [Jornada::ESTADO_EN_REVISION, Jornada::ESTADO_APROBADA], true)) {
+            if (in_array($jornadaBloqueada->estado, [Jornada::ESTADO_EN_REVISION, Jornada::ESTADO_APROBADA], true)) {
                 $jornadaBloqueada->update([
                     'estado' => Jornada::ESTADO_BORRADOR,
                     'aprobado_por_id' => null,
@@ -86,6 +87,6 @@ class GestionEstadoPartidoService
             }
 
             return $partidoBloqueado;
-        });
+        }, 3);
     }
 }

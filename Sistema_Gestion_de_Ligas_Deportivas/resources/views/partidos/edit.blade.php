@@ -28,7 +28,14 @@
     @endif
 
     @if ($errors->any())
-        <x-alert type="error" message="No se pudo actualizar el partido. Revisa los errores señalados." />
+        <div class="bg-red-900/40 border border-red-500 rounded-lg p-4 text-sm text-red-200 space-y-2">
+            <p class="font-semibold text-red-300">No se pudo actualizar el partido. Revisa los siguientes errores:</p>
+            <ul class="list-disc list-inside space-y-1">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
     @endif
 
     <form method="POST" action="{{ route('partidos.update', $partido) }}" novalidate class="space-y-5">

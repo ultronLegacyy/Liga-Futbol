@@ -4,17 +4,21 @@ namespace App\Http\Requests;
 
 use App\Models\Partido;
 use Carbon\Carbon;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 // Validación para modificar o reprogramar partidos (HU-027, RF-06.1)
 class UpdatePartidoRequest extends FormRequest
 {
-    public function authorize(): bool
+    public function authorize(): Response
     {
         $partido = $this->route('partido');
 
-        return $this->user()?->can('update', $partido) ?? false;
+        return $partido instanceof Partido
+            ? Gate::forUser($this->user())->inspect('update', $partido)
+            : Response::deny('El partido no existe.');
     }
 
     /**

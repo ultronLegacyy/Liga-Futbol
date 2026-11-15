@@ -30,7 +30,9 @@ class ReprogramacionPartidoService
      *     cancha_id: int|string,
      *     arbitro_id?: int|string|null,
      *     motivo: string,
-     *     estado?: string
+     *     estado?: string,
+     *     equipo_local_id?: int|string|null,
+     *     equipo_visitante_id?: int|string|null
      * } $datos
      *
      * @throws ValidationException
@@ -40,14 +42,14 @@ class ReprogramacionPartidoService
         $motivo = trim($datos['motivo']);
         if (mb_strlen($motivo) < 10) {
             throw ValidationException::withMessages([
-                'motivo' => 'El motivo de reprogramación es obligatorio y debe tener al menos 10 caracteres explicativos (HU-029).',
+                'motivo' => 'El motivo de reprogramación es obligatorio y debe tener al menos 10 caracteres explicativos.',
             ]);
         }
 
         $usuarioActuante = $usuario ?? auth()->user();
         if (! $usuarioActuante instanceof User) {
             throw ValidationException::withMessages([
-                'usuario' => 'Se requiere un usuario autenticado para registrar la reprogramación en la bitácora oficial (HU-029).',
+                'usuario' => 'Se requiere un usuario autenticado para registrar la reprogramación en la bitácora oficial.',
             ]);
         }
         $usuarioId = $usuarioActuante->id;
@@ -55,7 +57,7 @@ class ReprogramacionPartidoService
         $canchaId = ! empty($datos['cancha_id']) ? (int) $datos['cancha_id'] : null;
         if ($canchaId === null) {
             throw ValidationException::withMessages([
-                'cancha_id' => 'La asignación de cancha es obligatoria para reprogramar un partido oficial (HU-025, HU-029).',
+                'cancha_id' => 'La asignación de cancha es obligatoria para reprogramar un partido oficial.',
             ]);
         }
 
@@ -94,6 +96,11 @@ class ReprogramacionPartidoService
             ]);
         }
 
+        // Determinar los equipos que tendrá el partido (Obligatorio 1: revisar los equipos nuevos si cambian en la edición)
+        $localId = isset($datos['equipo_local_id']) ? (int) $datos['equipo_local_id'] : (int) $partido->equipo_local_id;
+        $visitanteId = isset($datos['equipo_visitante_id']) ? (int) $datos['equipo_visitante_id'] : (int) $partido->equipo_visitante_id;
+        $equiposIds = [$localId, $visitanteId];
+
         return DB::transaction(function () use (
             $partido,
             $fechaNueva,
@@ -102,9 +109,14 @@ class ReprogramacionPartidoService
             $arbitroNuevoId,
             $nuevoEstado,
             $usuarioId,
-            $motivo
+            $motivo,
+            $localId,
+            $visitanteId,
+            $equiposIds
         ): Partido {
-            // Concurrencia (Obligatorio 4): bloquear la fila del partido primero
+            // Concurrencia jerárquica estricta (Obligatorio Nuevo A):
+            // 1. Jornada -> 2. Partido -> 3. Cancha -> 4. Equipos -> 5. Árbitro
+            $jornadaBloqueada = Jornada::query()->whereKey($partido->jornada_id)->lockForUpdate()->firstOrFail();
             $partidoBloqueado = Partido::query()->whereKey($partido->id)->lockForUpdate()->firstOrFail();
 
             // Partidos en estados terminales no se pueden reprogramar (HU-029 / SCRUM-195)
@@ -137,7 +149,7 @@ class ReprogramacionPartidoService
             }
 
             // Limitar la fecha a la temporada (Obligatorio 5)
-            $temporada = $partidoBloqueado->jornada->grupo->temporada;
+            $temporada = $jornadaBloqueada->grupo->temporada;
             if ($temporada !== null) {
                 $fechaCarbon = Carbon::parse($fechaNueva);
                 if ($temporada->fecha_inicio && $fechaCarbon->lt(Carbon::parse($temporada->fecha_inicio)->startOfDay())) {
@@ -167,9 +179,8 @@ class ReprogramacionPartidoService
                 ]);
             }
 
-            // Validar que ningún equipo del partido tenga otro partido en el mismo horario (Obligatorio 2, 4 y 5)
-            $equiposIds = [$partidoBloqueado->equipo_local_id, $partidoBloqueado->equipo_visitante_id];
-            Equipo::query()->whereIn('id', $equiposIds)->lockForUpdate()->get();
+            // Validar que ningún equipo del partido tenga otro partido en el mismo horario (Obligatorio 1, 2, 4 y 5)
+            Equipo::query()->whereIn('id', $equiposIds)->orderBy('id')->lockForUpdate()->get();
 
             $partidosEquipos = Partido::query()
                 ->whereKeyNot($partidoBloqueado->id)
@@ -231,6 +242,8 @@ class ReprogramacionPartidoService
             $horaAnterior = $partidoBloqueado->hora_partido;
 
             $partidoBloqueado->update([
+                'equipo_local_id' => $localId,
+                'equipo_visitante_id' => $visitanteId,
                 'fecha_partido' => $fechaNueva,
                 'hora_partido' => $horaNueva,
                 'cancha_id' => $canchaBloqueada->id,
@@ -254,8 +267,7 @@ class ReprogramacionPartidoService
             ]);
 
             // Revertir la jornada a borrador si estaba en revisión o aprobada (Obligatorio 4 / HU-030)
-            $jornadaBloqueada = Jornada::query()->whereKey($partidoBloqueado->jornada_id)->lockForUpdate()->first();
-            if ($jornadaBloqueada !== null && in_array($jornadaBloqueada->estado, [Jornada::ESTADO_EN_REVISION, Jornada::ESTADO_APROBADA], true)) {
+            if (in_array($jornadaBloqueada->estado, [Jornada::ESTADO_EN_REVISION, Jornada::ESTADO_APROBADA], true)) {
                 $jornadaBloqueada->update([
                     'estado' => Jornada::ESTADO_BORRADOR,
                     'aprobado_por_id' => null,
@@ -264,6 +276,6 @@ class ReprogramacionPartidoService
             }
 
             return $partidoBloqueado;
-        });
+        }, 3);
     }
 }

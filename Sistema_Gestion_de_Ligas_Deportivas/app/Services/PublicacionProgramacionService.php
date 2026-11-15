@@ -258,7 +258,7 @@ class PublicacionProgramacionService
                         'fecha_nueva' => $partidoBorrador->fecha_partido,
                         'hora_anterior' => $partidoBorrador->hora_partido,
                         'hora_nueva' => $partidoBorrador->hora_partido,
-                        'motivo' => 'Publicación oficial de la jornada semanal (HU-030).',
+                        'motivo' => 'Publicación oficial de la jornada semanal.',
                     ]);
                 }
             }

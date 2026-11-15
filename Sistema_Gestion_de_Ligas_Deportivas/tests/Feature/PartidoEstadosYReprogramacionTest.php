@@ -1040,6 +1040,160 @@ class PartidoEstadosYReprogramacionTest extends TestCase
         $this->assertNull($this->jornada->fecha_aprobacion);
     }
 
+    public function test_reprogramacion_valida_duracion_oficial_120_minutos_cuando_nuevo_partido_inicia_antes(): void
+    {
+        // Partido base a las 10:00 en Cancha 1 (ocupa de 10:00 a 12:00 por duración oficial de 120 min)
+        Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha1->id,
+            'arbitro_id' => $this->arbitro1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        $equipo3 = $this->crearEquipo('Tigres Terceros');
+        $equipo4 = $this->crearEquipo('Leones Cuartos');
+
+        $partido2 = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $equipo3->id,
+            'equipo_visitante_id' => $equipo4->id,
+            'cancha_id' => $this->cancha2->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '16:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        // Si la duración fuera de 90 min (08:15 a 09:45), reprogramar a las 08:15 no colisionaría con las 10:00.
+        // Con la duración oficial de 120 min (08:15 a 10:15), colisiona con el partido de las 10:00 y debe ser RECHAZADO.
+        $this->actingAs($this->programador)
+            ->post(route('partidos.reprogramar.store', $partido2), [
+                'fecha_partido' => '2026-11-20',
+                'hora_partido' => '08:15',
+                'cancha_id' => $this->cancha1->id,
+                'motivo' => 'Reprogramación iniciando antes con traslape por ventana oficial de 120 minutos.',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors(['cancha_id']);
+    }
+
+    public function test_form_requests_de_estado_y_reprogramacion_devuelven_403_en_espanol_con_mensaje_de_politica(): void
+    {
+        $partido = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        $responseEstado = $this->actingAs($this->tesorero)
+            ->patch(route('partidos.estado.update', $partido), [
+                'nuevo_estado' => Partido::ESTADO_CONFIRMADO,
+                'motivo' => 'Intento no autorizado de actualización.',
+            ]);
+
+        $responseEstado->assertForbidden();
+        $this->assertStringContainsString('No cuenta con privilegios para actualizar el estado del partido.', $responseEstado->getContent());
+
+        $responseReprogramar = $this->actingAs($this->tesorero)
+            ->post(route('partidos.reprogramar.store', $partido), [
+                'fecha_partido' => '2026-11-21',
+                'hora_partido' => '12:00:00',
+                'cancha_id' => $this->cancha2->id,
+                'motivo' => 'Intento no autorizado de reprogramación.',
+            ]);
+
+        $responseReprogramar->assertForbidden();
+        $this->assertStringContainsString('No cuenta con privilegios para reprogramar partidos.', $responseReprogramar->getContent());
+    }
+
+    public function test_edicion_partido_con_cambio_de_equipo_y_horario_valida_traslape_del_nuevo_equipo(): void
+    {
+        // Tigres Dorados (local) juega el 2026-11-20 a las 10:00 en Jornada 1
+        Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        $jornada2 = Jornada::create([
+            'grupo_id' => $this->grupo->id,
+            'numero_jornada' => 2,
+            'fecha_inicio' => '2026-11-20',
+            'fecha_fin' => '2026-11-22',
+            'estado' => Jornada::ESTADO_BORRADOR,
+        ]);
+
+        $equipo3 = $this->crearEquipo('Osos');
+        $equipo4 = $this->crearEquipo('Gatos');
+
+        $partidoJornada2 = Partido::create([
+            'jornada_id' => $jornada2->id,
+            'equipo_local_id' => $equipo3->id,
+            'equipo_visitante_id' => $equipo4->id,
+            'cancha_id' => $this->cancha2->id,
+            'fecha_partido' => '2026-11-21',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        // Se edita el partido de la Jornada 2: se cambia el local al equipo Tigres Dorados ($this->local)
+        // y el horario a la misma fecha y hora (2026-11-20 10:00) en otra cancha.
+        $this->actingAs($this->programador)
+            ->put(route('partidos.update', $partidoJornada2), [
+                'equipo_local_id' => $this->local->id,
+                'equipo_visitante_id' => $equipo4->id,
+                'cancha_id' => $this->cancha2->id,
+                'fecha_partido' => '2026-11-20',
+                'hora_partido' => '10:00:00',
+                'motivo' => 'Cambio de equipo local y horario hacia fecha con traslape.',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors(['equipo_local_id']);
+
+        // Se verifica que no se haya aplicado el cambio en la base de datos
+        $partidoJornada2->refresh();
+        $this->assertSame($equipo3->id, $partidoJornada2->equipo_local_id);
+    }
+
+    public function test_edicion_partido_en_juego_muestra_error_de_estado_en_vista_edit(): void
+    {
+        $partidoEnJuego = Partido::create([
+            'jornada_id' => $this->jornada->id,
+            'equipo_local_id' => $this->local->id,
+            'equipo_visitante_id' => $this->visitante->id,
+            'cancha_id' => $this->cancha1->id,
+            'fecha_partido' => '2026-11-20',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_EN_JUEGO,
+        ]);
+
+        $response = $this->actingAs($this->programador)
+            ->from(route('partidos.edit', $partidoEnJuego))
+            ->followingRedirects()
+            ->put(route('partidos.update', $partidoEnJuego), [
+                'equipo_local_id' => $this->local->id,
+                'equipo_visitante_id' => $this->visitante->id,
+                'cancha_id' => $this->cancha2->id,
+                'fecha_partido' => '2026-11-20',
+                'hora_partido' => '14:00:00',
+                'motivo' => 'Intento de modificar horario de un partido que ya arrancó.',
+            ]);
+
+        $response->assertOk();
+        $response->assertSee("Un partido en estado 'en juego' no puede ser reprogramado ni modificar su fecha, hora o cancha.");
+    }
+
     private function crearEquipo(string $nombre, ?Grupo $grupo = null): Equipo
     {
         $this->clubIndex++;
