@@ -260,6 +260,120 @@ class EditarPermisosRolTest extends TestCase
         $this->assertSame(0, $publico->permissions()->count());
     }
 
+    // Revisión, obligatorio 4: cada edición deja una sola entrada en la bitácora del rol
+    public function test_cada_edicion_deja_una_sola_entrada_en_la_bitacora(): void
+    {
+        $rol = Role::findByName('Tesorero');
+        $antes = AuditoriaLog::query()->where('tabla_afectada', 'roles')->where('registro_id', $rol->id)->count();
+        $ultimo = (int) AuditoriaLog::query()->max('id');
+        $permisos = $rol->permissions()->pluck('name')->push('personas.ver')->all();
+
+        $this->actingAs($this->administrador)
+            ->put(route('admin.roles.permisos.update', $rol->id), ['permisos' => $permisos, 'motivo' => 'Una sola entrada'])
+            ->assertRedirect();
+
+        $this->assertSame($antes + 1, AuditoriaLog::query()->where('tabla_afectada', 'roles')->where('registro_id', $rol->id)->count());
+        $this->assertSame(['permisos_rol_editados'], AuditoriaLog::query()->where('id', '>', $ultimo)->pluck('accion')->all());
+    }
+
+    // Revisión, obligatorio 4 (recomendado): sin syncPermissions, la caché se limpia igual y la sesión abierta ve el cambio
+    public function test_la_sesion_abierta_del_rol_ve_el_cambio(): void
+    {
+        $rol = Role::findByName('Tesorero');
+        $cuenta = $this->crearUsuario('Tesorero');
+        $this->actingAs($cuenta)->get(route('personas.index'))->assertForbidden();
+
+        $this->actingAs($this->administrador)
+            ->put(route('admin.roles.permisos.update', $rol->id), ['permisos' => $rol->permissions()->pluck('name')->push('personas.ver')->all(), 'motivo' => 'Dar acceso'])
+            ->assertRedirect();
+
+        $this->actingAs($cuenta->fresh())->get(route('personas.index'))->assertOk();
+    }
+
+    // Revisión, obligatorio 1: quitarle clubes.ver o jugadores.ver al Delegado del Club le quita el acceso
+    public function test_quitar_el_permiso_al_delegado_le_quita_el_acceso(): void
+    {
+        $club = \App\Models\Club::create(['nombre' => 'Club HU-083 '.str()->random(6)]);
+        $delegado = $this->crearUsuario('Delegado del Club');
+        $delegado->forceFill(['club_id' => $club->id])->save();
+        $rol = Role::findByName('Delegado del Club');
+
+        $this->actingAs($delegado)->get(route('clubes.show', $club))->assertOk();
+        $this->actingAs($delegado)->get(route('jugadores.index'))->assertOk();
+
+        $sinPermisos = $rol->permissions()->pluck('name')->reject(fn (string $p): bool => in_array($p, ['clubes.ver', 'jugadores.ver'], true))->values()->all();
+        $this->actingAs($this->administrador)
+            ->put(route('admin.roles.permisos.update', $rol->id), ['permisos' => $sinPermisos, 'motivo' => 'Quitar consulta'])
+            ->assertRedirect();
+
+        $this->actingAs($delegado->fresh())->get(route('clubes.show', $club))->assertForbidden();
+        $this->actingAs($delegado->fresh())->get(route('jugadores.index'))->assertForbidden();
+    }
+
+    // Revisión, obligatorio 1: los permisos que ningún código revisa se marcan y el mensaje no dice «ya aplica»
+    public function test_los_permisos_sin_efecto_se_marcan_y_no_se_anuncian_como_aplicados(): void
+    {
+        $rol = Role::findByName('Tesorero');
+
+        $this->actingAs($this->administrador)
+            ->get(route('admin.roles.edit', $rol->id))
+            ->assertOk()
+            ->assertSeeInOrder(['value="ligas.eliminar"', 'sin efecto por ahora'], false)
+            ->assertSee('sin efecto por ahora');
+
+        $this->actingAs($this->administrador)
+            ->put(route('admin.roles.permisos.update', $rol->id), ['permisos' => $rol->permissions()->pluck('name')->push('ligas.eliminar')->all(), 'motivo' => 'Permiso sin efecto'])
+            ->assertSessionHas('success', fn (string $mensaje): bool => str_contains($mensaje, 'por ahora no cambia el acceso') && ! str_contains($mensaje, 'ya aplica'));
+
+        $this->actingAs($this->administrador)
+            ->put(route('admin.roles.permisos.update', $rol->id), ['permisos' => $rol->permissions()->pluck('name')->push('personas.ver')->all(), 'motivo' => 'Permiso con efecto'])
+            ->assertSessionHas('success', fn (string $mensaje): bool => str_contains($mensaje, 'El cambio ya aplica a sus cuentas.'));
+    }
+
+    // Revisión, obligatorio 2: volver al formulario con datos alterados no da 500
+    public function test_volver_con_datos_alterados_no_da_error(): void
+    {
+        $rol = Role::findByName('Tesorero');
+        $editar = route('admin.roles.edit', $rol->id);
+
+        $this->actingAs($this->administrador)
+            ->from($editar)
+            ->followingRedirects()
+            ->put(route('admin.roles.permisos.update', $rol->id), ['permisos' => ['personas.ver'], 'motivo' => ['hola mundo']])
+            ->assertOk()
+            ->assertSee('El motivo del cambio no es válido.');
+
+        $this->actingAs($this->administrador)
+            ->from($editar)
+            ->followingRedirects()
+            ->put(route('admin.roles.permisos.update', $rol->id), ['permisos' => [['personas.ver']], 'motivo' => 'Datos alterados'])
+            ->assertOk()
+            ->assertSee('Uno de los permisos enviados no es válido.');
+    }
+
+    // Revisión, obligatorio 3: un solo mensaje por campo y en español
+    public function test_un_solo_mensaje_en_espanol_por_campo(): void
+    {
+        $rol = Role::findByName('Tesorero');
+        $ruta = route('admin.roles.permisos.update', $rol->id);
+
+        $this->actingAs($this->administrador)
+            ->putJson($ruta, ['permisos' => ['personas.ver'], 'motivo' => 12345])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.motivo', ['El motivo del cambio no es válido.']);
+
+        $respuesta = $this->actingAs($this->administrador)
+            ->putJson($ruta, ['permisos' => ['a' => ['b' => 1]], 'motivo' => 'Permisos alterados'])
+            ->assertUnprocessable();
+        $this->assertSame(['Uno de los permisos enviados no es válido.'], array_merge(...array_values($respuesta->json('errors'))));
+
+        // Un permiso repetido ya no da dos errores: se guarda una sola vez
+        $this->actingAs($this->administrador)
+            ->put($ruta, ['permisos' => [...$rol->permissions()->pluck('name')->all(), 'personas.ver', 'personas.ver'], 'motivo' => 'Repetido'])
+            ->assertRedirect(route('admin.roles.show', $rol->id));
+        $this->assertSame(1, $rol->refresh()->permissions()->where('name', 'personas.ver')->count());
+    }
+
     private function crearUsuario(string $rol): User
     {
         $usuario = User::create([

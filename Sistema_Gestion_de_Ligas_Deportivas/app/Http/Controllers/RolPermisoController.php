@@ -61,13 +61,25 @@ class RolPermisoController extends Controller
         $rol = $this->permisos->rol($rol);
         $cambios = $this->permisos->actualizar($rol, $request->permisos(), (string) $request->validated('motivo'));
 
+        $cambiados = array_merge($cambios['agregados'], $cambios['quitados']);
+        $sinEfecto = count(array_intersect($cambiados, PermisosRolService::PERMISOS_SIN_EFECTO));
+
+        // El mensaje solo dice «ya aplica» de lo que de verdad cambia el acceso (revisión, obligatorio 1)
+        $aviso = match (true) {
+            $rol->name === 'Administrador General' => 'El Administrador General conserva el acceso total (sección 2.3): quitarle permisos no le quita el acceso.',
+            $sinEfecto === count($cambiados) => 'Ninguno de estos permisos lo revisa todavía algún módulo, así que por ahora no cambia el acceso.',
+            $sinEfecto > 0 => sprintf('El cambio ya aplica a sus cuentas, salvo %d permiso(s) que todavía no tienen efecto.', $sinEfecto),
+            default => 'El cambio ya aplica a sus cuentas.',
+        };
+
         return redirect()
             ->route('admin.roles.show', $rol->id)
             ->with('success', sprintf(
-                'Se guardaron los permisos de %s: %d agregado(s) y %d quitado(s). El cambio ya aplica a sus cuentas.',
+                'Se guardaron los permisos de %s: %d agregado(s) y %d quitado(s). %s',
                 $rol->name,
                 count($cambios['agregados']),
                 count($cambios['quitados']),
+                $aviso,
             ));
     }
 

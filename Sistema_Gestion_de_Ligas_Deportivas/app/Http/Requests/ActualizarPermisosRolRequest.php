@@ -29,9 +29,10 @@ class ActualizarPermisosRolRequest extends FormRequest
     {
         return [
             // Sin ninguna casilla marcada el rol se queda sin permisos; por eso el arreglo puede faltar
-            'permisos' => ['sometimes', 'array'],
-            'permisos.*' => ['string', 'distinct', Rule::in(app(PermisosRolService::class)->catalogo())],
-            'motivo' => ['required', 'string', 'min:3', 'max:1000'],
+            // bail: un solo mensaje por campo. Los repetidos no se rechazan: el servicio los junta en uno
+            'permisos' => ['bail', 'sometimes', 'array'],
+            'permisos.*' => ['bail', 'string', Rule::in(app(PermisosRolService::class)->catalogo())],
+            'motivo' => ['bail', 'required', 'string', 'min:3', 'max:1000'],
         ];
     }
 
@@ -42,9 +43,10 @@ class ActualizarPermisosRolRequest extends FormRequest
     {
         return [
             'permisos.array' => 'Los permisos enviados no son válidos.',
+            'permisos.*.string' => 'Uno de los permisos enviados no es válido.',
             'permisos.*.in' => 'El permiso «:input» no existe en el catálogo.',
-            'permisos.*.distinct' => 'Un permiso se envió más de una vez.',
             'motivo.required' => 'Escribe el motivo del cambio; quedará en la bitácora.',
+            'motivo.string' => 'El motivo del cambio no es válido.',
             'motivo.min' => 'El motivo debe tener al menos 3 caracteres.',
             'motivo.max' => 'El motivo no debe superar los 1000 caracteres.',
         ];

@@ -30,14 +30,18 @@
     @if ($protegidos !== [])
         <p class="mb-6 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-200">
             El Administrador General no puede quitarse los permisos de administrar cuentas y permisos (supuesto de PA-18).
+            Además conserva el acceso total del sistema (sección 2.3): quitarle otros permisos no le quita el acceso.
         </p>
     @endif
+
+    <p class="mb-6 text-xs text-gray-400">Las acciones marcadas «sin efecto por ahora» son de módulos que todavía no revisan ese permiso: cambiarlas solo actualiza el catálogo.</p>
 
     <form method="POST" action="{{ route('admin.roles.permisos.update', $rol->id) }}" class="space-y-6">
         @csrf
         @method('PUT')
 
-        @php($marcados = old('permisos') !== null ? array_flip((array) old('permisos')) : null)
+        {{-- Si regresa con datos alterados (arreglos dentro del arreglo), solo se toman los valores de texto --}}
+        @php($marcados = old('permisos') !== null ? array_flip(array_filter((array) old('permisos'), 'is_string')) : null)
 
         @foreach ($modulos as $modulo)
             <fieldset class="border border-gray-700 rounded-lg p-4">
@@ -52,6 +56,9 @@
                             @if (in_array($modulo['clave'], $protegidos, true))
                                 <span class="text-xs text-yellow-300">(protegido)</span>
                             @endif
+                            @if ($accion['sin_efecto'])
+                                <span class="text-xs text-gray-400" data-sin-efecto>(sin efecto por ahora)</span>
+                            @endif
                         </label>
                     @endforeach
                 </div>
@@ -61,7 +68,7 @@
         <div>
             <label for="motivo" class="block mb-1 text-sm font-medium text-gray-200">Motivo del cambio</label>
             <textarea id="motivo" name="motivo" rows="3" required minlength="3" maxlength="1000"
-                class="w-full rounded-lg bg-gray-900 border border-gray-600 text-white p-3 focus:outline-none focus:ring-2 focus:ring-green-400">{{ old('motivo') }}</textarea>
+                class="w-full rounded-lg bg-gray-900 border border-gray-600 text-white p-3 focus:outline-none focus:ring-2 focus:ring-green-400">{{ is_string(old('motivo')) ? old('motivo') : '' }}</textarea>
             <p class="mt-1 text-xs text-gray-400">Obligatorio. Queda en la bitácora con tu usuario, la fecha y hora, la IP y los permisos de antes y después.</p>
         </div>
 

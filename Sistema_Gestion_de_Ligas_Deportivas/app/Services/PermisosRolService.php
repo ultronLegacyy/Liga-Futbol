@@ -17,6 +17,28 @@ class PermisosRolService
     // Supuesto de PA-18 (HU-083): el Administrador General no puede quitarse los permisos de administrar cuentas y permisos
     public const MODULOS_PROTEGIDOS_ADMIN = ['usuarios', 'roles'];
 
+    /**
+     * HU-083 (revisión): permisos del catálogo que hoy ningún código revisa. Agregarlos o quitarlos solo cambia la tabla,
+     * así que la edición los marca «sin efecto por ahora». PermisosSinEfectoTest comprueba que la lista siga al día:
+     * cuando un módulo empiece a revisar uno de estos permisos, hay que quitarlo de aquí.
+     */
+    public const PERMISOS_SIN_EFECTO = [
+        'gobernanza.panel',
+        'ligas.ver', 'ligas.crear', 'ligas.editar', 'ligas.eliminar',
+        'temporadas.cerrar',
+        'convocatorias.ver', 'convocatorias.crear', 'convocatorias.editar', 'convocatorias.eliminar',
+        'categorias.eliminar',
+        'clubes.eliminar',
+        'equipos.editar', 'equipos.eliminar',
+        'jugadores.editar', 'jugadores.eliminar', 'jugadores.validar_edad',
+        'personas.editar',
+        'campos.eliminar',
+        'roles.ver', 'roles.crear', 'roles.editar', 'roles.eliminar', 'roles.asignar_permiso',
+        'auditoria.ver',
+        'resultados.validar',
+        'disciplina.ver', 'disciplina.expedientes', 'disciplina.sancionar',
+    ];
+
     public function __construct(
         private readonly AuditService $auditoria
     ) {
@@ -83,7 +105,7 @@ class PermisosRolService
     /**
      * CA2: módulos del motor de permisos con sus acciones, marcando cuáles tiene el rol.
      *
-     * @return list<array{clave: string, nombre: string, acciones: list<array{permiso: string, nombre: string, permitida: bool}>, permitidas: int}>
+     * @return list<array{clave: string, nombre: string, acciones: list<array{permiso: string, nombre: string, permitida: bool, sin_efecto: bool}>, permitidas: int}>
      */
     public function modulos(Role $rol): array
     {
@@ -105,6 +127,7 @@ class PermisosRolService
                 'permiso' => $permiso,
                 'nombre' => self::ACCIONES[$accion] ?? Str::ucfirst(str_replace('_', ' ', $accion)),
                 'permitida' => $permitida,
+                'sin_efecto' => in_array($permiso, self::PERMISOS_SIN_EFECTO, true),
             ];
             $modulos[$clave]['permitidas'] += (int) $permitida;
         }
@@ -143,7 +166,9 @@ class PermisosRolService
 
             $this->validarCambio($rol, $agregados, $quitados);
 
-            $rol->syncPermissions($despues);
+            // permissions()->sync() no dispara los eventos de Spatie que escucha AuditarCambiosDePermisos (HU-004):
+            // así cada edición deja una sola entrada, la de permisos_rol_editados (revisión, obligatorio 4)
+            $rol->permissions()->sync(Permission::query()->where('guard_name', $rol->guard_name)->whereIn('name', $despues)->pluck('id')->all());
             $rol->forceFill(['permisos_editados_en' => now()])->save();
 
             // CA2: usuario, fecha y hora, IP, valor anterior, valor nuevo y motivo (RNF-33, HU-004)
@@ -157,8 +182,9 @@ class PermisosRolService
             return ['agregados' => $agregados, 'quitados' => $quitados];
         });
 
-        // Las cuentas con el rol ven el cambio en su siguiente petición
+        // Las cuentas con el rol ven el cambio en su siguiente petición; sync() no limpia la caché por sí solo
         app(PermissionRegistrar::class)->forgetCachedPermissions();
+        $rol->unsetRelation('permissions');
 
         return $cambios;
     }
