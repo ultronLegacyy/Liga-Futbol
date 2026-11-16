@@ -149,6 +149,7 @@ class RoleAndPermissionSeeder extends Seeder
             'partidos.ver',
             'partidos.programar',
             'partidos.reprogramar',
+            'programacion.aprobar',
 
             // Modulo Cedulas y Captura de Resultados
             'cedulas.ver',

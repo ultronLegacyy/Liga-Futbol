@@ -6,6 +6,7 @@ use App\Models\Arbitro;
 use App\Models\BloqueoCancha;
 use App\Models\Cancha;
 use App\Models\CargoFinanciero;
+use App\Models\CedulaArbitral;
 use App\Models\Categoria;
 use App\Models\Club;
 use App\Models\DirectivoClub;
@@ -26,6 +27,7 @@ use App\Policies\ArbitroPolicy;
 use App\Policies\BloqueoCanchaPolicy;
 use App\Policies\CanchaPolicy;
 use App\Policies\CargoFinancieroPolicy;
+use App\Policies\CedulaArbitralPolicy;
 use App\Policies\CategoriaPolicy;
 use App\Policies\ClubPolicy;
 use App\Policies\EquipoPolicy;
@@ -40,6 +42,7 @@ use App\Policies\TemporadaPolicy;
 use App\Policies\UserPolicy;
 use App\Services\AuditService;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
@@ -61,6 +64,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Detrás del túnel, sin esto se generan enlaces http:// y el CSS y los formularios fallan por contenido mixto.
+        // Va aquí y no en bootstrap/app.php porque allí todavía no se carga el .env (TRUSTED_PROXIES, RNF-42)
+        TrustProxies::at(config('app.proxies_confianza'));
+
         // Registro explicito de politicas de autorizacion para el dominio del sistema
         Gate::policy(Temporada::class, TemporadaPolicy::class);
         Gate::policy(User::class, UserPolicy::class);
@@ -76,6 +83,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(TarjetonDigital::class, TarjetonDigitalPolicy::class);
         Gate::policy(Jugador::class, JugadorPolicy::class);
         Gate::policy(Partido::class, PartidoPolicy::class);
+        Gate::policy(CedulaArbitral::class, CedulaArbitralPolicy::class);
         Gate::policy(CargoFinanciero::class, CargoFinancieroPolicy::class);
         Gate::policy(Pago::class, PagoPolicy::class);
 

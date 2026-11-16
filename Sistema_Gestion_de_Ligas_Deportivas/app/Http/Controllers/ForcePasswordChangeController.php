@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use App\Rules\RNF26Password;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -31,13 +32,15 @@ class ForcePasswordChangeController extends Controller
             'password.confirmed' => 'Las contraseñas no coinciden.',
         ]);
 
-        // 1. Quitamos la línea de password_hash para dejar una sola columna de contraseña
+        // 1. Actualización de la contraseña y remoción de la marca de cambio obligatorio
         $user->update([
             'password' => Hash::make($request->password),
             'requires_password_change' => false,
         ]);
 
-        // 2. Corregimos la redirección usando la configuración de Fortify en lugar de la ruta manual quemada
-        return redirect(config('fortify.home'))->with('status', 'Contraseña actualizada correctamente. ¡Bienvenido!');
+        // 2. Redirección al destino correspondiente según el rol del usuario autenticado
+        $destino = $user instanceof User ? $user->rutaInicio() : (string) config('fortify.home', '/');
+
+        return redirect($destino)->with('status', 'Contraseña actualizada correctamente. ¡Bienvenido!');
     }
 }

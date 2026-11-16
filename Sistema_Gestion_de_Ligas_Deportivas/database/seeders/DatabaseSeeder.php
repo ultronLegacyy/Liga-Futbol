@@ -323,12 +323,14 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // 10. categorias
+        // Edades según la Tabla 4 de la ERS (temporada 2026-2027): la rama Libre es para
+        // mayores de 18 años, sin edad máxima; la categoría Juvenil, para nacidos en 2009-2010.
         $catEspecialId = DB::table('categorias')->insertGetId([
             'temporada_id' => $temporadaId,
             'nombre' => 'Primera Especial',
             'rama' => 'Libre',
             'edad_min' => 18,
-            'edad_max' => 35,
+            'edad_max' => null,
             'jerarquia_salto' => 1,
             'created_at' => $now,
             'updated_at' => $now,
@@ -339,7 +341,7 @@ class DatabaseSeeder extends Seeder
             'nombre' => 'Primera Fuerza',
             'rama' => 'Libre',
             'edad_min' => 18,
-            'edad_max' => 35,
+            'edad_max' => null,
             'jerarquia_salto' => 2,
             'created_at' => $now,
             'updated_at' => $now,
@@ -349,8 +351,10 @@ class DatabaseSeeder extends Seeder
             'temporada_id' => $temporadaId,
             'nombre' => 'Juvenil A',
             'rama' => 'Libre',
-            'edad_min' => 14,
-            'edad_max' => 16,
+            'anio_nacimiento_desde' => 2009,
+            'anio_nacimiento_hasta' => 2010,
+            'edad_min' => null,
+            'edad_max' => null,
             'jerarquia_salto' => 3,
             'created_at' => $now,
             'updated_at' => $now,
@@ -493,6 +497,9 @@ class DatabaseSeeder extends Seeder
             'updated_at' => $now,
         ]);
 
+        // HU-036: la cuenta del árbitro se enlaza a su persona para que vea las cédulas de sus partidos (PA-19)
+        DB::table('usuarios')->where('id', $arbitroUserId)->update(['persona_id' => $pArbitroId]);
+
         // 17. documentos_persona
         DB::table('documentos_persona')->insert([
             [
@@ -548,6 +555,36 @@ class DatabaseSeeder extends Seeder
             'created_at' => $now,
             'updated_at' => $now,
         ]);
+
+        // HU-036: plantillas de los equipos del partido 2 (programado), para la demo de la cédula arbitral.
+        // Cinco activos y un suspendido por equipo; el suspendido sirve para mostrar la validación de HU-075
+        $plantillasDemo = [
+            [$equipo3Id, 'FUAZ', 'Azul', ['Diego', 'Mateo', 'Santiago', 'Emiliano', 'Leonardo', 'Sebastian']],
+            [$equipo4Id, 'HAES', 'Halcon', ['Andres', 'Julian', 'Rodrigo', 'Fernando', 'Ricardo', 'Alejandro']],
+        ];
+
+        foreach ($plantillasDemo as [$equipoDemoId, $prefijoCurp, $apellido, $nombres]) {
+            foreach ($nombres as $indice => $nombre) {
+                $numero = $indice + 1;
+                $personaDemoId = DB::table('personas')->insertGetId([
+                    'nombre' => $nombre,
+                    'apellidos' => $apellido.' Demo',
+                    'fecha_nacimiento' => sprintf('2005-%02d-01', $numero),
+                    'curp' => sprintf('%s05%02d01HMNDMO%02d', $prefijoCurp, $numero, $numero),
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+
+                DB::table('jugadores_equipos')->insert([
+                    'persona_id' => $personaDemoId,
+                    'equipo_id' => $equipoDemoId,
+                    'dorsal' => $numero,
+                    'estado_elegibilidad' => $numero === 6 ? 'Suspendido' : 'Activo',
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
+        }
 
         // 19. arbitros
         $arbitroId = DB::table('arbitros')->insertGetId([
@@ -646,8 +683,11 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // 26. cedulas_arbitrales
+        // El partido 1 ya terminó y su cédula tiene las dos firmas: queda cerrada (HU-075)
         $cedula1Id = DB::table('cedulas_arbitrales')->insertGetId([
             'partido_id' => $partido1Id,
+            'estado' => 'cerrada',
+            'cerrada_en' => '2026-10-18 12:00:00',
             'goles_local' => 2,
             'goles_visitante' => 1,
             'informe_arbitral' => 'Partido disputado con normalidad. Se suscito una amonestacion por falta temeraria en el segundo tiempo.',
