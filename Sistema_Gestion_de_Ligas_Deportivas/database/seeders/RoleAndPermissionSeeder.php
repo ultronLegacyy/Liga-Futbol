@@ -167,6 +167,14 @@ class RoleAndPermissionSeeder extends Seeder
             'finanzas.cargos',
             'finanzas.pagos_validar',
             'finanzas.reportes',
+
+            // Modulo Asambleas de delegados (HU-053, HU-054, RF-14)
+            'asambleas.ver',
+            'asambleas.convocar',
+            'asambleas.asistencia',
+            'asambleas.acuerdos.registrar',
+            // Convertir un acuerdo en regla permanente requiere autorizacion expresa (RF-14.3)
+            'asambleas.acuerdos.autorizar',
         ];
 
         // Creacion persistente de cada permiso en la base de datos
@@ -200,6 +208,10 @@ class RoleAndPermissionSeeder extends Seeder
             'equipos.ver',
             'campos.ver',
             'finanzas.reportes',
+            // Consulta las asambleas y autoriza que un acuerdo se vuelva regla permanente (RF-14.3; la ERS le asigna la
+            // «validación de acuerdos extraordinarios»). Respuesta 33 del Product Owner en la revisión del #73.
+            'asambleas.ver',
+            'asambleas.acuerdos.autorizar',
         ];
         $rolesCreados['Presidente']->syncPermissions($permisosPresidente);
 
@@ -223,6 +235,11 @@ class RoleAndPermissionSeeder extends Seeder
             'personas.crear',
             'personas.editar',
             'campos.ver',
+            // Convoca asambleas, registra asistencia, acuerdos y comunicados (HU-053, HU-054); no autoriza reglas permanentes
+            'asambleas.ver',
+            'asambleas.convocar',
+            'asambleas.asistencia',
+            'asambleas.acuerdos.registrar',
         ];
         $rolesCreados['Secretario']->syncPermissions($permisosSecretario);
 
