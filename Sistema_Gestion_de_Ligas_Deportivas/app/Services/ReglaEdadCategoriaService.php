@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Categoria;
 use App\Models\Persona;
 use App\Models\Temporada;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 
@@ -12,8 +13,8 @@ use Illuminate\Validation\ValidationException;
  * Requisitos de edad de una categoría (reglas de la temporada vigente).
  *
  * La comparten el registro (HU-016), la renovación y la transferencia (HU-017).
- * Fecha de corte provisional: el inicio de la temporada destino, pendiente de
- * confirmación del Product Owner.
+ * Fecha de corte: el inicio de la temporada destino (respuesta 14 del Product Owner
+ * en la revisión del #73; por ejemplo, «18 años o más» en la rama Libre).
  */
 class ReglaEdadCategoriaService
 {
@@ -33,5 +34,17 @@ class ReglaEdadCategoriaService
                 $campo => 'El jugador no cumple los requisitos de edad de la categoría '.$categoria->nombre.'.',
             ]);
         }
+    }
+
+    /**
+     * Años cumplidos a una fecha; sin fecha, a «hoy» con la hora de México. Compara solo
+     * fechas: la zona de la app es UTC y desde las 18:00 de México ya va en el día siguiente.
+     */
+    public static function edadCumplida(Persona $persona, ?CarbonInterface $fecha = null): int
+    {
+        $hoy = Carbon::parse(($fecha ?? now(GestionJugadorService::ZONA_HORARIA))->toDateString());
+        $nacimiento = Carbon::parse(Carbon::parse($persona->fecha_nacimiento)->toDateString());
+
+        return (int) $nacimiento->diffInYears($hoy);
     }
 }

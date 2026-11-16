@@ -2,9 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\Club;
 use App\Models\User;
+use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Hash;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -31,6 +34,7 @@ class SessionAndAuthFlowTest extends TestCase
             'estatus' => 'activo',
             'rol' => 'Administrador General',
         ]);
+        $usuario->assignRole('Administrador General');
 
         $respuesta = $this->post('/login', [
             'email' => 'activo@liga.com',
@@ -220,5 +224,189 @@ class SessionAndAuthFlowTest extends TestCase
         // Al superar las 8 horas el usuario operativo es desconectado
         $this->assertGuest();
         $respuesta->assertRedirect(route('login'));
+    }
+
+    public function test_usuario_con_rol_tesorero_es_redirigido_al_modulo_de_cargos_sin_error_403(): void
+    {
+        $this->seed(RoleAndPermissionSeeder::class);
+
+        $tesorero = User::create([
+            'name' => 'Tesorero Municipal',
+            'email' => 'tesorero@liga.com',
+            'password' => Hash::make('secreto123'),
+            'estatus' => 'activo',
+            'rol' => 'Tesorero',
+        ]);
+        $tesorero->assignRole('Tesorero');
+
+        $respuesta = $this->post('/login', [
+            'email' => 'tesorero@liga.com',
+            'password' => 'secreto123',
+        ]);
+
+        $this->assertAuthenticatedAs($tesorero);
+        $respuesta->assertRedirect(route('cargos.index'));
+
+        $vista = $this->actingAs($tesorero)->get(route('cargos.index'));
+        $vista->assertStatus(200);
+    }
+
+    public function test_delegado_del_club_sin_club_es_redirigido_a_temporadas_index_con_200(): void
+    {
+        $this->seed(RoleAndPermissionSeeder::class);
+
+        $delegadoSinClub = User::create([
+            'name' => 'Delegado Sin Club',
+            'email' => 'delegado_sin_club@liga.com',
+            'password' => Hash::make('secreto123'),
+            'estatus' => 'activo',
+            'club_id' => null,
+            'rol' => 'Consultor',
+        ]);
+        $delegadoSinClub->assignRole('Delegado del Club');
+
+        $respuesta = $this->post('/login', [
+            'email' => 'delegado_sin_club@liga.com',
+            'password' => 'secreto123',
+        ]);
+
+        $this->assertAuthenticatedAs($delegadoSinClub);
+        $respuesta->assertRedirect(route('temporadas.index'));
+
+        // Verificamos que temporadas.index cargue exitosamente con 200 para el Delegado
+        $vista = $this->actingAs($delegadoSinClub)->get(route('temporadas.index'));
+        $vista->assertStatus(200);
+
+        // Verificamos que el intento de acceder a jugadores.create sea rechazado con 403 al no tener club asignado
+        $intentoCrear = $this->actingAs($delegadoSinClub)->get(route('jugadores.create'));
+        $intentoCrear->assertStatus(403);
+    }
+
+    public function test_delegado_del_club_con_club_es_redirigido_a_jugadores_create_con_200(): void
+    {
+        $this->seed(RoleAndPermissionSeeder::class);
+
+        $club = Club::create(['nombre' => 'Club Deportivo Delegados']);
+
+        $delegadoConClub = User::create([
+            'name' => 'Delegado Con Club',
+            'email' => 'delegado_con_club@liga.com',
+            'password' => Hash::make('secreto123'),
+            'estatus' => 'activo',
+            'club_id' => $club->id,
+            'rol' => 'Consultor',
+        ]);
+        $delegadoConClub->assignRole('Delegado del Club');
+
+        $respuesta = $this->post('/login', [
+            'email' => 'delegado_con_club@liga.com',
+            'password' => 'secreto123',
+        ]);
+
+        $this->assertAuthenticatedAs($delegadoConClub);
+        $respuesta->assertRedirect(route('jugadores.create'));
+
+        $vista = $this->actingAs($delegadoConClub)->get(route('jugadores.create'));
+        $vista->assertStatus(200);
+    }
+
+    public function test_usuario_no_administrador_con_url_intended_hacia_admin_es_redirigido_a_su_modulo_sin_403(): void
+    {
+        $this->seed(RoleAndPermissionSeeder::class);
+
+        $tesorero = User::create([
+            'name' => 'Tesorero Intended',
+            'email' => 'tesorero_intended@liga.com',
+            'password' => Hash::make('secreto123'),
+            'estatus' => 'activo',
+            'rol' => 'Consultor',
+        ]);
+        $tesorero->assignRole('Tesorero');
+
+        // Simulamos que el usuario intentó acceder previamente a una ruta administrativa
+        $respuesta = $this->withSession(['url.intended' => url('/admin/dashboard')])
+            ->post('/login', [
+                'email' => 'tesorero_intended@liga.com',
+                'password' => 'secreto123',
+            ]);
+
+        $this->assertAuthenticatedAs($tesorero);
+        // Debe ignorar /admin/dashboard y redirigir a cargos.index
+        $respuesta->assertRedirect(route('cargos.index'));
+
+        $vista = $this->actingAs($tesorero)->get(route('cargos.index'));
+        $vista->assertStatus(200);
+    }
+
+    public function test_usuario_autenticado_que_visita_raiz_recibe_aviso_con_enlace_a_su_ruta_inicio(): void
+    {
+        $this->seed(RoleAndPermissionSeeder::class);
+
+        $presidente = User::create([
+            'name' => 'Presidente Liga',
+            'email' => 'presidente_raiz@liga.com',
+            'password' => Hash::make('secreto123'),
+            'estatus' => 'activo',
+            'rol' => 'Consultor',
+        ]);
+        $presidente->assignRole('Presidente');
+
+        $respuesta = $this->actingAs($presidente)->get('/');
+
+        $respuesta->assertStatus(200);
+        $respuesta->assertSee('Sesión activa como');
+        $respuesta->assertSee(route('temporadas.index'));
+        $respuesta->assertDontSee('/admin/dashboard');
+    }
+
+    #[DataProvider('proveedorRolesYDestinos')]
+    public function test_redireccion_post_login_de_los_13_roles_hacia_modulo_autorizado_con_200(string $rol, string $nombreRutaEsperada, bool $requiereClub): void
+    {
+        $this->seed(RoleAndPermissionSeeder::class);
+
+        $club = $requiereClub ? Club::create(['nombre' => 'Club Test ' . $rol]) : null;
+
+        $email = 'test_' . strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $rol)) . '@liga.com';
+
+        $usuario = User::create([
+            'name' => 'Usuario ' . $rol,
+            'email' => $email,
+            'password' => Hash::make('secreto123'),
+            'estatus' => 'activo',
+            'club_id' => $club?->id,
+            'rol' => 'Consultor',
+        ]);
+        $usuario->assignRole($rol);
+
+        $respuesta = $this->post('/login', [
+            'email' => $email,
+            'password' => 'secreto123',
+        ]);
+
+        $this->assertAuthenticatedAs($usuario);
+        $destinoEsperado = route($nombreRutaEsperada);
+        $respuesta->assertRedirect($destinoEsperado);
+
+        $vista = $this->actingAs($usuario)->get($destinoEsperado);
+        $vista->assertStatus(200);
+    }
+
+    public static function proveedorRolesYDestinos(): array
+    {
+        return [
+            'Administrador General' => ['Administrador General', 'admin.dashboard', false],
+            'Presidente' => ['Presidente', 'temporadas.index', false],
+            'Secretario' => ['Secretario', 'personas.index', false],
+            'Tesorero' => ['Tesorero', 'cargos.index', false],
+            'Comision de la Rama Infantil' => ['Comision de la Rama Infantil', 'temporadas.index', false],
+            'Programador de Partidos' => ['Programador de Partidos', 'canchas.index', false],
+            'Capturista' => ['Capturista', 'temporadas.index', false],
+            'Tribunal de Penas' => ['Tribunal de Penas', 'temporadas.index', false],
+            'Comisión Arbitral' => ['Comisión Arbitral', 'arbitros.index', false],
+            'Árbitro en Campo' => ['Árbitro en Campo', 'arbitros.index', false],
+            'Presidente del Club' => ['Presidente del Club', 'temporadas.index', true],
+            'Delegado del Club (con club)' => ['Delegado del Club', 'jugadores.create', true],
+            'Jugador' => ['Jugador', 'jugadores.vincular.form', false],
+        ];
     }
 }
