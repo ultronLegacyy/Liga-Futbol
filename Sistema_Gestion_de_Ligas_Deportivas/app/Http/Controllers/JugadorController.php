@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\ActualizarJugadorRequest;
 use App\Http\Requests\StoreJugadorRequest;
 use App\Http\Requests\BajaJugadorRequest;
 use App\Http\Requests\CambiarEstadoJugadorRequest;
@@ -29,6 +30,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -272,35 +274,49 @@ class JugadorController extends Controller
      * HU-022 CA2: todo cambio a los datos del jugador pide motivo y queda en su historial
      * con usuario, fecha y motivo; el cambio y su registro se guardan en una sola transacción.
      */
-    public function update(Request $request, Jugador $jugador, AuditService $auditoria): JsonResponse
+    public function update(ActualizarJugadorRequest $request, Jugador $jugador, AuditService $auditoria, GestionJugadorService $gestion): JsonResponse
     {
-        Gate::authorize('update', $jugador);
-        $datos = $request->validate([
-            'dorsal' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:99'],
-            'motivo' => ['required', 'string', 'min:3', 'max:1000'],
-        ], [
-            'motivo.required' => 'Escribe el motivo del cambio; quedará en el historial del jugador.',
-            'motivo.min' => 'El motivo debe tener al menos 3 caracteres.',
-            'motivo.max' => 'El motivo no debe superar los 1000 caracteres.',
-        ]);
-        $cambios = Arr::except($datos, ['motivo']);
+        $datos = $request->validated();
+        $motivo = trim((string) $datos['motivo']);
 
-        if ($cambios !== []) {
-            $auditoria->conMotivo('Cambio de datos del jugador: '.trim($datos['motivo']), fn () => $jugador->update($cambios));
+        // Solo cuentan los campos que de verdad cambian; un PUT sin cambios no dice «actualizados»
+        $cambios = array_filter(
+            Arr::except($datos, ['motivo']),
+            fn (mixed $valor, string $campo): bool => (string) $valor !== (string) $jugador->getAttribute($campo),
+            ARRAY_FILTER_USE_BOTH
+        );
+
+        if ($cambios === []) {
+            throw ValidationException::withMessages(['datos' => 'No hay cambios que guardar: los datos son iguales a los actuales.']);
         }
+
+        $auditoria->conMotivo('Cambio de datos del jugador: '.$motivo, function () use ($jugador, $cambios, $gestion): void {
+            // Decisión del 13/11: cualquiera que edite (también el propio jugador) puede cambiar el dorsal
+            // mientras no lo tenga otro jugador activo del mismo equipo
+            if (array_key_exists('dorsal', $cambios) && $jugador->equipo !== null) {
+                $gestion->exigirDorsalLibre($jugador->equipo, $cambios['dorsal'], $jugador);
+            }
+
+            $jugador->update($cambios);
+        });
 
         return response()->json(['mensaje' => 'Los datos del jugador fueron actualizados.']);
     }
 
     /** HU-022 CA2: historial de cambios de los datos del jugador, sobre la bitácora de HU-004. */
-    public function historial(Jugador $jugador, HistorialCambiosJugadorService $historial): View
+    public function historial(Request $request, Jugador $jugador, HistorialCambiosJugadorService $historial): View
     {
         Gate::authorize('view', $jugador);
         $jugador->load(['persona', 'equipo']);
 
+        /** @var User $usuario */
+        $usuario = $request->user();
+        $inscripciones = $historial->inscripciones($jugador, $usuario);
+
         return view('jugadores.historial', [
             'jugador' => $jugador,
-            'registros' => $historial->de($jugador),
+            'inscripciones' => $inscripciones,
+            'registros' => $historial->de($jugador, $inscripciones),
             'historial' => $historial,
         ]);
     }

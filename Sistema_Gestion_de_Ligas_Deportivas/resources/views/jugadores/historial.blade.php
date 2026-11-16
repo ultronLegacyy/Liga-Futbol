@@ -14,6 +14,11 @@
             {{ $jugador->persona->nombre }} {{ $jugador->persona->apellidos }} · {{ $jugador->equipo->nombre }}.
             Del cambio más reciente al más antiguo. Este historial no se puede editar ni borrar.
         </p>
+        <p class="mt-1 text-xs text-gray-400">
+            Incluye {{ $inscripciones->count() === 1 ? 'su inscripción' : 'sus '.$inscripciones->count().' inscripciones más recientes que puedes consultar' }}
+            (máximo {{ \App\Services\HistorialCambiosJugadorService::MAXIMO_INSCRIPCIONES }}):
+            {{ $inscripciones->map(fn ($i) => $i->equipo?->nombre.' · '.($i->equipo?->temporada?->nombre ?? 'Sin temporada'))->implode('; ') }}.
+        </p>
 
         @if ($registros->isEmpty())
             <p class="mt-4 text-sm text-gray-300">Aún no hay cambios registrados para este jugador.</p>
@@ -40,6 +45,9 @@
                                         {{ \App\Services\HistorialCambiosJugadorService::ACCIONES[$registro->accion] ?? $registro->accion }}
                                     </span>
                                     <span class="text-xs text-gray-400">· {{ \App\Services\HistorialCambiosJugadorService::SECCIONES[$registro->tabla_afectada] ?? $registro->tabla_afectada }}</span>
+                                    @if ($deInscripcion = $historial->inscripcionDe($registro, $inscripciones))
+                                        <span class="block text-xs text-gray-400" data-inscripcion>{{ $deInscripcion }}</span>
+                                    @endif
                                     @php($cambios = $historial->cambios($registro))
                                     @if ($cambios !== [])
                                         <ul class="mt-1 space-y-0.5 text-xs text-gray-300">

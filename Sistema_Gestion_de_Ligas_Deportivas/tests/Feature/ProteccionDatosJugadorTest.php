@@ -218,6 +218,159 @@ class ProteccionDatosJugadorTest extends TestCase
             ->assertForbidden();
     }
 
+    // Obligatorio 2 de la revisión: un solo error por campo y en español, aunque llegue un tipo inesperado
+    public function test_los_datos_invalidos_responden_en_espanol_con_un_solo_error(): void
+    {
+        $this->actingAs($this->delegado);
+        $ruta = route('jugadores.update', $this->jugador);
+
+        $this->putJson($ruta, ['dorsal' => 7, 'motivo' => ['x']])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.motivo', ['El motivo del cambio no es válido.']);
+        $this->putJson($ruta, ['dorsal' => 7, 'motivo' => 123])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.motivo', ['El motivo del cambio no es válido.']);
+        $this->putJson($ruta, ['dorsal' => 'abc', 'motivo' => 'Motivo válido'])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.dorsal', ['El dorsal debe ser un número entero.']);
+        $this->putJson($ruta, ['dorsal' => 0, 'motivo' => 'Motivo válido'])
+            ->assertJsonPath('errors.dorsal', ['El dorsal debe ser al menos 1.']);
+        $this->putJson($ruta, ['dorsal' => 100, 'motivo' => 'Motivo válido'])
+            ->assertJsonPath('errors.dorsal', ['El dorsal no puede ser mayor que 99.']);
+
+        $this->assertNull($this->jugador->refresh()->dorsal);
+    }
+
+    // Decisión del 13/11: el propio jugador cambia su dorsal a uno libre y queda en su historial con el motivo
+    public function test_el_jugador_cambia_su_dorsal_a_uno_libre(): void
+    {
+        $cuenta = $this->crearUsuario('Jugador', 'Jugador HU-022');
+        $cuenta->forceFill(['persona_id' => $this->jugador->persona_id])->save();
+
+        $this->actingAs($cuenta)
+            ->putJson(route('jugadores.update', $this->jugador), ['dorsal' => 14, 'motivo' => 'Quiero el 14'])
+            ->assertOk();
+
+        $this->assertSame(14, $this->jugador->refresh()->dorsal);
+        $this->actingAs($cuenta)->get(route('jugadores.historial', $this->jugador))->assertOk()->assertSee('Quiero el 14');
+    }
+
+    // Decisión del 13/11: un dorsal ocupado por otro jugador activo del mismo equipo se rechaza; en otro equipo sí se puede
+    public function test_no_se_toma_un_dorsal_ocupado_en_el_mismo_equipo(): void
+    {
+        $this->equipo->jugadores()->create(['persona_id' => $this->crearPersona()->id, 'dorsal' => 10]);
+        $otroEquipo = $this->crearEquipo($this->club, 'Otro equipo HU-022');
+        $otroEquipo->jugadores()->create(['persona_id' => $this->crearPersona()->id, 'dorsal' => 9]);
+
+        $this->actingAs($this->delegado)
+            ->putJson(route('jugadores.update', $this->jugador), ['dorsal' => 10, 'motivo' => 'Tomar el 10'])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.dorsal.0', 'El dorsal 10 ya está asignado a otro jugador de este equipo.');
+        $this->assertNull($this->jugador->refresh()->dorsal);
+
+        $this->actingAs($this->delegado)
+            ->putJson(route('jugadores.update', $this->jugador), ['dorsal' => 9, 'motivo' => 'El 9 solo está en otro equipo'])
+            ->assertOk();
+        $this->assertSame(9, $this->jugador->refresh()->dorsal);
+    }
+
+    // Recomendado de la revisión: un PUT sin cambios no responde «actualizados» ni deja registro
+    public function test_un_cambio_sin_efecto_se_rechaza(): void
+    {
+        $this->jugador->update(['dorsal' => 5]);
+        $antes = AuditoriaLog::query()->count();
+
+        $this->actingAs($this->delegado)
+            ->putJson(route('jugadores.update', $this->jugador), ['dorsal' => 5, 'motivo' => 'Mismo dorsal'])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.datos.0', 'No hay cambios que guardar: los datos son iguales a los actuales.');
+        $this->actingAs($this->delegado)
+            ->putJson(route('jugadores.update', $this->jugador), ['motivo' => 'Solo el motivo'])
+            ->assertUnprocessable();
+
+        $this->assertSame($antes, AuditoriaLog::query()->count());
+    }
+
+    // Decisión del 13/11: el historial junta las inscripciones de la persona, cada cambio con su equipo y temporada
+    public function test_el_historial_junta_las_inscripciones_de_la_persona(): void
+    {
+        $anterior = $this->crearEquipo($this->club, 'Equipo anterior HU-022', '2024-01-01');
+        $inscripcionAnterior = $anterior->jugadores()->create(['persona_id' => $this->jugador->persona_id, 'dorsal' => 3]);
+        $inscripcionAnterior->update(['dorsal' => 4]);
+        $this->jugador->update(['dorsal' => 8]);
+
+        $this->actingAs($this->crearUsuario('Secretario', 'Secretario HU-022'))
+            ->get(route('jugadores.historial', $this->jugador))
+            ->assertOk()
+            ->assertSee('Dorsal: 3 → 4')
+            ->assertSee('Dorsal: — → 8')
+            ->assertSee('Equipo anterior HU-022 · '.$anterior->temporada->nombre)
+            ->assertSee('Equipo HU-022 · '.$this->equipo->temporada->nombre);
+    }
+
+    // RNF-29: el Delegado no ve por el historial las inscripciones de la persona en otro club
+    public function test_el_delegado_no_ve_inscripciones_de_otro_club(): void
+    {
+        $otroClub = Club::create(['nombre' => 'Club anterior HU-022 '.str()->random(6)]);
+        $equipoAjeno = $this->crearEquipo($otroClub, 'Equipo de otro club', '2024-01-01');
+        $ajena = $equipoAjeno->jugadores()->create(['persona_id' => $this->jugador->persona_id, 'dorsal' => 21]);
+        $ajena->update(['dorsal' => 22]);
+
+        $this->actingAs($this->delegado)
+            ->get(route('jugadores.historial', $this->jugador))
+            ->assertOk()
+            ->assertDontSee('Dorsal: 21 → 22')
+            ->assertDontSee('Equipo de otro club');
+
+        $this->actingAs($this->crearUsuario('Secretario', 'Secretario HU-022'))
+            ->get(route('jugadores.historial', $this->jugador))
+            ->assertSee('Dorsal: 21 → 22');
+    }
+
+    // Decisión del 13/11: con 6 inscripciones solo se juntan las 5 más recientes
+    public function test_solo_se_juntan_las_cinco_inscripciones_mas_recientes(): void
+    {
+        $persona = $this->jugador->persona_id;
+        $masVieja = $this->crearEquipo($this->club, 'Equipo de 2019', '2019-01-01')
+            ->jugadores()->create(['persona_id' => $persona, 'dorsal' => 1]);
+        foreach ([2020, 2021, 2022, 2023] as $anio) {
+            $this->crearEquipo($this->club, 'Equipo de '.$anio, $anio.'-01-01')->jugadores()->create(['persona_id' => $persona]);
+        }
+
+        $secretario = $this->crearUsuario('Secretario', 'Secretario HU-022');
+        $inscripciones = app(\App\Services\HistorialCambiosJugadorService::class)->inscripciones($this->jugador, $secretario);
+
+        $this->assertCount(5, $inscripciones);
+        $this->assertFalse($inscripciones->has($masVieja->id));
+        $this->assertTrue($inscripciones->has($this->jugador->id));
+        $this->actingAs($secretario)->get(route('jugadores.historial', $this->jugador))->assertDontSee('Equipo de 2019');
+    }
+
+    // Recomendado de la revisión: los cambios de datos de otra persona no salen en este historial
+    public function test_no_muestra_la_auditoria_de_otra_persona(): void
+    {
+        $otra = $this->crearPersona();
+        $otra->update(['nombre' => 'Persona ajena ZZZ']);
+
+        $this->actingAs($this->crearUsuario('Secretario', 'Secretario HU-022'))
+            ->get(route('jugadores.historial', $this->jugador))
+            ->assertOk()
+            ->assertDontSee('Persona ajena ZZZ');
+    }
+
+    // Recomendado de la revisión: el equipo sale con su nombre y las fechas en d/m/Y
+    public function test_los_valores_del_historial_son_legibles(): void
+    {
+        $this->jugador->persona->update(['fecha_nacimiento' => '2006-03-04']);
+
+        $this->actingAs($this->crearUsuario('Secretario', 'Secretario HU-022'))
+            ->get(route('jugadores.historial', $this->jugador))
+            ->assertOk()
+            ->assertSee('Equipo: — → Equipo HU-022')
+            ->assertSee('04/03/2006')
+            ->assertDontSee('2006-03-04 00:00:00');
+    }
+
     private function crearPersona(): Persona
     {
         return Persona::query()->create([
@@ -228,9 +381,11 @@ class ProteccionDatosJugadorTest extends TestCase
         ]);
     }
 
-    private function crearEquipo(Club $club, string $nombre): Equipo
+    private function crearEquipo(Club $club, string $nombre, ?string $inicio = null): Equipo
     {
-        $temporada = Temporada::factory()->activa()->create();
+        $temporada = $inicio === null
+            ? Temporada::factory()->activa()->create()
+            : Temporada::factory()->create(['fecha_inicio' => $inicio, 'fecha_fin' => substr($inicio, 0, 4).'-12-31', 'estado' => 'cerrada']);
         $categoria = Categoria::factory()->create(['temporada_id' => $temporada->id]);
         $grupo = Grupo::factory()->create(['categoria_id' => $categoria->id, 'temporada_id' => $temporada->id]);
 
