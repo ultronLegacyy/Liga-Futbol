@@ -21,6 +21,22 @@
     @if (session('success'))
         <x-alert type="success" :message="session('success')" />
     @endif
+    {{-- HU-037: lo que ValidacionCedulaService encontró al transcribir la cédula en papel; se revisa antes de cerrar --}}
+    @if (is_array(session('hallazgos')) && session('hallazgos') !== [])
+        <div role="status" class="mb-4 rounded-lg border border-amber-700 bg-amber-950 p-4 text-sm text-amber-100">
+            <p class="font-semibold">Revisa antes de cerrar la cédula:</p>
+            <ul class="mt-2 list-disc pl-5">
+                @foreach (session('hallazgos') as $hallazgo)
+                    <li>{{ $hallazgo['mensaje'] }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+    @can('capturarFisica', [App\Models\CedulaArbitral::class, $partido])
+        @if (! $cedula?->estaCerrada())
+            <p class="mb-4"><a href="{{ route('cedulas.fisica.create', $partido) }}" class="text-green-400 underline">Capturar desde la cédula en papel</a></p>
+        @endif
+    @endcan
     @if ($errors->any())
         <x-alert type="error" :message="$errors->first()" />
     @endif
