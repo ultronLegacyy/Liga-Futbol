@@ -20,6 +20,7 @@ use App\Http\Controllers\JugadorController;
 use App\Http\Controllers\PagoController;
 use App\Http\Controllers\PartidoController;
 use App\Http\Controllers\PersonaController;
+use App\Http\Controllers\PortalController;
 use App\Http\Controllers\RecuperacionContrasenaController;
 use App\Http\Controllers\ReporteFinancieroController;
 use App\Http\Controllers\ReglaTemporadaController;
@@ -33,6 +34,11 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return view('auth.login');
 })->name('inicio');
+
+// Portal público (RF-12.3, IU-01): sin cuenta y sin privilegios de edición
+Route::get('/programacion', [PortalController::class, 'programacion'])
+    ->middleware('throttle:120,1')
+    ->name('portal.programacion');
 
 // Recuperación de contraseña por correo (HU-003). Cada envío tiene su propio contador de intentos por IP
 Route::middleware(['guest'])->group(function () {
