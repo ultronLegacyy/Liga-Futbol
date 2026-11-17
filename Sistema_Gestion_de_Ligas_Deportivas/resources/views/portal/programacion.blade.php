@@ -47,6 +47,7 @@
         overflow-wrap: anywhere;
     }
 
+    .partido p { margin: 0; }
     .partido .hora { font-weight: 700; font-size: 1.125rem; }
     .partido .equipos { margin: .25rem 0 .5rem; font-size: 1.0625rem; font-weight: 600; }
     .partido .vs { color: var(--texto-secundario); font-weight: 400; }
