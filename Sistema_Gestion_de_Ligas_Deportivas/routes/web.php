@@ -7,6 +7,7 @@ use App\Http\Controllers\CanchaBloqueoController;
 use App\Http\Controllers\CanchaController;
 use App\Http\Controllers\CargoFinancieroController;
 use App\Http\Controllers\CedulaController;
+use App\Http\Controllers\CedulaFisicaController;
 use App\Http\Controllers\CierreCedulaController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ClubController;
@@ -199,6 +200,16 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/partidos/{partido}/cedula/cerrar', [CierreCedulaController::class, 'cerrar'])
             ->whereNumber('partido')
             ->name('cedulas.cerrar');
+
+        // HU-037: el Capturista transcribe en la sede las cédulas que llegan en papel, con las validaciones de HU-036
+        Route::get('/cedulas/papel', [CedulaFisicaController::class, 'index'])
+            ->name('cedulas.fisicas.index');
+        Route::get('/partidos/{partido}/cedula/papel', [CedulaFisicaController::class, 'create'])
+            ->whereNumber('partido')
+            ->name('cedulas.fisica.create');
+        Route::post('/partidos/{partido}/cedula/papel', [CedulaFisicaController::class, 'store'])
+            ->whereNumber('partido')
+            ->name('cedulas.fisica.store');
 
         Route::get('/partidos/{partido}/arbitro', [ArbitroController::class, 'editarAsignacion'])
             ->name('partidos.arbitro.edit');

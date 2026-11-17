@@ -19,6 +19,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $goles_local
  * @property int $goles_visitante
  * @property \Illuminate\Support\Carbon|null $cerrada_en
+ * @property string $origen
+ * @property int|null $capturada_por_id
+ * @property \Illuminate\Support\Carbon|null $capturada_en
  */
 class CedulaArbitral extends Model
 {
@@ -28,6 +31,11 @@ class CedulaArbitral extends Model
     public const ABIERTA = 'abierta';
 
     public const CERRADA = 'cerrada';
+
+    // HU-037: la cédula se captura en campo desde el celular o se transcribe desde la cédula en papel
+    public const ORIGEN_CAMPO = 'campo';
+
+    public const ORIGEN_PAPEL = 'papel';
 
     // Estados del partido en que el árbitro abre la cédula y captura (decisión a confirmar con Medina)
     public const ESTADOS_PARTIDO_CAPTURA = ['programado', 'confirmado', 'en juego'];
@@ -44,6 +52,9 @@ class CedulaArbitral extends Model
         'firma_capitan_visitante',
         'cerrada_por_id',
         'cerrada_en',
+        'origen',
+        'capturada_por_id',
+        'capturada_en',
     ];
 
     /**
@@ -55,6 +66,7 @@ class CedulaArbitral extends Model
             'goles_local' => 'integer',
             'goles_visitante' => 'integer',
             'cerrada_en' => 'datetime',
+            'capturada_en' => 'datetime',
         ];
     }
 
@@ -91,6 +103,17 @@ class CedulaArbitral extends Model
     public function cerradaPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'cerrada_por_id');
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function capturadaPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'capturada_por_id');
+    }
+
+    public function esDePapel(): bool
+    {
+        return $this->origen === self::ORIGEN_PAPEL;
     }
 
     /** @return HasMany<AlineacionPartido, $this> */
