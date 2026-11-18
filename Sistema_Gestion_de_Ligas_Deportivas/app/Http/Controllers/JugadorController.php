@@ -2,28 +2,35 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\ActualizarJugadorRequest;
 use App\Http\Requests\StoreJugadorRequest;
 use App\Http\Requests\BajaJugadorRequest;
 use App\Http\Requests\CambiarEstadoJugadorRequest;
 use App\Http\Requests\RenovarJugadorRequest;
 use App\Http\Requests\TransferirJugadorRequest;
 use App\Http\Requests\VincularJugadorRequest;
+use App\Models\Categoria;
 use App\Models\DocumentoPersona;
 use App\Models\Equipo;
 use App\Models\Jugador;
 use App\Models\User;
+use App\Services\AuditService;
+use App\Services\ConsentimientoPrivacidadService;
 use App\Services\EstadoJugadorService;
 use App\Services\RegistroJugadorService;
 use App\Services\GestionJugadorService;
+use App\Services\HistorialCambiosJugadorService;
 use App\Services\VinculacionJugadorService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -57,7 +64,7 @@ class JugadorController extends Controller
         return view('jugadores.index', compact('jugadores', 'busqueda'));
     }
 
-    public function create(Request $request): View
+    public function create(Request $request, ConsentimientoPrivacidadService $privacidad): View
     {
         $usuario = $request->user();
         abort_unless($usuario instanceof User, 401);
@@ -79,8 +86,14 @@ class JugadorController extends Controller
 
         $temporadas = $equipos->pluck('temporada')->unique('id')->values();
         $categorias = $equipos->pluck('grupo.categoria')->unique('id')->values();
+        // HU-020: categorías que siempre piden al tutor; la edad la revisa la vista y, al guardar, el servidor.
+        $categoriasConTutor = $categorias
+            ->filter(fn (?Categoria $categoria): bool => $categoria !== null && $privacidad->motivoTutorPorCategoria($categoria) !== null)
+            ->map(fn (Categoria $categoria): int => (int) $categoria->getKey())
+            ->values()
+            ->all();
 
-        return view('jugadores.create', compact('equipos', 'temporadas', 'categorias'));
+        return view('jugadores.create', compact('equipos', 'temporadas', 'categorias', 'categoriasConTutor'));
     }
 
     public function darDeBaja(BajaJugadorRequest $request, Jugador $jugador, GestionJugadorService $gestion): JsonResponse|RedirectResponse
@@ -250,23 +263,62 @@ class JugadorController extends Controller
         $extension = pathinfo($documento->ruta_storage, PATHINFO_EXTENSION);
         $nombre = Str::slug($documento->tipo.'-'.$jugador->persona_id).($extension !== '' ? '.'.$extension : '');
 
+        // HU-022 CA1 (RNF-30): ni buscadores ni cachés compartidas guardan el documento
         return Storage::disk('private')->download($documento->ruta_storage, $nombre, [
             'X-Robots-Tag' => 'noindex, nofollow, noarchive',
+            'Cache-Control' => 'private, no-store, max-age=0',
         ]);
     }
 
-    public function update(Request $request, Jugador $jugador): JsonResponse
+    /**
+     * HU-022 CA2: todo cambio a los datos del jugador pide motivo y queda en su historial
+     * con usuario, fecha y motivo; el cambio y su registro se guardan en una sola transacción.
+     */
+    public function update(ActualizarJugadorRequest $request, Jugador $jugador, AuditService $auditoria, GestionJugadorService $gestion): JsonResponse
     {
-        Gate::authorize('update', $jugador);
-        $datos = $request->validate([
-            'dorsal' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:99'],
-        ]);
+        $datos = $request->validated();
+        $motivo = trim((string) $datos['motivo']);
 
-        if ($datos !== []) {
-            $jugador->update($datos);
+        // Solo cuentan los campos que de verdad cambian; un PUT sin cambios no dice «actualizados»
+        $cambios = array_filter(
+            Arr::except($datos, ['motivo']),
+            fn (mixed $valor, string $campo): bool => (string) $valor !== (string) $jugador->getAttribute($campo),
+            ARRAY_FILTER_USE_BOTH
+        );
+
+        if ($cambios === []) {
+            throw ValidationException::withMessages(['datos' => 'No hay cambios que guardar: los datos son iguales a los actuales.']);
         }
 
+        $auditoria->conMotivo('Cambio de datos del jugador: '.$motivo, function () use ($jugador, $cambios, $gestion): void {
+            // Decisión del 13/11: cualquiera que edite (también el propio jugador) puede cambiar el dorsal
+            // mientras no lo tenga otro jugador activo del mismo equipo
+            if (array_key_exists('dorsal', $cambios) && $jugador->equipo !== null) {
+                $gestion->exigirDorsalLibre($jugador->equipo, $cambios['dorsal'], $jugador);
+            }
+
+            $jugador->update($cambios);
+        });
+
         return response()->json(['mensaje' => 'Los datos del jugador fueron actualizados.']);
+    }
+
+    /** HU-022 CA2: historial de cambios de los datos del jugador, sobre la bitácora de HU-004. */
+    public function historial(Request $request, Jugador $jugador, HistorialCambiosJugadorService $historial): View
+    {
+        Gate::authorize('view', $jugador);
+        $jugador->load(['persona', 'equipo']);
+
+        /** @var User $usuario */
+        $usuario = $request->user();
+        $inscripciones = $historial->inscripciones($jugador, $usuario);
+
+        return view('jugadores.historial', [
+            'jugador' => $jugador,
+            'inscripciones' => $inscripciones,
+            'registros' => $historial->de($jugador, $inscripciones),
+            'historial' => $historial,
+        ]);
     }
 
     public function desvincular(Jugador $jugador, VinculacionJugadorService $vinculacion): JsonResponse

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AdeudoClubController;
 use App\Http\Controllers\ArbitroController;
+use App\Http\Controllers\AsambleaController;
 use App\Http\Controllers\CanchaBloqueoController;
 use App\Http\Controllers\CanchaController;
 use App\Http\Controllers\CargoFinancieroController;
@@ -20,6 +21,7 @@ use App\Http\Controllers\PagoController;
 use App\Http\Controllers\PartidoController;
 use App\Http\Controllers\PersonaController;
 use App\Http\Controllers\RecuperacionContrasenaController;
+use App\Http\Controllers\ReporteFinancieroController;
 use App\Http\Controllers\ReglaTemporadaController;
 use App\Http\Controllers\RolPermisoController;
 use App\Http\Controllers\TarjetonDigitalController;
@@ -203,6 +205,19 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/partidos/{partido}/arbitro', [ArbitroController::class, 'asignar'])
             ->name('partidos.arbitro.update');
 
+        // Asambleas de delegados: convocatoria y asistencia (HU-053), acuerdos y comunicados (HU-054), RF-14
+        Route::resource('asambleas', AsambleaController::class)->only(['index', 'create', 'store', 'show']);
+        Route::get('/asambleas/{asamblea}/asistencia', [AsambleaController::class, 'editarAsistencia'])
+            ->name('asambleas.asistencia.edit');
+        Route::put('/asambleas/{asamblea}/asistencia', [AsambleaController::class, 'guardarAsistencia'])
+            ->name('asambleas.asistencia.update');
+        Route::post('/asambleas/{asamblea}/acuerdos', [AsambleaController::class, 'guardarAcuerdo'])
+            ->name('asambleas.acuerdos.store');
+        Route::post('/asambleas/{asamblea}/acuerdos/{acuerdo}/regla-permanente', [AsambleaController::class, 'autorizarAcuerdo'])
+            ->name('asambleas.acuerdos.autorizar');
+        Route::post('/asambleas/{asamblea}/comunicados', [AsambleaController::class, 'guardarComunicado'])
+            ->name('asambleas.comunicados.store');
+
         // Adeudos por club y temporada: quién está al corriente (HU-051, RF-13.2)
         Route::get('/adeudos', [AdeudoClubController::class, 'index'])
             ->name('adeudos.index');
@@ -215,6 +230,14 @@ Route::middleware(['auth'])->group(function () {
             ->name('cargos.pagos.store');
         Route::get('/pagos/{pago}/comprobante', [PagoController::class, 'comprobante'])
             ->name('pagos.comprobante');
+
+        // Reporte financiero por periodo, club, temporada y concepto, y su descarga (HU-052, RF-13.3)
+        Route::get('/reportes/financiero', [ReporteFinancieroController::class, 'index'])
+            ->name('reportes.financiero');
+        Route::get('/reportes/financiero/csv', [ReporteFinancieroController::class, 'csv'])
+            ->name('reportes.financiero.csv');
+        Route::get('/reportes/financiero/pdf', [ReporteFinancieroController::class, 'pdf'])
+            ->name('reportes.financiero.pdf');
 
         // Grupo de rutas de administracion de gobernanza y gestión de cuentas (S2-T13)
         Route::middleware(['role:Administrador General'])->prefix('admin')->name('admin.')->group(function () {
@@ -239,9 +262,12 @@ Route::middleware(['auth'])->group(function () {
             Route::put('/usuarios/{usuario}', [UserController::class, 'update'])->name('usuarios.update');
             Route::patch('/usuarios/{usuario}/toggle-status', [UserController::class, 'toggleStatus'])->name('usuarios.toggleStatus');
 
-            // Permisos de cada rol en solo lectura (HU-081, RF-12.1); cualquier cambio se rechaza (CA3)
+            // Permisos de cada rol: consulta (HU-081) y edición (HU-083), RF-12.1; crear, renombrar o borrar roles se rechaza
             Route::get('/roles', [RolPermisoController::class, 'index'])->name('roles.index');
             Route::get('/roles/{rol}', [RolPermisoController::class, 'show'])->whereNumber('rol')->name('roles.show');
+            // HU-083: edición de los permisos de un rol (va antes de las rutas que rechazan cambios)
+            Route::get('/roles/{rol}/editar', [RolPermisoController::class, 'edit'])->whereNumber('rol')->name('roles.edit');
+            Route::put('/roles/{rol}/permisos', [RolPermisoController::class, 'update'])->whereNumber('rol')->name('roles.permisos.update');
             Route::match(['post', 'put', 'patch', 'delete'], '/roles/{rol?}', [RolPermisoController::class, 'rechazarCambio'])
                 ->whereNumber('rol')->name('roles.cambio');
             Route::match(['post', 'put', 'patch', 'delete'], '/roles/{rol}/permisos/{permiso?}', [RolPermisoController::class, 'rechazarCambio'])
@@ -284,6 +310,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/jugadores', [JugadorController::class, 'store'])->name('jugadores.store');
         Route::post('/equipos/{equipo}/jugadores', [JugadorController::class, 'store'])->name('equipos.jugadores.store');
         Route::get('/jugadores/{jugador}/gestionar', [JugadorController::class, 'gestion'])->name('jugadores.gestion');
+        Route::get('/jugadores/{jugador}/historial', [JugadorController::class, 'historial'])->name('jugadores.historial');
         Route::get('/jugadores/vincular', [JugadorController::class, 'vincularForm'])->name('jugadores.vincular.form');
         Route::post('/jugadores/{jugador}/baja', [JugadorController::class, 'darDeBaja'])->name('jugadores.baja');
         Route::post('/jugadores/{jugador}/renovar', [JugadorController::class, 'renovar'])->name('jugadores.renovar');

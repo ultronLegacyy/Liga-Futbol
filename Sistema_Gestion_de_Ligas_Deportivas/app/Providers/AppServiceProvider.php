@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\Arbitro;
+use App\Models\Asamblea;
 use App\Models\BloqueoCancha;
 use App\Models\Cancha;
 use App\Models\CargoFinanciero;
@@ -24,6 +25,7 @@ use App\Observers\ClubObserver;
 use App\Observers\DirectivoClubObserver;
 use App\Observers\EquipoObserver;
 use App\Policies\ArbitroPolicy;
+use App\Policies\AsambleaPolicy;
 use App\Policies\BloqueoCanchaPolicy;
 use App\Policies\CanchaPolicy;
 use App\Policies\CargoFinancieroPolicy;
@@ -42,6 +44,7 @@ use App\Policies\TemporadaPolicy;
 use App\Policies\UserPolicy;
 use App\Services\AuditService;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
@@ -63,6 +66,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Detrás del túnel, sin esto se generan enlaces http:// y el CSS y los formularios fallan por contenido mixto.
+        // Va aquí y no en bootstrap/app.php porque allí todavía no se carga el .env (TRUSTED_PROXIES, RNF-42)
+        TrustProxies::at(config('app.proxies_confianza'));
+
         // Registro explicito de politicas de autorizacion para el dominio del sistema
         Gate::policy(Temporada::class, TemporadaPolicy::class);
         Gate::policy(User::class, UserPolicy::class);
@@ -81,6 +88,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(CedulaArbitral::class, CedulaArbitralPolicy::class);
         Gate::policy(CargoFinanciero::class, CargoFinancieroPolicy::class);
         Gate::policy(Pago::class, PagoPolicy::class);
+        Gate::policy(Asamblea::class, AsambleaPolicy::class);
 
         RateLimiter::for('jugador-vinculacion', fn (Request $request): Limit => Limit::perMinute(5)
             ->by(($request->user()?->getAuthIdentifier() ?? 'anonimo').'|'.$request->ip())
