@@ -77,13 +77,8 @@ class ExpedienteDisciplinarioService
                         ->orderBy('minuto')
                         ->get();
 
-                    // Conteo de tarjetas por jugador para detectar doble amarilla
-                    $conteoAmarillasPorJugador = [];
-                    foreach ($eventosTarjetas as $evento) {
-                        if ($evento->tipo === 'Amarilla' && $evento->jugador_id !== null) {
-                            $conteoAmarillasPorJugador[$evento->jugador_id] = ($conteoAmarillasPorJugador[$evento->jugador_id] ?? 0) + 1;
-                        }
-                    }
+                    // Conteo progresivo de tarjetas amarillas por jugador para tipificar correctamente la primera amonestación y la subsecuente doble amarilla
+                    $amarillasVistasPorJugador = [];
 
                     foreach ($eventosTarjetas as $evento) {
                         $jugador = $evento->jugador;
@@ -99,8 +94,11 @@ class ExpedienteDisciplinarioService
                             $descInvolucrado = "Expulsión con tarjeta roja al minuto {$evento->minuto}";
                             $descEvidencia = "Tarjeta Roja directa al jugador {$personaNombre} ({$equipoNombre}) al minuto {$evento->minuto}";
                         } else {
-                            $esDobleAmarilla = ($conteoAmarillasPorJugador[$evento->jugador_id ?? 0] ?? 0) >= 2;
-                            if ($esDobleAmarilla) {
+                            $jugadorId = $evento->jugador_id ?? 0;
+                            $amarillasVistasPorJugador[$jugadorId] = ($amarillasVistasPorJugador[$jugadorId] ?? 0) + 1;
+                            $esSegundaAmarilla = $amarillasVistasPorJugador[$jugadorId] >= 2;
+
+                            if ($esSegundaAmarilla) {
                                 $codigosArticulos[] = 'ART-14'; // Expulsión por doble amonestación
                                 $tipoInvolucrado = 'jugador_expulsado';
                                 $descInvolucrado = "Expulsión por doble tarjeta amarilla (segunda al minuto {$evento->minuto})";

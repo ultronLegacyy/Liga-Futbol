@@ -148,7 +148,16 @@ class ExpedienteDisciplinarioTest extends TestCase
         $expediente = ExpedienteDisciplinario::where('cedula_id', $this->cedula->id)->firstOrFail();
         $articulosCodigos = $expediente->articulos->pluck('codigo')->all();
 
+        $this->assertContains('ART-08', $articulosCodigos);
         $this->assertContains('ART-14', $articulosCodigos);
+
+        // Verificar que la primera amarilla se registra como amonestado y la segunda como expulsado
+        $involucrados = $expediente->involucrados()->where('persona_id', $jugador->persona_id)->get();
+        $this->assertCount(2, $involucrados);
+        $this->assertSame('jugador_amonestado', $involucrados[0]->tipo_involucrado);
+        $this->assertStringContainsString('minuto 25', $involucrados[0]->descripcion_participacion);
+        $this->assertSame('jugador_expulsado', $involucrados[1]->tipo_involucrado);
+        $this->assertStringContainsString('minuto 65', $involucrados[1]->descripcion_participacion);
     }
 
     /**
