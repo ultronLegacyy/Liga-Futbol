@@ -12,6 +12,7 @@ use App\Models\Categoria;
 use App\Models\Club;
 use App\Models\DirectivoClub;
 use App\Models\Equipo;
+use App\Models\ExpedienteDisciplinario;
 use App\Models\Grupo;
 use App\Models\Jornada;
 use App\Models\Jugador;
@@ -33,6 +34,7 @@ use App\Policies\CedulaArbitralPolicy;
 use App\Policies\CategoriaPolicy;
 use App\Policies\ClubPolicy;
 use App\Policies\EquipoPolicy;
+use App\Policies\ExpedienteDisciplinarioPolicy;
 use App\Policies\GrupoPolicy;
 use App\Policies\JornadaPolicy;
 use App\Policies\JugadorPolicy;
@@ -89,6 +91,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(CargoFinanciero::class, CargoFinancieroPolicy::class);
         Gate::policy(Pago::class, PagoPolicy::class);
         Gate::policy(Asamblea::class, AsambleaPolicy::class);
+        Gate::policy(ExpedienteDisciplinario::class, ExpedienteDisciplinarioPolicy::class);
 
         RateLimiter::for('jugador-vinculacion', fn (Request $request): Limit => Limit::perMinute(5)
             ->by(($request->user()?->getAuthIdentifier() ?? 'anonimo').'|'.$request->ip())
