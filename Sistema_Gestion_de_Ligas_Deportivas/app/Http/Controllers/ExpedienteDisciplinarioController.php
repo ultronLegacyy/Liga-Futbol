@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AsociarArticuloExpedienteRequest;
 use App\Models\CatalogoArticulo;
 use App\Models\ExpedienteDisciplinario;
 use App\Services\ExpedienteDisciplinarioService;
@@ -28,6 +29,11 @@ class ExpedienteDisciplinarioController extends Controller
     {
         Gate::authorize('viewAny', ExpedienteDisciplinario::class);
 
+        $validated = $request->validate([
+            'buscar' => ['nullable', 'string', 'max:100'],
+            'estado' => ['nullable', 'string', 'in:Abierto,Resuelto'],
+        ]);
+
         $query = ExpedienteDisciplinario::query()
             ->with([
                 'partido.local:id,nombre',
@@ -38,18 +44,20 @@ class ExpedienteDisciplinarioController extends Controller
             ])
             ->withCount(['involucrados', 'evidencias']);
 
-        if ($request->filled('estado')) {
-            $query->where('estado', $request->query('estado'));
+        $estadoFiltro = $validated['estado'] ?? null;
+        if ($estadoFiltro !== null && $estadoFiltro !== '') {
+            $query->where('estado', $estadoFiltro);
         }
 
-        if ($request->filled('buscar')) {
-            $busqueda = '%'.$request->query('buscar').'%';
-            $query->where(function ($sub) use ($busqueda) {
-                $sub->where('folio', 'like', $busqueda)
-                    ->orWhere('titulo', 'like', $busqueda)
-                    ->orWhere('descripcion_hechos', 'like', $busqueda)
-                    ->orWhereHas('partido.local', fn ($q) => $q->where('nombre', 'like', $busqueda))
-                    ->orWhereHas('partido.visitante', fn ($q) => $q->where('nombre', 'like', $busqueda));
+        $busqueda = $validated['buscar'] ?? null;
+        if ($busqueda !== null && trim($busqueda) !== '') {
+            $likeBusqueda = '%'.trim($busqueda).'%';
+            $query->where(function ($sub) use ($likeBusqueda) {
+                $sub->where('folio', 'like', $likeBusqueda)
+                    ->orWhere('titulo', 'like', $likeBusqueda)
+                    ->orWhere('descripcion_hechos', 'like', $likeBusqueda)
+                    ->orWhereHas('partido.local', fn ($q) => $q->where('nombre', 'like', $likeBusqueda))
+                    ->orWhereHas('partido.visitante', fn ($q) => $q->where('nombre', 'like', $likeBusqueda));
             });
         }
 
@@ -57,8 +65,8 @@ class ExpedienteDisciplinarioController extends Controller
 
         return view('disciplina.expedientes.index', [
             'expedientes' => $expedientes,
-            'estadoFiltro' => $request->query('estado', ''),
-            'busqueda' => $request->query('buscar', ''),
+            'estadoFiltro' => $estadoFiltro ?? '',
+            'busqueda' => $busqueda ?? '',
         ]);
     }
 
@@ -82,14 +90,9 @@ class ExpedienteDisciplinarioController extends Controller
     /**
      * Imputa un artículo reglamentario presunto adicional al expediente (Tribunal de Penas).
      */
-    public function asociarArticulo(Request $request, ExpedienteDisciplinario $expediente): RedirectResponse
+    public function asociarArticulo(AsociarArticuloExpedienteRequest $request, ExpedienteDisciplinario $expediente): RedirectResponse
     {
-        Gate::authorize('gestionar', $expediente);
-
-        $validated = $request->validate([
-            'articulo_id' => ['required', 'integer', 'exists:catalogo_articulos,id'],
-            'observaciones' => ['nullable', 'string', 'max:500'],
-        ]);
+        $validated = $request->validated();
 
         $this->expedientesService->asociarArticuloPresunto(
             $expediente,

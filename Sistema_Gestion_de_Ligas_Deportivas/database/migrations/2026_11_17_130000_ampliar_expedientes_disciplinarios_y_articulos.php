@@ -30,7 +30,7 @@ return new class () extends Migration {
             $table->id();
             $table->foreignId('expediente_id')->constrained('expedientes_disciplinarios')->cascadeOnDelete();
             $table->foreignId('articulo_id')->constrained('catalogo_articulos')->cascadeOnDelete();
-            $table->string('observaciones')->nullable();
+            $table->text('observaciones')->nullable();
             $table->timestamps();
 
             $table->unique(['expediente_id', 'articulo_id']);
@@ -81,6 +81,7 @@ return new class () extends Migration {
                 'fecha_apertura',
                 'observaciones_comision',
             ]);
+            $table->foreignId('articulo_id')->nullable(false)->change();
         });
     }
 };

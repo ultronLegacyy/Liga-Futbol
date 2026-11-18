@@ -4,13 +4,12 @@ namespace App\Services;
 
 use App\Models\CatalogoArticulo;
 use App\Models\CedulaArbitral;
+use App\Models\ExpedienteArticulo;
 use App\Models\ExpedienteDisciplinario;
 use App\Models\ExpedienteEvidencia;
 use App\Models\ExpedienteInvolucrado;
 use App\Models\Partido;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 /**
  * Servicio de generación y gestión de expedientes disciplinarios (HU-044 / RF-10.1).
@@ -46,18 +45,14 @@ class ExpedienteDisciplinarioService
             'Generación automática de expediente disciplinario por cierre de cédula del partido '.$partido->id,
             function () use ($cedula, $partido): ExpedienteDisciplinario {
                 return DB::transaction(function () use ($cedula, $partido): ExpedienteDisciplinario {
-                    $year = now()->year;
-                    $consecutivo = (int) (ExpedienteDisciplinario::max('id') ?? 0) + 1;
-                    $folio = sprintf('EXP-%d-%04d', $year, $consecutivo);
-
                     $localNombre = $partido->local->nombre;
                     $visitanteNombre = $partido->visitante->nombre;
                     $numeroJornada = $partido->jornada->numero_jornada;
                     $titulo = "Expediente disciplinario: {$localNombre} vs {$visitanteNombre} (Jornada {$numeroJornada})";
 
-                    // Crear el expediente base
+                    // Crear el expediente base con folio inicial null para evitar colisiones concurrentes (Punto 1)
                     $expediente = ExpedienteDisciplinario::create([
-                        'folio' => $folio,
+                        'folio' => null,
                         'cedula_id' => $cedula->id,
                         'partido_id' => $partido->id,
                         'titulo' => $titulo,
@@ -67,7 +62,10 @@ class ExpedienteDisciplinarioService
                         'estado' => ExpedienteDisciplinario::ESTADO_ABIERTO,
                     ]);
 
-                    $codigosArticulos = [];
+                    $year = now()->year;
+                    $folio = sprintf('EXP-%d-%04d', $year, $expediente->id);
+                    $expediente->update(['folio' => $folio]);
+
                     $resumenHechos = [];
 
                     // 1. Procesar eventos de tarjetas (Amarillas y Rojas)
@@ -89,7 +87,6 @@ class ExpedienteDisciplinarioService
                         $personaNombre = $persona !== null ? "{$persona->nombre} {$persona->apellidos}" : "Jugador #{$evento->jugador_id}";
 
                         if ($evento->tipo === 'Roja') {
-                            $codigosArticulos[] = 'ART-12'; // Juego brusco grave o conducta violenta
                             $tipoInvolucrado = 'jugador_expulsado';
                             $descInvolucrado = "Expulsión con tarjeta roja al minuto {$evento->minuto}";
                             $descEvidencia = "Tarjeta Roja directa al jugador {$personaNombre} ({$equipoNombre}) al minuto {$evento->minuto}";
@@ -99,12 +96,10 @@ class ExpedienteDisciplinarioService
                             $esSegundaAmarilla = $amarillasVistasPorJugador[$jugadorId] >= 2;
 
                             if ($esSegundaAmarilla) {
-                                $codigosArticulos[] = 'ART-14'; // Expulsión por doble amonestación
                                 $tipoInvolucrado = 'jugador_expulsado';
                                 $descInvolucrado = "Expulsión por doble tarjeta amarilla (segunda al minuto {$evento->minuto})";
                                 $descEvidencia = "Segunda Tarjeta Amarilla y consecuente expulsión del jugador {$personaNombre} ({$equipoNombre}) al minuto {$evento->minuto}";
                             } else {
-                                $codigosArticulos[] = 'ART-08'; // Amonestación por conducta antideportiva
                                 $tipoInvolucrado = 'jugador_amonestado';
                                 $descInvolucrado = "Amonestación con tarjeta amarilla al minuto {$evento->minuto}";
                                 $descEvidencia = "Tarjeta Amarilla al jugador {$personaNombre} ({$equipoNombre}) al minuto {$evento->minuto}";
@@ -113,7 +108,7 @@ class ExpedienteDisciplinarioService
 
                         $resumenHechos[] = $descEvidencia;
 
-                        // Registrar persona involucrada
+                        // Registrar persona involucrada (auditable)
                         ExpedienteInvolucrado::create([
                             'expediente_id' => $expediente->id,
                             'persona_id' => $personaId,
@@ -122,7 +117,7 @@ class ExpedienteDisciplinarioService
                             'descripcion_participacion' => $descInvolucrado,
                         ]);
 
-                        // Registrar evidencia de tarjeta
+                        // Registrar evidencia de tarjeta (auditable)
                         ExpedienteEvidencia::create([
                             'expediente_id' => $expediente->id,
                             'tipo_evidencia' => ExpedienteEvidencia::TIPO_TARJETA,
@@ -139,21 +134,6 @@ class ExpedienteDisciplinarioService
                         $equipoNombre = $incidencia->equipo !== null ? $incidencia->equipo->nombre : 'No especificado';
                         $descEvidencia = "Incidencia reportada {$minutoTexto} ({$equipoNombre}): {$incidencia->descripcion}";
                         $resumenHechos[] = $descEvidencia;
-
-                        // Detección heurística de artículos reglamentarios presuntos
-                        $textoMin = mb_strtolower($incidencia->descripcion, 'UTF-8');
-                        if (str_contains($textoMin, 'insult') || str_contains($textoMin, 'ofens') || str_contains($textoMin, 'arbitro') || str_contains($textoMin, 'árbitro')) {
-                            $codigosArticulos[] = 'ART-15';
-                        }
-                        if (str_contains($textoMin, 'porra') || str_contains($textoMin, 'invas') || str_contains($textoMin, 'riña') || str_contains($textoMin, 'bronca') || str_contains($textoMin, 'pelea')) {
-                            $codigosArticulos[] = 'ART-30';
-                        }
-                        if (str_contains($textoMin, 'agres') || str_contains($textoMin, 'golpe')) {
-                            $codigosArticulos[] = 'ART-18';
-                        }
-                        if (str_contains($textoMin, 'default') || str_contains($textoMin, 'abandono') || str_contains($textoMin, 'inasistencia')) {
-                            $codigosArticulos[] = 'ART-35';
-                        }
 
                         if ($incidencia->equipo_id !== null) {
                             ExpedienteInvolucrado::create([
@@ -178,17 +158,6 @@ class ExpedienteDisciplinarioService
                     if (! empty(trim((string) $cedula->informe_arbitral))) {
                         $descInforme = 'Informe Arbitral Oficial: '.$cedula->informe_arbitral;
                         $resumenHechos[] = $descInforme;
-
-                        $textoInforme = mb_strtolower((string) $cedula->informe_arbitral, 'UTF-8');
-                        if (str_contains($textoInforme, 'insult') || str_contains($textoInforme, 'ofens') || str_contains($textoInforme, 'reclamo')) {
-                            $codigosArticulos[] = 'ART-15';
-                        }
-                        if (str_contains($textoInforme, 'porra') || str_contains($textoInforme, 'invas') || str_contains($textoInforme, 'riña') || str_contains($textoInforme, 'violenc')) {
-                            $codigosArticulos[] = 'ART-30';
-                        }
-                        if (str_contains($textoInforme, 'agres') || str_contains($textoInforme, 'golpe')) {
-                            $codigosArticulos[] = 'ART-18';
-                        }
 
                         ExpedienteEvidencia::create([
                             'expediente_id' => $expediente->id,
@@ -219,39 +188,8 @@ class ExpedienteDisciplinarioService
                         ]);
                     }
 
-                    // Resolver e imputar artículos presuntamente infringidos del catálogo (REF-05)
-                    $codigosUnicos = array_values(array_unique($codigosArticulos));
-                    if ($codigosUnicos === []) {
-                        $codigosUnicos = ['ART-12']; // Fallback por defecto
-                    }
-
-                    $articulosDb = CatalogoArticulo::whereIn('codigo', $codigosUnicos)
-                        ->orderByDesc('castigo_base_partidos')
-                        ->get();
-
-                    // Si no existen en la BD, crearlos con datos por defecto según REF-05
-                    if ($articulosDb->isEmpty()) {
-                        $primerArticulo = CatalogoArticulo::firstOrCreate(
-                            ['codigo' => 'ART-12'],
-                            [
-                                'descripcion' => 'Juego brusco grave o conducta violenta sin balón',
-                                'castigo_base_partidos' => 2,
-                            ]
-                        );
-                        $articulosDb = new Collection([$primerArticulo]);
-                    }
-
-                    // Imputar en la tabla pivote
-                    foreach ($articulosDb as $art) {
-                        $expediente->articulos()->syncWithoutDetaching([
-                            $art->id => ['observaciones' => 'Artículo presuntamente infringido detectado en la cédula arbitral'],
-                        ]);
-                    }
-
-                    // Asignar el artículo principal con mayor severidad en articulo_id
-                    $articuloPrincipal = $articulosDb->first();
+                    // Actualizar hechos compilados del expediente sin especular artículos reglamentarios presuntos (Punto 3)
                     $expediente->update([
-                        'articulo_id' => $articuloPrincipal?->id,
                         'descripcion_hechos' => implode("\n", $resumenHechos),
                     ]);
 
@@ -283,7 +221,8 @@ class ExpedienteDisciplinarioService
     }
 
     /**
-     * Asocia manualmente un artículo presunto adicional al expediente (Tribunal de Penas).
+     * Asocia manualmente un artículo presunto adicional al expediente (Tribunal de Penas / Comisión Disciplinaria).
+     * Registra auditoría explícita a través del modelo pivote ExpedienteArticulo (HU-044 / RNF-30).
      */
     public function asociarArticuloPresunto(ExpedienteDisciplinario $expediente, int $articuloId, ?string $observaciones = null): void
     {
@@ -292,31 +231,49 @@ class ExpedienteDisciplinarioService
         $this->auditoria->conMotivo(
             "Imputación de presunta infracción al artículo {$articulo->codigo} en expediente {$expediente->folio}",
             function () use ($expediente, $articuloId, $observaciones): void {
-                $expediente->articulos()->syncWithoutDetaching([
-                    $articuloId => ['observaciones' => $observaciones ?? 'Imputado durante la revisión del expediente disciplinario'],
-                ]);
+                $pivote = ExpedienteArticulo::where('expediente_id', $expediente->id)
+                    ->where('articulo_id', $articuloId)
+                    ->first();
+
+                if ($pivote !== null) {
+                    $pivote->update([
+                        'observaciones' => $observaciones ?? $pivote->observaciones,
+                    ]);
+                } else {
+                    ExpedienteArticulo::create([
+                        'expediente_id' => $expediente->id,
+                        'articulo_id' => $articuloId,
+                        'observaciones' => $observaciones ?? 'Imputado durante la revisión del expediente disciplinario',
+                    ]);
+                }
+
+                if ($expediente->articulo_id === null) {
+                    $expediente->update(['articulo_id' => $articuloId]);
+                }
             }
         );
     }
 
     /**
-     * Remueve un artículo presunto del expediente.
+     * Remueve un artículo presunto del expediente (Tribunal de Penas / Comisión Disciplinaria).
+     * Registra auditoría explícita de eliminación a través del modelo pivote ExpedienteArticulo (HU-044 / RNF-30).
      */
     public function desasociarArticuloPresunto(ExpedienteDisciplinario $expediente, int $articuloId): void
     {
         $articulo = CatalogoArticulo::findOrFail($articuloId);
 
-        if ($expediente->articulos()->count() <= 1) {
-            throw ValidationException::withMessages([
-                'articulo' => 'El expediente debe conservar al menos un artículo reglamentario presuntamente infringido.',
-            ]);
-        }
-
         $this->auditoria->conMotivo(
             "Desestimación de presunta infracción al artículo {$articulo->codigo} en expediente {$expediente->folio}",
             function () use ($expediente, $articuloId): void {
-                $expediente->articulos()->detach($articuloId);
-                // Si era el artículo principal, reasignar al siguiente artículo disponible
+                $pivote = ExpedienteArticulo::where('expediente_id', $expediente->id)
+                    ->where('articulo_id', $articuloId)
+                    ->first();
+
+                if ($pivote !== null) {
+                    $pivote->delete();
+                }
+
+                // Si era el artículo principal, reasignar al siguiente artículo disponible o null
                 if ($expediente->articulo_id === $articuloId) {
                     $siguiente = $expediente->articulos()->first();
                     $expediente->update(['articulo_id' => $siguiente?->id]);

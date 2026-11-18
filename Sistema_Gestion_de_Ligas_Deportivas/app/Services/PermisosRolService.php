@@ -37,6 +37,7 @@ class PermisosRolService
         'auditoria.ver',
         'resultados.validar',
         'disciplina.sancionar',
+        'disciplina.ver',
     ];
 
     public function __construct(

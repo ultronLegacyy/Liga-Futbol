@@ -29,7 +29,7 @@ class ExpedienteDisciplinarioPolicy
      */
     public function viewAny(User $usuario): Response
     {
-        return $usuario->can('disciplina.ver') || $usuario->can('disciplina.expedientes')
+        return $usuario->can('disciplina.expedientes')
             ? Response::allow()
             : Response::deny('No cuenta con privilegios para consultar el registro de expedientes disciplinarios.');
     }
@@ -39,7 +39,7 @@ class ExpedienteDisciplinarioPolicy
      */
     public function view(User $usuario, ExpedienteDisciplinario $expediente): Response
     {
-        return $usuario->can('disciplina.ver') || $usuario->can('disciplina.expedientes')
+        return $usuario->can('disciplina.expedientes')
             ? Response::allow()
             : Response::deny('No cuenta con privilegios para consultar este expediente disciplinario.');
     }

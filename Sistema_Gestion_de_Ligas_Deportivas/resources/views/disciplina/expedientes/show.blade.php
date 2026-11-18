@@ -85,7 +85,7 @@
                     </div>
 
                     @can('gestionar', $expediente)
-                        @if ($expediente->articulos->count() > 1 && $expediente->estaAbierto())
+                        @if ($expediente->estaAbierto())
                             <form method="POST" action="{{ route('disciplina.expedientes.articulos.destroy', [$expediente, $art]) }}" onsubmit="return confirm('¿Desestimar la imputación presunta de este artículo?');">
                                 @csrf
                                 @method('DELETE')

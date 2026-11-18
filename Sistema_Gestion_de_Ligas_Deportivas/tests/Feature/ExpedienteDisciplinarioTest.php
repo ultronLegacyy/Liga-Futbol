@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditoriaLog;
 use App\Models\CatalogoArticulo;
 use App\Models\CedulaArbitral;
 use App\Models\ExpedienteDisciplinario;
@@ -71,7 +72,7 @@ class ExpedienteDisciplinarioTest extends TestCase
 
     /**
      * HU-044 Criterio 1: Cédula con tarjeta roja genera automáticamente expediente disciplinario
-     * al cerrarse, vinculando personas, equipos, evidencias y el artículo presuntamente infringido.
+     * al cerrarse, vinculando personas, equipos y evidencias.
      */
     public function test_cierre_de_cedula_con_tarjeta_roja_genera_expediente_disciplinario_automaticamente(): void
     {
@@ -99,7 +100,7 @@ class ExpedienteDisciplinarioTest extends TestCase
         // Verificar existencia y consistencia del expediente disciplinario generado
         $expediente = ExpedienteDisciplinario::where('cedula_id', $this->cedula->id)->first();
         $this->assertNotNull($expediente);
-        $this->assertStringStartsWith('EXP-', (string) $expediente->folio);
+        $this->assertMatchesRegularExpression('/^EXP-\d{4}-\d{4}$/', (string) $expediente->folio);
         $this->assertSame(ExpedienteDisciplinario::ESTADO_ABIERTO, $expediente->estado);
         $this->assertTrue($expediente->generado_automaticamente);
         $this->assertSame($this->partido->id, $expediente->partido_id);
@@ -120,17 +121,12 @@ class ExpedienteDisciplinarioTest extends TestCase
         $this->assertNotNull($evidencia);
         $this->assertSame(72, $evidencia->minuto);
         $this->assertStringContainsString('Tarjeta Roja directa', $evidencia->descripcion);
-
-        // HU-044 Criterio 2: Muestra artículos presuntamente infringidos (ART-12)
-        $articulosPresuntos = $expediente->articulos->pluck('codigo')->all();
-        $this->assertContains('ART-12', $articulosPresuntos);
-        $this->assertSame('ART-12', $expediente->articulo?->codigo);
     }
 
     /**
-     * HU-044: Cédula con doble tarjeta amarilla para un jugador imputa ART-14 (Expulsión por doble amonestación).
+     * HU-044: Cédula con doble tarjeta amarilla para un jugador registra amonestación y expulsión.
      */
-    public function test_cierre_de_cedula_con_doble_tarjeta_amarilla_imputa_articulo_de_doble_amonestacion(): void
+    public function test_cierre_de_cedula_con_doble_tarjeta_amarilla_registra_involucrados_y_evidencias(): void
     {
         $this->capitanes();
         $jugador = $this->activo('local');
@@ -146,10 +142,6 @@ class ExpedienteDisciplinarioTest extends TestCase
             ->assertRedirect();
 
         $expediente = ExpedienteDisciplinario::where('cedula_id', $this->cedula->id)->firstOrFail();
-        $articulosCodigos = $expediente->articulos->pluck('codigo')->all();
-
-        $this->assertContains('ART-08', $articulosCodigos);
-        $this->assertContains('ART-14', $articulosCodigos);
 
         // Verificar que la primera amarilla se registra como amonestado y la segunda como expulsado
         $involucrados = $expediente->involucrados()->where('persona_id', $jugador->persona_id)->get();
@@ -161,9 +153,9 @@ class ExpedienteDisciplinarioTest extends TestCase
     }
 
     /**
-     * HU-044: Cédula con incidencias de porra/campo e informe arbitral asocia ART-15, ART-30 y evidencias.
+     * HU-044: Cédula con incidencias de porra/campo e informe arbitral registra evidencias e involucrados.
      */
-    public function test_cierre_de_cedula_con_incidencias_e_informe_arbitral_asocia_articulos_correspondientes(): void
+    public function test_cierre_de_cedula_con_incidencias_e_informe_arbitral_registra_evidencias_e_involucrados(): void
     {
         $this->capitanes();
         $this->cedulas->guardarMarcador($this->cedula, 0, 0, (string) Str::uuid());
@@ -194,11 +186,6 @@ class ExpedienteDisciplinarioTest extends TestCase
             ->assertRedirect();
 
         $expediente = ExpedienteDisciplinario::where('cedula_id', $this->cedula->id)->firstOrFail();
-        $codigos = $expediente->articulos->pluck('codigo')->all();
-
-        // Detecta ART-30 (riña/porra) y ART-15 (insultos)
-        $this->assertContains('ART-30', $codigos);
-        $this->assertContains('ART-15', $codigos);
 
         // Evidencias de informe e incidencias
         $tiposEvidencias = $expediente->evidencias->pluck('tipo_evidencia')->all();
@@ -259,6 +246,10 @@ class ExpedienteDisciplinarioTest extends TestCase
         $this->cierre->cerrar($this->cedula, $this->arbitro);
 
         $expediente = ExpedienteDisciplinario::where('cedula_id', $this->cedula->id)->firstOrFail();
+        $articulo = CatalogoArticulo::where('codigo', 'ART-12')->firstOrFail();
+
+        // Imputar artículo reglamentario
+        $this->expedientesService->asociarArticuloPresunto($expediente, $articulo->id, 'Imputación manual por Tribunal');
 
         // Autenticado como Tribunal de Penas consulta la vista detallada
         $this->actingAs($this->tribunalUser)
@@ -315,6 +306,72 @@ class ExpedienteDisciplinarioTest extends TestCase
     }
 
     /**
+     * Punto 2 Code Review: Árbitro en Campo recibe 403 Forbidden estricto en index y show
+     * para evitar la fuga de información disciplinaria y CURP de personas involucradas.
+     */
+    public function test_arbitro_en_campo_recibe_403_prohibido_en_expedientes_disciplinarios(): void
+    {
+        $this->capitanes();
+        $this->cedulas->registrarEvento($this->cedula, ['jugador_id' => $this->activo('local')->id, 'tipo' => 'Roja', 'minuto' => 18], (string) Str::uuid());
+        $this->cedulas->guardarMarcador($this->cedula, 0, 0, (string) Str::uuid());
+        $this->firmarAmbos();
+        $this->cierre->cerrar($this->cedula, $this->arbitro);
+
+        $expediente = ExpedienteDisciplinario::where('cedula_id', $this->cedula->id)->firstOrFail();
+
+        // El árbitro en campo cuenta con disciplina.ver pero NO con disciplina.expedientes
+        $this->actingAs($this->arbitro)
+            ->get(route('disciplina.expedientes.index'))
+            ->assertForbidden();
+
+        $this->actingAs($this->arbitro)
+            ->get(route('disciplina.expedientes.show', $expediente))
+            ->assertForbidden();
+    }
+
+    /**
+     * Punto 1 Code Review: Generación concurrente de expedientes genera folios únicos sin colisión.
+     */
+    public function test_generacion_concurrente_de_expedientes_garantiza_folios_unicos_sin_colision(): void
+    {
+        $this->capitanes();
+        $this->cedulas->registrarEvento($this->cedula, ['jugador_id' => $this->activo('local')->id, 'tipo' => 'Roja', 'minuto' => 44], (string) Str::uuid());
+        $this->cedulas->guardarMarcador($this->cedula, 0, 0, (string) Str::uuid());
+        $this->firmarAmbos();
+        $this->cierre->cerrar($this->cedula, $this->arbitro);
+
+        $expediente1 = ExpedienteDisciplinario::where('cedula_id', $this->cedula->id)->firstOrFail();
+
+        // Crear un segundo partido y cédula con incidencia para simular cierre subsecuente/concurrente
+        $partido2 = $this->partidoConArbitro();
+        $cedula2 = $this->cedulas->abrir($partido2);
+        foreach (['local', 'visitante'] as $lado) {
+            $equipoId = $lado === 'local' ? $partido2->equipo_local_id : $partido2->equipo_visitante_id;
+            $jugadorCap = Jugador::query()->where('equipo_id', $equipoId)->where('estado_elegibilidad', 'Activo')->firstOrFail();
+            $this->cedulas->guardarAlineacion($cedula2, $jugadorCap->id, ['asistio' => true, 'es_capitan' => true], (string) Str::uuid());
+        }
+        $jugador2 = Jugador::query()->where('equipo_id', $partido2->equipo_local_id)->where('estado_elegibilidad', 'Activo')->firstOrFail();
+        $this->cedulas->registrarEvento($cedula2, ['jugador_id' => $jugador2->id, 'tipo' => 'Roja', 'minuto' => 88], (string) Str::uuid());
+        $this->cedulas->guardarMarcador($cedula2, 0, 0, (string) Str::uuid());
+
+        $arbitro2 = $this->usuario('Árbitro en Campo', $partido2->arbitro);
+        foreach (['local', 'visitante'] as $lado) {
+            $this->actingAs($arbitro2)
+                ->post(route('cedulas.firmar', [$partido2, $lado]), ['firma' => $this->firma()])
+                ->assertSessionHasNoErrors();
+        }
+
+        $this->cierre->cerrar($cedula2, $arbitro2);
+
+        $expediente2 = ExpedienteDisciplinario::where('cedula_id', $cedula2->id)->firstOrFail();
+
+        $this->assertNotSame($expediente1->id, $expediente2->id);
+        $this->assertNotSame($expediente1->folio, $expediente2->folio);
+        $this->assertMatchesRegularExpression('/^EXP-\d{4}-\d{4}$/', (string) $expediente1->folio);
+        $this->assertMatchesRegularExpression('/^EXP-\d{4}-\d{4}$/', (string) $expediente2->folio);
+    }
+
+    /**
      * El Tribunal de Penas puede imputar un artículo presunto adicional y desestimarlo.
      */
     public function test_tribunal_de_penas_puede_imputar_y_desestimar_articulos_presuntos(): void
@@ -349,9 +406,10 @@ class ExpedienteDisciplinarioTest extends TestCase
     }
 
     /**
-     * Regla de negocio: Un expediente no puede quedar sin artículos reglamentarios presuntos.
+     * Punto 4 Code Review: Auditoría RNF-30 en relación con artículos, involucrados y evidencias.
+     * Verifica que altas y bajas generen registros en auditoria_logs.
      */
-    public function test_no_se_puede_desestimar_el_unico_articulo_del_expediente(): void
+    public function test_auditoria_logs_registra_imputacion_y_desestimacion_de_articulos_presuntos(): void
     {
         $this->capitanes();
         $this->cedulas->registrarEvento($this->cedula, ['jugador_id' => $this->activo('local')->id, 'tipo' => 'Roja', 'minuto' => 30], (string) Str::uuid());
@@ -360,13 +418,91 @@ class ExpedienteDisciplinarioTest extends TestCase
         $this->cierre->cerrar($this->cedula, $this->arbitro);
 
         $expediente = ExpedienteDisciplinario::where('cedula_id', $this->cedula->id)->firstOrFail();
-        $unicoArticulo = $expediente->articulos()->firstOrFail();
+        $articulo = CatalogoArticulo::where('codigo', 'ART-12')->firstOrFail();
 
+        // 1. Verificar que al crear el expediente se auditaron involucrados y evidencias
+        $auditoriasInvolucrado = AuditoriaLog::where('tabla_afectada', 'expediente_involucrados')->count();
+        $this->assertGreaterThan(0, $auditoriasInvolucrado);
+
+        $auditoriasEvidencia = AuditoriaLog::where('tabla_afectada', 'expediente_evidencias')->count();
+        $this->assertGreaterThan(0, $auditoriasEvidencia);
+
+        // 2. Imputar artículo presunto como Tribunal de Penas
         $this->actingAs($this->tribunalUser)
-            ->delete(route('disciplina.expedientes.articulos.destroy', [$expediente, $unicoArticulo]))
-            ->assertSessionHasErrors('articulo');
+            ->post(route('disciplina.expedientes.articulos.store', $expediente), [
+                'articulo_id' => $articulo->id,
+                'observaciones' => 'Auditoría de imputación reglamentaria',
+            ])
+            ->assertRedirect();
 
-        $this->assertSame(1, $expediente->refresh()->articulos()->count());
+        $auditoriaCrearArticulo = AuditoriaLog::where('tabla_afectada', 'expediente_articulos')
+            ->where('accion', 'crear')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($auditoriaCrearArticulo);
+        $this->assertSame($this->tribunalUser->id, $auditoriaCrearArticulo->usuario_id);
+        $this->assertStringContainsString('Imputación', (string) $auditoriaCrearArticulo->motivo);
+
+        // 3. Desestimar artículo presunto
+        $this->actingAs($this->tribunalUser)
+            ->delete(route('disciplina.expedientes.articulos.destroy', [$expediente, $articulo]))
+            ->assertRedirect();
+
+        $auditoriaEliminarArticulo = AuditoriaLog::where('tabla_afectada', 'expediente_articulos')
+            ->where('accion', 'eliminar')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($auditoriaEliminarArticulo);
+        $this->assertSame($this->tribunalUser->id, $auditoriaEliminarArticulo->usuario_id);
+        $this->assertStringContainsString('Desestimación', (string) $auditoriaEliminarArticulo->motivo);
+    }
+
+    /**
+     * Punto 5 Code Review: Validación de entradas evita errores 500 y emite mensajes en español.
+     */
+    public function test_validacion_de_entradas_en_listado_y_asociacion_de_articulos(): void
+    {
+        $this->capitanes();
+        $this->cedulas->registrarEvento($this->cedula, ['jugador_id' => $this->activo('local')->id, 'tipo' => 'Roja', 'minuto' => 15], (string) Str::uuid());
+        $this->cedulas->guardarMarcador($this->cedula, 0, 0, (string) Str::uuid());
+        $this->firmarAmbos();
+        $this->cierre->cerrar($this->cedula, $this->arbitro);
+
+        $expediente = ExpedienteDisciplinario::where('cedula_id', $this->cedula->id)->firstOrFail();
+        $articulo = CatalogoArticulo::where('codigo', 'ART-12')->firstOrFail();
+
+        // 1. GET /disciplina/expedientes?buscar[]=x no debe causar HTTP 500 (Array to string conversion)
+        $this->actingAs($this->tribunalUser)
+            ->get('/disciplina/expedientes?buscar[]=injection')
+            ->assertSessionHasErrors(['buscar']);
+
+        // 2. GET /disciplina/expedientes con estado inválido
+        $this->actingAs($this->tribunalUser)
+            ->get('/disciplina/expedientes?estado=EstadoInexistente')
+            ->assertSessionHasErrors(['estado']);
+
+        // 3. POST /disciplina/expedientes/{id}/articulos con observaciones > 255 no causa 500, sino validación 422/302 con mensaje en español
+        $this->actingAs($this->tribunalUser)
+            ->post(route('disciplina.expedientes.articulos.store', $expediente), [
+                'articulo_id' => $articulo->id,
+                'observaciones' => str_repeat('A', 256),
+            ])
+            ->assertSessionHasErrors([
+                'observaciones' => 'Las observaciones no deben exceder de 255 caracteres.',
+            ]);
+
+        // 4. POST y DELETE con usuario no autorizado responde 403 Forbidden
+        $this->actingAs($this->delegadoUser)
+            ->post(route('disciplina.expedientes.articulos.store', $expediente), [
+                'articulo_id' => $articulo->id,
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($this->delegadoUser)
+            ->delete(route('disciplina.expedientes.articulos.destroy', [$expediente, $articulo]))
+            ->assertForbidden();
     }
 
     /**

@@ -125,7 +125,7 @@ class ExpedienteDisciplinario extends Model
     /**
      * Artículos del catálogo reglamentario presuntamente infringidos (muchos a muchos, HU-044 Criterio 2).
      *
-     * @return BelongsToMany<CatalogoArticulo, $this>
+     * @return BelongsToMany<CatalogoArticulo, $this, ExpedienteArticulo>
      */
     public function articulos(): BelongsToMany
     {
@@ -134,7 +134,7 @@ class ExpedienteDisciplinario extends Model
             'expediente_articulos',
             'expediente_id',
             'articulo_id'
-        )->withPivot('observaciones')->withTimestamps();
+        )->using(ExpedienteArticulo::class)->withPivot('observaciones')->withTimestamps();
     }
 
     /**
