@@ -29,8 +29,8 @@ class CedulaArbitral extends Model
 
     public const CERRADA = 'cerrada';
 
-    // Estados del partido en que el árbitro abre la cédula y captura (decisión a confirmar con Medina)
-    public const ESTADOS_PARTIDO_CAPTURA = ['programado', 'confirmado', 'en juego'];
+    // Estados del partido en que el árbitro abre la cédula y captura (respuesta 24 de Medina, 14/11)
+    public const ESTADOS_PARTIDO_CAPTURA = ['confirmado', 'en juego'];
 
     protected $table = 'cedulas_arbitrales';
 
