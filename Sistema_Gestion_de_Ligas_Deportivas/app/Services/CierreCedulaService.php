@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\CedulaArbitral;
+use App\Models\Jornada;
+use App\Models\Partido;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -13,7 +15,7 @@ use Throwable;
 /**
  * Firmas de los capitanes y cierre de la cédula (HU-075, RF-08.1). La autorización le toca a quien lo llame.
  * La firma es un PNG dibujado con el dedo; va al disco privado `local` y la cédula guarda su ruta (decisión de Daniel).
- * El cierre es atómico (RNF-22): bloqueo, validación y estado en una transacción, con una sola entrada en la auditoría.
+ * El cierre es atómico (RNF-22): bloqueo, validación, estado de la cédula y del partido en una transacción.
  */
 class CierreCedulaService
 {
@@ -27,6 +29,7 @@ class CierreCedulaService
         private readonly CedulaService $cedulas,
         private readonly ValidacionCedulaService $validacion,
         private readonly ExpedienteDisciplinarioService $expedientes,
+        private readonly GestionEstadoPartidoService $estados,
     ) {
     }
 
@@ -73,11 +76,18 @@ class CierreCedulaService
     }
 
     /**
-     * Cierra la cédula: exige las dos firmas y que la validación no encuentre nada. Guarda todo o nada.
+     * Cierra la cédula: exige las dos firmas y que la validación no encuentre nada, y el partido pasa a finalizado
+     * (respuesta 28 de Medina). Guarda todo o nada.
      */
     public function cerrar(CedulaArbitral $cedula, User $usuario): CedulaArbitral
     {
-        return $this->auditoria->conMotivo('Cierre de la cédula arbitral del partido '.$cedula->partido_id, function () use ($cedula, $usuario): CedulaArbitral {
+        $motivo = 'Cierre de la cédula arbitral del partido '.$cedula->partido_id;
+
+        return $this->auditoria->conMotivo($motivo, function () use ($cedula, $usuario, $motivo): CedulaArbitral {
+            // Mismo orden de bloqueo que los cambios de estado del partido: jornada, partido y luego la cédula
+            $jornadaId = Partido::query()->whereKey($cedula->partido_id)->value('jornada_id');
+            Jornada::query()->whereKey($jornadaId)->lockForUpdate()->firstOrFail();
+            $partido = Partido::query()->whereKey($cedula->partido_id)->lockForUpdate()->firstOrFail();
             $bloqueada = $this->cedulas->bloquearAbierta($cedula);
             $faltantes = $this->firmasFaltantes($bloqueada);
 
@@ -96,6 +106,9 @@ class CierreCedulaService
                 'cerrada_por_id' => $usuario->id,
                 'cerrada_en' => now(),
             ]);
+
+            // Respuesta 28 del PO: el partido pasa a finalizado al cerrarse la cédula (HU-075)
+            $this->estados->finalizarPorCierreDeCedula($partido, $usuario->id, $motivo);
 
             // HU-044 / RF-10.1: Generar expediente disciplinario si la cédula contiene incidencias
             $this->expedientes->generarDesdeCedulaSiAplica($bloqueada);

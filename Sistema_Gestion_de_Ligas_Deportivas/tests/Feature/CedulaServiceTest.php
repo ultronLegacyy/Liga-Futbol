@@ -256,7 +256,7 @@ class CedulaServiceTest extends TestCase
     // Obligatorio 2: en borrador, finalizado o suspendido no se abre ni se captura
     public function test_no_se_abre_ni_se_captura_fuera_de_los_estados_permitidos(): void
     {
-        $mensaje = 'La cédula solo se abre y se captura cuando el partido está programado, confirmado o en juego.';
+        $mensaje = 'La cédula solo se abre y se captura cuando el partido está confirmado o en juego.';
         $borrador = $this->partidoConArbitro();
         $borrador->update(['estado' => 'borrador']);
 
