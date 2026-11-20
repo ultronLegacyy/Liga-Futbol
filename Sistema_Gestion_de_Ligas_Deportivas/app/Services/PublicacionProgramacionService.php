@@ -15,7 +15,8 @@ use Illuminate\Validation\ValidationException;
 class PublicacionProgramacionService
 {
     public function __construct(
-        private readonly AsignacionCanchaService $canchaService
+        private readonly AsignacionCanchaService $canchaService,
+        private readonly ControlSancionesDeportivasService $controlSanciones,
     ) {
     }
 
@@ -76,6 +77,16 @@ class PublicacionProgramacionService
                     $equipoDescanso = $jornada->equipoDescanso->nombre ?? 'en descanso';
                     $conflictos[] = "El equipo '{$equipoDescanso}' tiene descanso asignado en la jornada y no puede jugar.";
                 }
+            }
+
+            // HU-047 / RF-10.4: Bloqueo de programación por sanción deportiva vigente (IU-05)
+            $fechaPartidoStr = $partido->fecha_partido ? Carbon::parse($partido->fecha_partido)->toDateString() : null;
+            if ($partido->local && ($sancionLocal = $this->controlSanciones->obtenerSancionVigenteEquipo($partido->local, $fechaPartidoStr)) !== null) {
+                $conflictos[] = "[IU-05] El equipo '{$localNombre}' presenta una sanción disciplinaria vigente: [{$sancionLocal->explicacionRegla()}].";
+            }
+
+            if ($partido->visitante && ($sancionVisitante = $this->controlSanciones->obtenerSancionVigenteEquipo($partido->visitante, $fechaPartidoStr)) !== null) {
+                $conflictos[] = "[IU-05] El equipo '{$visitanteNombre}' presenta una sanción disciplinaria vigente: [{$sancionVisitante->explicacionRegla()}].";
             }
         }
 
