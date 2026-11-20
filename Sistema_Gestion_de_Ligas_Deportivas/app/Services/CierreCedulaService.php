@@ -28,7 +28,7 @@ class CierreCedulaService
         private readonly AuditService $auditoria,
         private readonly CedulaService $cedulas,
         private readonly ValidacionCedulaService $validacion,
-        private readonly GestionEstadoPartidoService $estados,
+        private readonly ExpedienteDisciplinarioService $expedientes,
     ) {
     }
 
@@ -106,7 +106,8 @@ class CierreCedulaService
                 'cerrada_en' => now(),
             ]);
 
-            $this->estados->finalizarPorCierreDeCedula($partido, $usuario->id, $motivo);
+            // HU-044 / RF-10.1: Generar expediente disciplinario si la cédula contiene incidencias
+            $this->expedientes->generarDesdeCedulaSiAplica($bloqueada);
 
             return $bloqueada;
         });

@@ -33,8 +33,10 @@ class CedulaService
 
     private const CLAVE_DE_OTRA_CEDULA = 'La clave de envío ya se usó en otra cédula.';
 
-    public function __construct(private readonly AuditService $auditoria)
-    {
+    public function __construct(
+        private readonly AuditService $auditoria,
+        private readonly ReglaEdadCategoriaService $reglaEdad,
+    ) {
     }
 
     /**
@@ -155,6 +157,13 @@ class CedulaService
                 throw ValidationException::withMessages(['numero_camiseta' => 'El número de camiseta debe estar entre 0 y 999.']);
             }
 
+            $asistio = (bool) ($datos['asistio'] ?? $fila->asistio);
+
+            // HU-021: en la rama infantil solo se alinea a quien cumple, según su CURP, la edad de la categoría
+            if ($asistio) {
+                $this->reglaEdad->validarAlineacion($fila->jugador()->firstOrFail());
+            }
+
             $esCapitan = (bool) ($datos['es_capitan'] ?? $fila->es_capitan);
 
             if ($esCapitan) {
@@ -165,7 +174,7 @@ class CedulaService
             }
 
             $fila->update([
-                'asistio' => (bool) ($datos['asistio'] ?? $fila->asistio),
+                'asistio' => $asistio,
                 'numero_camiseta' => $numero,
                 'es_capitan' => $esCapitan,
             ]);
