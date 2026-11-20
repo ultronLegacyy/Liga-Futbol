@@ -94,6 +94,11 @@
                     Asambleas
                 </a>
             @endcan
+            @can('viewAny', App\Models\ExpedienteDisciplinario::class)
+                <a href="{{ route('disciplina.expedientes.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-lg {{ request()->routeIs('disciplina.expedientes.*') ? 'bg-green-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white' }}">
+                    Expedientes disciplinarios
+                </a>
+            @endcan
             @can('verReporte', App\Models\CargoFinanciero::class)
                 <a href="{{ route('reportes.financiero') }}" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-lg {{ request()->routeIs('reportes.financiero*') ? 'bg-green-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white' }}">
                     Reporte financiero

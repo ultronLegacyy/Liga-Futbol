@@ -11,6 +11,7 @@ use App\Http\Controllers\CierreCedulaController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\EquipoController;
+use App\Http\Controllers\ExpedienteDisciplinarioController;
 use App\Http\Controllers\ForcePasswordChangeController;
 use App\Http\Controllers\GeneradorEnfrentamientosController;
 use App\Http\Controllers\GrupoController;
@@ -199,6 +200,19 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/partidos/{partido}/cedula/cerrar', [CierreCedulaController::class, 'cerrar'])
             ->whereNumber('partido')
             ->name('cedulas.cerrar');
+
+        // Régimen disciplinario y Tribunal de Penas: expedientes y presuntos artículos (HU-044 / RF-10.1)
+        Route::get('/disciplina/expedientes', [ExpedienteDisciplinarioController::class, 'index'])
+            ->name('disciplina.expedientes.index');
+        Route::get('/disciplina/expedientes/{expediente}', [ExpedienteDisciplinarioController::class, 'show'])
+            ->whereNumber('expediente')
+            ->name('disciplina.expedientes.show');
+        Route::post('/disciplina/expedientes/{expediente}/articulos', [ExpedienteDisciplinarioController::class, 'asociarArticulo'])
+            ->whereNumber('expediente')
+            ->name('disciplina.expedientes.articulos.store');
+        Route::delete('/disciplina/expedientes/{expediente}/articulos/{articulo}', [ExpedienteDisciplinarioController::class, 'desasociarArticulo'])
+            ->whereNumber(['expediente', 'articulo'])
+            ->name('disciplina.expedientes.articulos.destroy');
 
         Route::get('/partidos/{partido}/arbitro', [ArbitroController::class, 'editarAsignacion'])
             ->name('partidos.arbitro.edit');

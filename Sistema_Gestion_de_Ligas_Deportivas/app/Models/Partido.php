@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Partido de una jornada (RF-06.1). HU-025 usa su cancha y su horario, HU-026 su árbitro; HU-029 maneja estados/reprogramación, HU-031 inmutabilidad
@@ -137,11 +136,17 @@ class Partido extends Model
         }
 
         // Si tiene expedientes disciplinarios asociados
-        if (DB::table('expedientes_disciplinarios')->where('partido_id', $this->id)->exists()) {
+        if ($this->expedientesDisciplinarios()->exists()) {
             return false;
         }
 
         return true;
+    }
+
+    /** @return HasMany<ExpedienteDisciplinario, $this> */
+    public function expedientesDisciplinarios(): HasMany
+    {
+        return $this->hasMany(ExpedienteDisciplinario::class, 'partido_id');
     }
 
     /** @return BelongsTo<Jornada, $this> */
