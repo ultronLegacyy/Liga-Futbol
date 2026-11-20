@@ -29,6 +29,7 @@ class CierreCedulaService
         private readonly CedulaService $cedulas,
         private readonly ValidacionCedulaService $validacion,
         private readonly ExpedienteDisciplinarioService $expedientes,
+        private readonly GestionEstadoPartidoService $estados,
     ) {
     }
 
@@ -105,6 +106,9 @@ class CierreCedulaService
                 'cerrada_por_id' => $usuario->id,
                 'cerrada_en' => now(),
             ]);
+
+            // Respuesta 28 del PO: el partido pasa a finalizado al cerrarse la cédula (HU-075)
+            $this->estados->finalizarPorCierreDeCedula($partido, $usuario->id, $motivo);
 
             // HU-044 / RF-10.1: Generar expediente disciplinario si la cédula contiene incidencias
             $this->expedientes->generarDesdeCedulaSiAplica($bloqueada);
