@@ -376,12 +376,12 @@ class CedulaService
         DB::afterCommit(fn () => Storage::disk('local')->delete(array_values(array_filter($rutas, fn (string $ruta): bool => str_starts_with($ruta, 'cedulas/')))));
     }
 
-    // Solo se abre y se captura mientras el partido está programado, confirmado o en juego
+    // Solo se abre y se captura mientras el partido está confirmado o en juego
     public function validarEstadoDelPartido(Partido $partido): void
     {
         if (! in_array($partido->estado, CedulaArbitral::ESTADOS_PARTIDO_CAPTURA, true)) {
             throw ValidationException::withMessages([
-                'estado' => 'La cédula solo se abre y se captura cuando el partido está programado, confirmado o en juego.',
+                'estado' => 'La cédula solo se abre y se captura cuando el partido está confirmado o en juego.',
             ]);
         }
     }

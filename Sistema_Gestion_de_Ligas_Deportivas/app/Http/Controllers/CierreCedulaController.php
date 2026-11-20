@@ -92,6 +92,6 @@ class CierreCedulaController extends Controller
         $usuario = $request->user();
         $this->cierre->cerrar($this->cedulas->abierta($partido), $usuario);
 
-        return redirect()->route('cedulas.show', $partido)->with('success', 'Cédula cerrada: ya no se puede modificar.');
+        return redirect()->route('cedulas.show', $partido)->with('success', 'Cédula cerrada: ya no se puede modificar. El partido quedó finalizado.');
     }
 }

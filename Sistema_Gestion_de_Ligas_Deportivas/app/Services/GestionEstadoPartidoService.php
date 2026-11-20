@@ -79,28 +79,56 @@ class GestionEstadoPartidoService
                 ]);
             }
 
-            $partidoBloqueado->estado = $nuevoEstado;
-            $partidoBloqueado->save();
-
-            // Registrar auditoría de la transición en reprogramaciones_partidos (RNF-22)
-            ReprogramacionPartido::create([
-                'partido_id' => $partidoBloqueado->id,
-                'usuario_id' => $usuarioId,
-                'estado_anterior' => $estadoActual,
-                'estado_nuevo' => $nuevoEstado,
-                'cancha_anterior_id' => $partidoBloqueado->cancha_id,
-                'cancha_nueva_id' => $partidoBloqueado->cancha_id,
-                'fecha_anterior' => $partidoBloqueado->fecha_partido,
-                'fecha_nueva' => $partidoBloqueado->fecha_partido,
-                'hora_anterior' => $partidoBloqueado->hora_partido,
-                'hora_nueva' => $partidoBloqueado->hora_partido,
-                'motivo' => $motivoLimpio,
-            ]);
+            $this->registrarTransicion($partidoBloqueado, $nuevoEstado, $usuarioId, $motivoLimpio);
 
             // Revertir la jornada a borrador si estaba en revisión o aprobada (Obligatorio 4 / HU-030)
             $jornadaBloqueada->revertirABorradorPorModificacion(false);
 
             return $partidoBloqueado;
         }, 3);
+    }
+
+    /**
+     * HU-075 (respuesta 28 de Medina): al cerrarse la cédula el partido pasa a finalizado, por «en juego» si estaba confirmado.
+     * Quien llama ya bloqueó la jornada y el partido dentro de su transacción. La jornada no vuelve a borrador:
+     * terminar un partido no cambia la programación (decisión de Daniel, 17/11).
+     */
+    public function finalizarPorCierreDeCedula(Partido $partidoBloqueado, int $usuarioId, string $motivo): void
+    {
+        $ruta = $partidoBloqueado->estado === Partido::ESTADO_CONFIRMADO
+            ? [Partido::ESTADO_EN_JUEGO, Partido::ESTADO_FINALIZADO]
+            : [Partido::ESTADO_FINALIZADO];
+
+        foreach ($ruta as $nuevoEstado) {
+            if (! $partidoBloqueado->puedeTransicionarA($nuevoEstado)) {
+                throw ValidationException::withMessages([
+                    'estado' => "El partido en estado '{$partidoBloqueado->estado}' no puede pasar a finalizado al cerrar la cédula.",
+                ]);
+            }
+
+            $this->registrarTransicion($partidoBloqueado, $nuevoEstado, $usuarioId, $motivo);
+        }
+    }
+
+    // Cambia el estado y lo deja en la bitácora de reprogramaciones_partidos (RNF-22)
+    private function registrarTransicion(Partido $partidoBloqueado, string $nuevoEstado, int $usuarioId, string $motivo): void
+    {
+        $estadoActual = $partidoBloqueado->estado;
+        $partidoBloqueado->estado = $nuevoEstado;
+        $partidoBloqueado->save();
+
+        ReprogramacionPartido::create([
+            'partido_id' => $partidoBloqueado->id,
+            'usuario_id' => $usuarioId,
+            'estado_anterior' => $estadoActual,
+            'estado_nuevo' => $nuevoEstado,
+            'cancha_anterior_id' => $partidoBloqueado->cancha_id,
+            'cancha_nueva_id' => $partidoBloqueado->cancha_id,
+            'fecha_anterior' => $partidoBloqueado->fecha_partido,
+            'fecha_nueva' => $partidoBloqueado->fecha_partido,
+            'hora_anterior' => $partidoBloqueado->hora_partido,
+            'hora_nueva' => $partidoBloqueado->hora_partido,
+            'motivo' => $motivo,
+        ]);
     }
 }

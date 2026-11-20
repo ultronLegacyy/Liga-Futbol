@@ -22,21 +22,21 @@ class CedulaSeederTest extends TestCase
         $cedula = CedulaArbitral::query()->whereNotNull('firma_capitan_local')->whereNotNull('firma_capitan_visitante')->sole();
         $this->assertSame(CedulaArbitral::CERRADA, $cedula->estado);
 
-        // La cuenta del árbitro está enlazada a su persona y abre la cédula del partido programado
+        // La cuenta del árbitro está enlazada a su persona y abre la cédula del partido confirmado
         $arbitro = User::query()->where('email', 'arbitro@ligafutbol.com')->sole();
-        $programado = Partido::query()->where('estado', 'programado')->whereHas('arbitro', fn ($consulta) => $consulta->where('persona_id', $arbitro->persona_id))->firstOrFail();
+        $confirmado = Partido::query()->where('estado', 'confirmado')->whereHas('arbitro', fn ($consulta) => $consulta->where('persona_id', $arbitro->persona_id))->firstOrFail();
         $this->assertNotNull($arbitro->persona_id);
 
-        $this->actingAs($arbitro)->get(route('cedulas.mis-partidos'))->assertOk()->assertSee(route('cedulas.show', $programado));
-        $this->actingAs($arbitro)->post(route('cedulas.abrir', $programado))->assertSessionHasNoErrors();
-        $cedulaDemo = CedulaArbitral::query()->where('partido_id', $programado->id)->sole();
+        $this->actingAs($arbitro)->get(route('cedulas.mis-partidos'))->assertOk()->assertSee(route('cedulas.show', $confirmado));
+        $this->actingAs($arbitro)->post(route('cedulas.abrir', $confirmado))->assertSessionHasNoErrors();
+        $cedulaDemo = CedulaArbitral::query()->where('partido_id', $confirmado->id)->sole();
 
         // Los dos equipos del partido traen plantilla: 6 jugadores cada uno, con un suspendido
         $this->assertSame(
-            [$programado->equipo_local_id => 6, $programado->equipo_visitante_id => 6],
+            [$confirmado->equipo_local_id => 6, $confirmado->equipo_visitante_id => 6],
             $cedulaDemo->alineaciones()->get()->countBy('equipo_id')->all()
         );
-        $this->actingAs($arbitro)->get(route('cedulas.show', $programado))
+        $this->actingAs($arbitro)->get(route('cedulas.show', $confirmado))
             ->assertOk()
             ->assertSee('Azul Demo, Diego')
             ->assertSee('Halcon Demo, Alejandro')

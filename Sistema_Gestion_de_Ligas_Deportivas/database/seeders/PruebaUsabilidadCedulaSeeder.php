@@ -16,7 +16,7 @@ use App\Models\User;
 use Illuminate\Database\Seeder;
 use RuntimeException;
 
-// Datos para la prueba de usabilidad de la cédula (HU-075, criterio 3, RNF-14): un partido programado por persona,
+// Datos para la prueba de usabilidad de la cédula (HU-075, criterio 3, RNF-14): un partido confirmado por persona,
 // asignado al árbitro sembrado, con dos equipos de 7 jugadores activos. Ver docs/arbitros/prueba-usabilidad-cedula.md.
 // Uso, después de DatabaseSeeder: php artisan db:seed --class=PruebaUsabilidadCedulaSeeder
 class PruebaUsabilidadCedulaSeeder extends Seeder
@@ -54,7 +54,7 @@ class PruebaUsabilidadCedulaSeeder extends Seeder
                 'fecha_partido' => now()->toDateString(),
                 // Una hora distinta por partido: el árbitro no puede tener dos partidos a la misma hora
                 'hora_partido' => sprintf('%02d:00:00', 8 + $persona),
-                'estado' => 'programado',
+                'estado' => 'confirmado',
             ]);
         }
     }
