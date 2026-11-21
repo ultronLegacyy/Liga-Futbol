@@ -445,7 +445,16 @@ class GeneradorEnfrentamientosTest extends TestCase
         $this->assertEquals($arbitro->id, $partido->arbitro_id);
         $this->assertDatabaseMissing('reprogramaciones_partidos', ['partido_id' => $partido->id]);
 
-        // 3. El árbitro asignado abre la cédula arbitral
+        // 3. Programado todavía no abre la cédula (respuesta 24 de Medina); el Programador lo confirma
+        $this->actingAs($usuarioArbitro)
+            ->post(route('cedulas.abrir', $partido))
+            ->assertSessionHasErrors(['estado' => 'La cédula solo se abre y se captura cuando el partido está confirmado o en juego.']);
+
+        $this->actingAs($this->programador)
+            ->patch(route('partidos.estado.update', $partido), ['estado' => Partido::ESTADO_CONFIRMADO, 'motivo' => 'Los dos clubes confirmaron asistencia'])
+            ->assertSessionHasNoErrors();
+
+        // 4. El árbitro asignado abre la cédula arbitral
         $this->actingAs($usuarioArbitro)
             ->post(route('cedulas.abrir', $partido))
             ->assertRedirect(route('cedulas.show', $partido))

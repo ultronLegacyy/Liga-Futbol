@@ -176,11 +176,11 @@ class CedulaCapturaTest extends TestCase
 
         $this->partido->update(['estado' => 'borrador']);
         $this->putJson(route('cedulas.marcador', $this->partido), ['clave_envio' => (string) Str::uuid(), 'goles_local' => 1, 'goles_visitante' => 0])
-            ->assertJsonValidationErrors(['estado' => 'La cédula solo se abre y se captura cuando el partido está programado, confirmado o en juego.']);
+            ->assertJsonValidationErrors(['estado' => 'La cédula solo se abre y se captura cuando el partido está confirmado o en juego.']);
         // Fuera de juego, la pantalla queda solo de consulta
         $this->get(route('cedulas.show', $this->partido))->assertOk()->assertDontSee('Registrar evento');
 
-        $this->partido->update(['estado' => 'programado']);
+        $this->partido->update(['estado' => 'confirmado']);
         $this->cedula->update(['estado' => CedulaArbitral::CERRADA]);
         $this->postJson(route('cedulas.incidencias', $this->partido), ['clave_envio' => (string) Str::uuid(), 'descripcion' => 'Lluvia'])
             ->assertJsonValidationErrors(['cedula' => 'La cédula está cerrada: ya no se puede modificar.']);
