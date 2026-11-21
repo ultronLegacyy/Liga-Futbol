@@ -7,6 +7,8 @@ Una página para capturar un partido completo, de la alineación al cierre. No n
 2. Toca **Menú** (arriba a la izquierda) y luego **Mis partidos**. Solo ves los partidos que tienes asignados.
 3. Toca **Ver cédula** en tu partido y después **Abrir cédula**. La alineación aparece ya cargada con los jugadores de los dos equipos.
 
+La cédula solo se abre cuando el partido está **confirmado** o **en juego**. Si todavía dice «programado», pide al Programador de Partidos que lo confirme.
+
 ## 2. Alineaciones
 En **Alineación**, por cada jugador que se presentó:
 - marca **Asistió**;
@@ -35,4 +37,4 @@ En la lista de goles, tarjetas o incidencias, toca **Anular**, escribe el motivo
 2. Cada capitán firma con el dedo en su recuadro y toca **Guardar firma**. **Borrar** limpia el recuadro.
 3. Marca **Revisé el resumen con los dos capitanes** y toca **Cerrar cédula**.
 
-Si cambias algo después de que firmaron, las dos firmas se borran y hay que volver a firmar. Una cédula cerrada ya no se puede modificar.
+Al cerrar la cédula, el partido pasa a **finalizado** por sí solo. Si cambias algo después de que firmaron, las dos firmas se borran y hay que volver a firmar. Una cédula cerrada ya no se puede modificar.

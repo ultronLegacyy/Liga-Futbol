@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\AuditoriaLog;
 use App\Models\CedulaArbitral;
+use App\Models\Jornada;
 use App\Models\Jugador;
 use App\Models\Partido;
+use App\Models\ReprogramacionPartido;
 use App\Models\User;
 use App\Services\CedulaService;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -118,6 +120,7 @@ class CedulaCierreTest extends TestCase
             ->assertSessionHasErrors(['firmas' => 'No se puede cerrar la cédula sin la firma de los dos capitanes. Falta: el capitán de Equipo Cédula 2.']);
 
         $this->assertSame(CedulaArbitral::ABIERTA, $this->cedula->refresh()->estado);
+        $this->assertPartidoSinCambios();
     }
 
     // Criterio 4: con algún hallazgo de la validación no se cierra, aunque estén las dos firmas
@@ -134,6 +137,7 @@ class CedulaCierreTest extends TestCase
             ->assertSessionHasErrors(['validacion' => 'Los goles registrados de Equipo Cédula 1 (1) no suman su marcador (2).']);
 
         $this->assertSame(CedulaArbitral::ABIERTA, $this->cedula->refresh()->estado);
+        $this->assertPartidoSinCambios();
     }
 
     // Criterio 4: el resumen para confirmar muestra los datos, la revisión y las firmas
@@ -159,7 +163,7 @@ class CedulaCierreTest extends TestCase
             ->assertSee(route('cedulas.firma', [$this->partido, 'visitante']));
     }
 
-    // El cierre válido queda cerrado, con quién y cuándo, y una sola entrada en la auditoría
+    // El cierre válido queda cerrado, con quién y cuándo; el partido pasa de confirmado a finalizado por «en juego» (respuesta 28)
     public function test_el_cierre_valido_guarda_todo_y_la_cedula_ya_no_se_edita(): void
     {
         $this->cedulaValida();
@@ -170,14 +174,25 @@ class CedulaCierreTest extends TestCase
         $this->actingAs($this->arbitro)
             ->post(route('cedulas.cerrar', $this->partido), ['confirmar' => '1'])
             ->assertRedirect(route('cedulas.show', $this->partido))
-            ->assertSessionHas('success', 'Cédula cerrada: ya no se puede modificar.');
+            ->assertSessionHas('success', 'Cédula cerrada: ya no se puede modificar. El partido quedó finalizado.');
 
         $cedula = $this->cedula->refresh();
         $this->assertSame(CedulaArbitral::CERRADA, $cedula->estado);
         $this->assertSame($this->arbitro->id, (int) $cedula->cerrada_por_id);
         $this->assertSame($ahora->format('Y-m-d H:i:s'), $cedula->cerrada_en?->format('Y-m-d H:i:s'));
-        $this->assertSame(['cedulas_arbitrales actualizar'], AuditoriaLog::query()->where('id', '>', $ultimoId)->get()->map(fn ($log) => $log->tabla_afectada.' '.$log->accion)->all());
-        $this->assertStringStartsWith('Cierre de la cédula arbitral', (string) AuditoriaLog::query()->latest('id')->value('motivo'));
+        $this->assertSame(Partido::ESTADO_FINALIZADO, $this->partido->refresh()->estado);
+        $this->assertSame([['confirmado', 'en juego'], ['en juego', 'finalizado']], $this->transiciones());
+
+        // Una entrada por registro que cambia, todas con el motivo del cierre
+        $entradas = AuditoriaLog::query()->where('id', '>', $ultimoId)->orderBy('id')->get();
+        $this->assertSame([
+            'cedulas_arbitrales actualizar',
+            'partidos actualizar',
+            'reprogramaciones_partidos crear',
+            'partidos actualizar',
+            'reprogramaciones_partidos crear',
+        ], $entradas->map(fn ($log) => $log->tabla_afectada.' '.$log->accion)->all());
+        $this->assertSame(['Cierre de la cédula arbitral del partido '.$this->partido->id], $entradas->pluck('motivo')->unique()->values()->all());
 
         // Ya cerrada: ni captura, ni firmas, ni anulaciones, ni otro cierre
         $evento = $cedula->eventos()->firstOrFail();
@@ -215,6 +230,105 @@ class CedulaCierreTest extends TestCase
         $this->assertNull($cedula->cerrada_por_id);
         $this->assertNull($cedula->cerrada_en);
         $this->assertSame(0, AuditoriaLog::query()->where('id', '>', $ultimoId)->count());
+        $this->assertPartidoSinCambios();
+    }
+
+    // Si la falla llega al pasar el partido a finalizado, tampoco se cierra la cédula
+    public function test_si_falla_la_finalizacion_la_cedula_sigue_abierta(): void
+    {
+        $this->cedulaValida();
+        $this->firmarAmbos();
+        Partido::updated(function (Partido $partido): void {
+            if ($partido->estado === Partido::ESTADO_FINALIZADO) {
+                throw new RuntimeException('Falla simulada al finalizar el partido.');
+            }
+        });
+
+        try {
+            $this->actingAs($this->arbitro)->withoutExceptionHandling()->post(route('cedulas.cerrar', $this->partido), ['confirmar' => '1']);
+            $this->fail('Se esperaba la falla simulada.');
+        } catch (RuntimeException $error) {
+            $this->assertSame('Falla simulada al finalizar el partido.', $error->getMessage());
+        }
+
+        $this->assertSame(CedulaArbitral::ABIERTA, $this->cedula->refresh()->estado);
+        $this->assertPartidoSinCambios();
+    }
+
+    // Si el partido ya está en juego, pasa directo a finalizado
+    public function test_desde_en_juego_el_partido_pasa_directo_a_finalizado(): void
+    {
+        $this->partido->update(['estado' => Partido::ESTADO_EN_JUEGO]);
+        $this->cedulaValida();
+        $this->firmarAmbos();
+
+        $this->actingAs($this->arbitro)
+            ->post(route('cedulas.cerrar', $this->partido), ['confirmar' => '1'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(Partido::ESTADO_FINALIZADO, $this->partido->refresh()->estado);
+        $this->assertSame([['en juego', 'finalizado']], $this->transiciones());
+    }
+
+    // Si el Programador suspende o regresa el partido antes del cierre, la cédula no se cierra y nada cambia
+    #[DataProvider('estadosSinCierre')]
+    public function test_no_se_cierra_con_el_partido_fuera_de_juego(string $estado): void
+    {
+        $this->cedulaValida();
+        $this->firmarAmbos();
+        $this->partido->update(['estado' => $estado]);
+
+        $this->actingAs($this->arbitro)
+            ->post(route('cedulas.cerrar', $this->partido), ['confirmar' => '1'])
+            ->assertSessionHasErrors(['estado' => 'La cédula solo se abre y se captura cuando el partido está confirmado o en juego.']);
+
+        $this->assertSame(CedulaArbitral::ABIERTA, $this->cedula->refresh()->estado);
+        $this->assertSame($estado, $this->partido->refresh()->estado);
+        $this->assertSame([], $this->transiciones());
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function estadosSinCierre(): array
+    {
+        return ['suspendido' => [Partido::ESTADO_SUSPENDIDO], 'programado' => [Partido::ESTADO_PROGRAMADO]];
+    }
+
+    // El Programador sigue sin poder finalizarlo a mano mientras hay cédula, y tras el cierre no lo mueve de finalizado
+    public function test_el_programador_no_finaliza_a_mano_ni_cambia_el_partido_cerrado(): void
+    {
+        $programador = $this->usuario('Programador de Partidos');
+        $this->partido->update(['estado' => Partido::ESTADO_EN_JUEGO]);
+
+        $this->actingAs($programador)
+            ->patch(route('partidos.estado.update', $this->partido), ['estado' => 'finalizado', 'motivo' => 'Terminó el partido en la cancha'])
+            ->assertSessionHasErrors(['nuevo_estado' => 'Un partido con cédula arbitral registrada pasa a finalizado automáticamente al cerrarse la cédula.']);
+        $this->assertSame(Partido::ESTADO_EN_JUEGO, $this->partido->refresh()->estado);
+        $this->get(route('partidos.show', $this->partido))->assertOk()->assertDontSee('<option value="finalizado">', false);
+
+        $this->cedulaValida();
+        $this->firmarAmbos();
+        $this->actingAs($this->arbitro)->post(route('cedulas.cerrar', $this->partido), ['confirmar' => '1'])->assertSessionHasNoErrors();
+
+        $this->actingAs($programador)
+            ->patch(route('partidos.estado.update', $this->partido), ['estado' => 'suspendido', 'motivo' => 'Intento de cambio posterior'])
+            ->assertForbidden()
+            ->assertSee('Un partido finalizado o cancelado no admite cambios de estado.');
+        $this->assertSame(Partido::ESTADO_FINALIZADO, $this->partido->refresh()->estado);
+    }
+
+    // El cierre no regresa a borrador una jornada aprobada (decisión de Daniel, 17/11)
+    public function test_el_cierre_no_regresa_la_jornada_a_borrador(): void
+    {
+        $jornada = $this->partido->jornada()->firstOrFail();
+        $jornada->forceFill(['estado' => Jornada::ESTADO_APROBADA])->save();
+        $this->cedulaValida();
+        $this->firmarAmbos();
+
+        $this->actingAs($this->arbitro)->post(route('cedulas.cerrar', $this->partido), ['confirmar' => '1'])->assertSessionHasNoErrors();
+
+        $this->assertSame(Jornada::ESTADO_APROBADA, $jornada->refresh()->estado);
     }
 
     public function test_cerrar_exige_confirmar_el_resumen(): void
@@ -379,6 +493,27 @@ class CedulaCierreTest extends TestCase
     }
 
     // Capitán y asistencia de los dos equipos, un gol local y el marcador 1-0: la validación no encuentra nada
+    private function assertPartidoSinCambios(): void
+    {
+        $this->assertSame(Partido::ESTADO_CONFIRMADO, $this->partido->refresh()->estado);
+        $this->assertSame([], $this->transiciones());
+    }
+
+    /**
+     * @return list<array{string, string}>
+     */
+    private function transiciones(): array
+    {
+        $registros = ReprogramacionPartido::query()->where('partido_id', $this->partido->id)->orderBy('id')->get();
+
+        foreach ($registros as $registro) {
+            $this->assertSame($this->arbitro->id, (int) $registro->usuario_id);
+            $this->assertSame('Cierre de la cédula arbitral del partido '.$this->partido->id, $registro->motivo);
+        }
+
+        return $registros->map(fn (ReprogramacionPartido $registro): array => [(string) $registro->estado_anterior, (string) $registro->estado_nuevo])->values()->all();
+    }
+
     private function cedulaValida(): void
     {
         $this->capitanes();

@@ -52,7 +52,7 @@
                 </button>
             </form>
         @elseif (! $estadoPermitido)
-            <p class="text-sm text-gray-400 my-4">La cédula solo se abre cuando el partido está programado, confirmado o en juego. Estado actual: {{ $partido->estado }}.</p>
+            <p class="text-sm text-gray-400 my-4">La cédula solo se abre cuando el partido está confirmado o en juego. Estado actual: {{ $partido->estado }}.</p>
         @endif
 
         {{-- Plantilla vigente: la alineación se precarga con ella al abrir la cédula --}}
@@ -83,7 +83,7 @@
         @if ($cedula->estaCerrada())
             <x-alert type="info" message="La cédula está cerrada: solo se consulta." />
         @elseif (! $estadoPermitido)
-            <x-alert type="info" message="El partido ya no está programado, confirmado ni en juego: la cédula solo se consulta." />
+            <x-alert type="info" message="El partido no está confirmado ni en juego: la cédula solo se consulta." />
         @endif
 
         <dl class="grid grid-cols-2 gap-4 text-center mb-8">

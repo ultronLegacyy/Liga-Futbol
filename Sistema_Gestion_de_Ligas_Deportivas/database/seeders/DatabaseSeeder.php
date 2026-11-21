@@ -559,7 +559,7 @@ class DatabaseSeeder extends Seeder
             'updated_at' => $now,
         ]);
 
-        // HU-036: plantillas de los equipos del partido 2 (programado), para la demo de la cédula arbitral.
+        // HU-036: plantillas de los equipos del partido 2 (confirmado), para la demo de la cédula arbitral.
         // Cinco activos y un suspendido por equipo; el suspendido sirve para mostrar la validación de HU-075
         $plantillasDemo = [
             [$equipo3Id, 'FUAZ', 'Azul', ['Diego', 'Mateo', 'Santiago', 'Emiliano', 'Leonardo', 'Sebastian']],
@@ -680,7 +680,7 @@ class DatabaseSeeder extends Seeder
             'arbitro_id' => $arbitroId,
             'fecha_partido' => '2026-10-18',
             'hora_partido' => '12:00:00',
-            'estado' => 'programado',
+            'estado' => 'confirmado',
             'created_at' => $now,
             'updated_at' => $now,
         ]);

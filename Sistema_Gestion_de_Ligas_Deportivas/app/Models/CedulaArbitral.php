@@ -37,8 +37,8 @@ class CedulaArbitral extends Model
 
     public const ORIGEN_PAPEL = 'papel';
 
-    // Estados del partido en que el árbitro abre la cédula y captura (decisión a confirmar con Medina)
-    public const ESTADOS_PARTIDO_CAPTURA = ['programado', 'confirmado', 'en juego'];
+    // Estados del partido en que el árbitro abre la cédula y captura (respuesta 24 de Medina, 14/11)
+    public const ESTADOS_PARTIDO_CAPTURA = ['confirmado', 'en juego'];
 
     protected $table = 'cedulas_arbitrales';
 
@@ -138,5 +138,33 @@ class CedulaArbitral extends Model
     public function envios(): HasMany
     {
         return $this->hasMany(EnvioCedula::class, 'cedula_id');
+    }
+
+    /** @return HasMany<ExpedienteDisciplinario, $this> */
+    public function expedientes(): HasMany
+    {
+        return $this->hasMany(ExpedienteDisciplinario::class, 'cedula_id');
+    }
+
+    /**
+     * Determina si la cédula cuenta con incidencias disciplinarias (tarjetas, expulsiones, reportes arbitrales).
+     * Requisito: RF-10.1 / HU-044 Criterio 1.
+     */
+    public function tieneIncidenciasDisciplinarias(): bool
+    {
+        // 1. Tarjetas amarillas o rojas registradas en eventos
+        $tieneTarjetas = $this->eventos()->whereIn('tipo', ['Amarilla', 'Roja'])->exists();
+
+        if ($tieneTarjetas) {
+            return true;
+        }
+
+        // 2. Incidencias del partido reportadas
+        if ($this->incidencias()->exists()) {
+            return true;
+        }
+
+        // 3. Informe o reporte arbitral con contenido
+        return ! empty(trim((string) $this->informe_arbitral));
     }
 }

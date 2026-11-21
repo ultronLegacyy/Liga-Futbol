@@ -244,7 +244,7 @@ class CedulaFisicaTest extends TestCase
         $cancelado = $this->partidoConArbitro();
         $cancelado->forceFill(['estado' => 'cancelado'])->save();
         $this->actingAs($this->capturista)->post(route('cedulas.fisica.store', $cancelado), $this->formulario([]))
-            ->assertSessionHasErrors(['estado' => 'La cédula solo se abre y se captura cuando el partido está programado, confirmado o en juego.']);
+            ->assertSessionHasErrors(['estado' => 'La cédula solo se abre y se captura cuando el partido está confirmado o en juego.']);
         $this->assertSame(0, CedulaArbitral::query()->where('partido_id', $cancelado->id)->count());
     }
 

@@ -10,7 +10,7 @@ HU-075, criterio 3 (RNF-14): 5 personas sin capacitación previa, solo con el [i
    php artisan migrate:fresh --seed
    php artisan db:seed --class=PruebaUsabilidadCedulaSeeder
    ```
-   Deja 5 partidos programados para hoy, asignados a la cuenta del árbitro sembrado (`arbitro@ligafutbol.com`), de las 09:00 a las 13:00. Cada uno enfrenta a «Rojos N» contra «Azules N», con 7 jugadores activos por equipo, dorsales del 1 al 7.
+   Deja 5 partidos confirmados para hoy, asignados a la cuenta del árbitro sembrado (`arbitro@ligafutbol.com`), de las 09:00 a las 13:00. Cada uno enfrenta a «Rojos N» contra «Azules N», con 7 jugadores activos por equipo, dorsales del 1 al 7.
 2. La persona *N* usa el partido «Rojos N vs. Azules N». La contraseña de la cuenta la da quien dirige la prueba; no se escribe en esta hoja.
 3. Cada persona usa un celular con la sesión ya iniciada y la pantalla en **Mis partidos**. Se le entrega el instructivo impreso. Nadie le explica nada durante la prueba.
 
