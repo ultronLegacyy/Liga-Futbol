@@ -16,6 +16,7 @@ use App\Models\Temporada;
 use App\Models\User;
 use App\Services\ProgramacionPublicaService;
 use App\Services\PublicacionProgramacionService;
+use Database\Seeders\PortalProgramacionDemoSeeder;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Carbon;
@@ -312,6 +313,20 @@ class PortalProgramacionTest extends TestCase
         $this->assertSame('2100-12-27', $servicio->inicioDeSemana('2100-12-31')->toDateString());
         $this->assertSame('2026-11-16', $servicio->inicioDeSemana('1999-12-31')->toDateString());
         $this->assertSame('2026-11-16', $servicio->inicioDeSemana('2101-01-01')->toDateString());
+    }
+
+    // Datos para revisar el portal y medirlo con Lighthouse: una jornada publicada en la semana actual
+    public function test_el_seeder_de_demostracion_publica_partidos_en_la_semana_actual(): void
+    {
+        $this->seed(PortalProgramacionDemoSeeder::class);
+        $this->seed(PortalProgramacionDemoSeeder::class);
+
+        $this->assertSame(1, Temporada::query()->where('nombre', PortalProgramacionDemoSeeder::NOMBRE)->count());
+        $this->get(route('portal.programacion'))
+            ->assertOk()
+            ->assertSeeInOrder(['Sábado 21 de noviembre', 'Local 1', 'Visitante 1', 'Cancha de demostración 1'])
+            ->assertSeeInOrder(['Domingo 22 de noviembre', 'Local 8', 'Visitante 8'])
+            ->assertDontSee('No hay partidos publicados para esta semana.');
     }
 
     private function partido(string $estadoJornada, string $fecha, ?string $hora, string $local, string $visitante, string $cancha = 'Cancha Central', string $estado = Partido::ESTADO_PROGRAMADO): Partido
