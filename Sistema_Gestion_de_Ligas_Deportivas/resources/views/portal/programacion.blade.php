@@ -145,7 +145,7 @@
                     <li>
                         {{ $movido->local?->nombre ?? 'Por definir' }} vs. {{ $movido->visitante?->nombre ?? 'Por definir' }}:
                         reprogramado al
-                        <a href="{{ route('portal.programacion', ['semana' => $nuevaFecha->toDateString()]) }}">{{ $nuevaFecha->format('d/m/Y') }}@if ($movido->hora_partido), {{ substr($movido->hora_partido, 0, 5) }} h@endif</a>
+                        <a href="{{ route('portal.programacion', ['semana' => $nuevaFecha->toDateString()]) }}">{{ $nuevaFecha->format('d/m/Y') }}@if ($movido->hora_partido), {{ substr($movido->hora_partido, 0, 5) }} h @endif</a>
                     </li>
                 @endforeach
             </ul>
@@ -174,7 +174,7 @@
                             {{-- Respuesta 53 del PO: la fecha anterior del partido reprogramado --}}
                             @php($anterior = $partido->reprogramaciones->first())
                             @if ($anterior?->fecha_anterior)
-                                <span class="antes">Antes: {{ $anterior->fecha_anterior->format('d/m/Y') }}@if ($anterior->hora_anterior), {{ substr((string) $anterior->hora_anterior, 0, 5) }} h@endif</span>
+                                <span class="antes">Antes: {{ $anterior->fecha_anterior->format('d/m/Y') }}@if ($anterior->hora_anterior), {{ substr((string) $anterior->hora_anterior, 0, 5) }} h @endif</span>
                             @endif
                             <p class="equipos">
                                 {{ $partido->local?->nombre ?? 'Por definir' }}
