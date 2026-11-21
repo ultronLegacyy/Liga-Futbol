@@ -36,9 +36,10 @@ Route::get('/', function () {
     return view('auth.login');
 })->name('inicio');
 
-// Portal público (RF-12.3, IU-01): sin cuenta y sin privilegios de edición
+// Portal público (RF-12.3, IU-01): sin cuenta y sin privilegios de edición. 300 consultas por minuto por IP,
+// porque en 4G muchos aficionados comparten la misma IP pública y HU-077 pide 200 usuarios simultáneos
 Route::get('/programacion', [PortalController::class, 'programacion'])
-    ->middleware('throttle:120,1')
+    ->middleware('throttle:300,1')
     ->name('portal.programacion');
 
 // Recuperación de contraseña por correo (HU-003). Cada envío tiene su propio contador de intentos por IP

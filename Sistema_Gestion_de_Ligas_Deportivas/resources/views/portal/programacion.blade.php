@@ -71,6 +71,19 @@
     .estado-cancelado, .estado-suspendido { color: #ffb4a8; }
     .estado-finalizado, .estado-en-juego { color: #8bd6a9; }
 
+    .aviso {
+        margin: 0 0 1.5rem;
+        padding: 1rem;
+        border: 1px solid #f5c86b;
+        border-radius: .75rem;
+        background: var(--tarjeta);
+    }
+
+    .aviso p { margin: 0 0 .5rem; }
+    .aviso ul { margin: 0; padding-left: 1.25rem; }
+    .aviso li + li { margin-top: .25rem; }
+    .antes { display: block; margin-top: .25rem; color: var(--texto-secundario); font-size: .9375rem; }
+
     .vacio {
         padding: 1.25rem;
         border: 1px dashed var(--borde);
@@ -109,6 +122,36 @@
         </ul>
     </nav>
 
+    {{-- Respuesta 52 del PO: una jornada que vuelve a revisión no desaparece sin avisar --}}
+    @if ($jornadasEnActualizacion->isNotEmpty())
+        <div class="aviso" role="status">
+            <p>Se está actualizando la programación de:</p>
+            <ul>
+                @foreach ($jornadasEnActualizacion as $jornada)
+                    <li>Jornada {{ $jornada->numero_jornada }}@if ($jornada->grupo?->categoria) de {{ $jornada->grupo->categoria->nombre }} ({{ $jornada->grupo->categoria->rama }})@endif @if ($jornada->grupo?->nombre) · {{ $jornada->grupo->nombre }}@endif</li>
+                @endforeach
+            </ul>
+            <p>Sus partidos se mostrarán aquí cuando se publique de nuevo.</p>
+        </div>
+    @endif
+
+    {{-- Respuesta 53 del PO: en la semana original se avisa a dónde se movió cada partido reprogramado --}}
+    @if ($reprogramadosFuera->isNotEmpty())
+        <div class="aviso" role="status">
+            <p>Partidos de esta semana que se reprogramaron:</p>
+            <ul>
+                @foreach ($reprogramadosFuera as $movido)
+                    @php($nuevaFecha = \Carbon\CarbonImmutable::parse($movido->fecha_partido))
+                    <li>
+                        {{ $movido->local?->nombre ?? 'Por definir' }} vs. {{ $movido->visitante?->nombre ?? 'Por definir' }}:
+                        reprogramado al
+                        <a href="{{ route('portal.programacion', ['semana' => $nuevaFecha->toDateString()]) }}">{{ $nuevaFecha->format('d/m/Y') }}@if ($movido->hora_partido), {{ substr($movido->hora_partido, 0, 5) }} h@endif</a>
+                    </li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     @forelse ($dias as $dia => $partidos)
         @php($diaFecha = \Carbon\CarbonImmutable::parse($dia))
         <section class="dia" aria-labelledby="dia-{{ $dia }}">
@@ -128,6 +171,11 @@
                                     <span class="estado estado-{{ str_replace(' ', '-', $partido->estado) }}">{{ $etiquetas[$partido->estado] }}</span>
                                 @endisset
                             </p>
+                            {{-- Respuesta 53 del PO: la fecha anterior del partido reprogramado --}}
+                            @php($anterior = $partido->reprogramaciones->first())
+                            @if ($anterior?->fecha_anterior)
+                                <span class="antes">Antes: {{ $anterior->fecha_anterior->format('d/m/Y') }}@if ($anterior->hora_anterior), {{ substr((string) $anterior->hora_anterior, 0, 5) }} h@endif</span>
+                            @endif
                             <p class="equipos">
                                 {{ $partido->local?->nombre ?? 'Por definir' }}
                                 <span class="vs">vs.</span>

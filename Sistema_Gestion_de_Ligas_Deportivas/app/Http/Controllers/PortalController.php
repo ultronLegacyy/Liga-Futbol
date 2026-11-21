@@ -26,6 +26,8 @@ class PortalController extends Controller
             'dias' => $dias,
             'siguienteConPartidos' => $dias->isEmpty() ? $this->programacion->siguienteSemanaConPartidos($lunes) : null,
             'esSemanaActual' => $lunes->equalTo($this->programacion->inicioDeSemana()),
+            'reprogramadosFuera' => $this->programacion->reprogramadosAOtraSemana($lunes),
+            'jornadasEnActualizacion' => $this->programacion->jornadasEnActualizacion($lunes),
         ]);
     }
 }

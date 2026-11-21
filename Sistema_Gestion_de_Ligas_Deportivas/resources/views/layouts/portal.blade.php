@@ -113,6 +113,8 @@
                 <a href="{{ route('portal.programacion') }}" @if (request()->routeIs('portal.programacion')) aria-current="page" @endif>Programación</a>
                 @guest
                     <a href="{{ route('inicio') }}">Iniciar sesión</a>
+                @else
+                    <a href="{{ auth()->user()->rutaInicio() }}">Ir al panel</a>
                 @endguest
             </nav>
         </div>
