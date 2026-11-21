@@ -211,6 +211,12 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/partidos/{partido}/cedula/papel', [CedulaFisicaController::class, 'store'])
             ->whereNumber('partido')
             ->name('cedulas.fisica.store');
+        Route::post('/partidos/{partido}/cedula/papel/cerrar', [CedulaFisicaController::class, 'cerrar'])
+            ->whereNumber('partido')
+            ->name('cedulas.fisica.cerrar');
+        Route::get('/partidos/{partido}/cedula/papel/escaneo', [CedulaFisicaController::class, 'escaneo'])
+            ->whereNumber('partido')
+            ->name('cedulas.fisica.escaneo');
 
         // Régimen disciplinario y Tribunal de Penas: expedientes y presuntos artículos (HU-044 / RF-10.1)
         Route::get('/disciplina/expedientes', [ExpedienteDisciplinarioController::class, 'index'])

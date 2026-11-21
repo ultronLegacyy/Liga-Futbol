@@ -25,6 +25,11 @@
         <p class="text-sm text-gray-300 mt-3">Transcribe la cédula tal como viene en papel. Se aplican las mismas validaciones que en la captura del árbitro desde el celular; si un dato no es válido no se guarda nada y se indica qué corregir.</p>
     </div>
 
+    @if (session('success'))
+        <x-alert type="success" :message="session('success')" />
+    @endif
+    @include('cedulas._hallazgos')
+
     @if ($errors->any())
         <div role="alert" class="mb-6 rounded-lg border border-red-700 bg-red-950 p-4 text-red-100">
             <p class="font-semibold">No se guardó la cédula. Corrige lo siguiente:</p>
@@ -201,5 +206,37 @@
             <a href="{{ route('cedulas.fisicas.index') }}" class="inline-flex items-center min-h-12 px-5 py-3 text-base font-semibold text-gray-200 bg-gray-700 hover:bg-gray-600 rounded-lg">Volver</a>
         </div>
     </form>
+
+    {{-- Respuesta 50 del PO: con lo transcrito guardado, el Capturista cierra la cédula con el escaneo del papel firmado --}}
+    @if ($cedula?->esDePapel())
+        <section id="cierre" aria-labelledby="titulo-cierre" class="mt-8 bg-gray-800 border border-gray-700 rounded-xl p-4 sm:p-6">
+            <h2 id="titulo-cierre" class="text-lg font-semibold text-white">Cerrar la cédula en papel</h2>
+            <p class="text-sm text-gray-300 mt-2">Antes de cerrar, compara lo guardado con el papel. Al cerrar, la cédula ya no se puede modificar, el partido pasa a «finalizado» y, si hay tarjetas o incidencias, se abre el expediente disciplinario. El escaneo de la cédula firmada por el árbitro y los capitanes sustituye a las firmas digitales.</p>
+
+            @if ($errors->cierre->any())
+                <div role="alert" class="mt-4 rounded-lg border border-red-700 bg-red-950 p-4 text-red-100">
+                    <p class="font-semibold">No se cerró la cédula:</p>
+                    <ul class="mt-2 list-disc pl-5 text-sm">
+                        @foreach ($errors->cierre->all() as $mensaje)
+                            <li>{{ $mensaje }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
+            <form method="POST" action="{{ route('cedulas.fisica.cerrar', $partido) }}" enctype="multipart/form-data" class="mt-4 space-y-4">
+                @csrf
+                <div>
+                    <label for="cedula_escaneada" class="block text-sm font-medium text-gray-200 mb-1">Foto o escaneo de la cédula en papel firmada (JPG, PNG o PDF, hasta 5 MB)</label>
+                    <input id="cedula_escaneada" name="cedula_escaneada" type="file" accept="image/jpeg,image/png,application/pdf" required class="{{ $entrada }}">
+                </div>
+                <div class="flex items-start gap-3">
+                    <input id="confirmar" name="confirmar" type="checkbox" value="1" required class="mt-1 h-6 w-6 rounded border-gray-600 bg-gray-900 text-green-600 focus:ring-2 focus:ring-green-400">
+                    <label for="confirmar" class="text-sm text-gray-200">Revisé que lo capturado coincide con la cédula en papel.</label>
+                </div>
+                <button type="submit" class="min-h-12 px-6 py-3 text-base font-semibold text-white bg-red-700 hover:bg-red-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-400">Cerrar la cédula</button>
+            </form>
+        </section>
+    @endif
 </div>
 @endsection

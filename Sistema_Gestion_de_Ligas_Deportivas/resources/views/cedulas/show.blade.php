@@ -21,20 +21,12 @@
     @if (session('success'))
         <x-alert type="success" :message="session('success')" />
     @endif
-    {{-- HU-037: lo que ValidacionCedulaService encontró al transcribir la cédula en papel; se revisa antes de cerrar --}}
-    @if (is_array(session('hallazgos')) && session('hallazgos') !== [])
-        <div role="status" class="mb-4 rounded-lg border border-amber-700 bg-amber-950 p-4 text-sm text-amber-100">
-            <p class="font-semibold">Revisa antes de cerrar la cédula:</p>
-            <ul class="mt-2 list-disc pl-5">
-                @foreach (session('hallazgos') as $hallazgo)
-                    <li>{{ $hallazgo['mensaje'] }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
-    @can('capturarFisica', [App\Models\CedulaArbitral::class, $partido])
-        @if (! $cedula?->estaCerrada())
-            <p class="mb-4"><a href="{{ route('cedulas.fisica.create', $partido) }}" class="text-green-400 underline">Capturar desde la cédula en papel</a></p>
+    @include('cedulas._hallazgos')
+    {{-- HU-037: el enlace solo aparece si el papel se puede transcribir (respuesta 51 del PO) --}}
+    @can('capturarFisica', App\Models\CedulaArbitral::class)
+        @inject('capturaPapel', 'App\Services\CapturaCedulaFisicaService')
+        @if ($capturaPapel->motivoNoDisponible($partido, $cedula) === null)
+            <p class="mb-4"><a href="{{ route('cedulas.fisica.create', $partido) }}" class="text-green-400 underline">{{ $cedula?->esDePapel() ? 'Corregir o cerrar la cédula en papel' : 'Capturar desde la cédula en papel' }}</a></p>
         @endif
     @endcan
     @if ($errors->any())
@@ -161,6 +153,10 @@
         <p class="text-sm text-gray-300 whitespace-pre-line">{{ $cedula->informe_arbitral ?? 'Sin reporte.' }}</p>
 
         <h3 class="text-lg font-semibold text-white mt-8 mb-3">Firmas de los capitanes</h3>
+        {{-- Respuesta 50 del PO: la cédula en papel se cierra con su escaneo firmado en lugar de las firmas digitales --}}
+        @if ($cedula->esDePapel() && $cedula->cedula_papel_ruta)
+            <p class="text-sm text-gray-300 mb-3">Las firmas están en la cédula en papel: <a href="{{ route('cedulas.fisica.escaneo', $partido) }}" class="text-green-400 underline">ver el escaneo de la cédula firmada</a>.</p>
+        @endif
         <div class="grid gap-4 sm:grid-cols-2">
             @foreach (['local' => $partido->local?->nombre, 'visitante' => $partido->visitante?->nombre] as $lado => $equipoNombre)
                 <div>

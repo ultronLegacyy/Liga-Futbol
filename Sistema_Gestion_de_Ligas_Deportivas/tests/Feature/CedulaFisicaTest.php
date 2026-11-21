@@ -3,16 +3,21 @@
 namespace Tests\Feature;
 
 use App\Models\AlineacionPartido;
+use App\Models\AuditoriaLog;
 use App\Models\CedulaArbitral;
+use App\Models\EnvioCedula;
 use App\Models\EventoPartido;
 use App\Models\IncidenciaPartido;
 use App\Models\Jugador;
 use App\Models\Partido;
 use App\Models\User;
+use App\Services\CapturaCedulaFisicaService;
 use App\Services\CedulaService;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\CreaPartidoConCedula;
@@ -96,7 +101,7 @@ class CedulaFisicaTest extends TestCase
                 ],
                 'informe_arbitral' => 'Partido sin más novedades.',
             ]))
-            ->assertRedirect(route('cedulas.show', $this->partido))
+            ->assertRedirect(route('cedulas.fisica.create', $this->partido))
             ->assertSessionHasNoErrors()
             ->assertSessionHas('success');
 
@@ -118,8 +123,9 @@ class CedulaFisicaTest extends TestCase
         $this->assertSame(['Retraso de 10 minutos por lluvia'], IncidenciaPartido::query()->where('cedula_id', $cedula->id)->pluck('descripcion')->all());
         $this->assertDatabaseHas('auditoria_logs', ['tabla_afectada' => 'cedulas_arbitrales', 'registro_id' => $cedula->id]);
 
-        // Después de guardar, el Capturista revisa la cédula en la pantalla de captura
-        $this->actingAs($this->capturista)->get(route('cedulas.show', $this->partido))->assertOk()->assertSee('Capturar desde la cédula en papel');
+        // Después de guardar, el Capturista revisa lo transcrito y desde ahí puede corregirlo o cerrarlo
+        $this->actingAs($this->capturista)->get(route('cedulas.fisica.create', $this->partido))->assertOk()->assertSee('Cerrar la cédula en papel');
+        $this->actingAs($this->capturista)->get(route('cedulas.show', $this->partido))->assertOk()->assertSee('Corregir o cerrar la cédula en papel');
     }
 
     public function test_reenviar_el_mismo_formulario_no_duplica_nada(): void
@@ -133,7 +139,10 @@ class CedulaFisicaTest extends TestCase
         ]);
 
         $this->actingAs($this->capturista)->post(route('cedulas.fisica.store', $this->partido), $datos)->assertSessionHasNoErrors();
-        $this->actingAs($this->capturista)->post(route('cedulas.fisica.store', $this->partido), $datos)->assertSessionHasNoErrors();
+        $this->actingAs($this->capturista)->post(route('cedulas.fisica.store', $this->partido), $datos)
+            ->assertSessionHasNoErrors()
+            ->assertSessionMissing('success')
+            ->assertSessionHas('warning');
 
         $this->assertSame(1, EventoPartido::query()->count());
         $this->assertSame(1, IncidenciaPartido::query()->count());
@@ -263,19 +272,239 @@ class CedulaFisicaTest extends TestCase
     public function test_solo_quien_captura_en_la_sede_transcribe_cedulas_en_papel(): void
     {
         $arbitro = $this->usuario('Árbitro en Campo', $this->partido->arbitro);
-        $tesorero = $this->usuario('Tesorero');
 
-        foreach ([$arbitro, $tesorero] as $usuario) {
+        foreach ([$arbitro, $this->usuario('Tesorero'), $this->usuario('Delegado del Club'), $this->usuario('Jugador')] as $usuario) {
             $this->actingAs($usuario)->get(route('cedulas.fisicas.index'))->assertForbidden();
             $this->actingAs($usuario)->get(route('cedulas.fisica.create', $this->partido))->assertForbidden();
-            $this->actingAs($usuario)->post(route('cedulas.fisica.store', $this->partido), $this->formulario([]))->assertForbidden();
+            $this->actingAs($usuario)->post(route('cedulas.fisica.store', $this->partido), $this->formulario([]))
+                ->assertForbidden()
+                ->assertSee('Solo el Capturista puede transcribir cédulas en papel.');
+            $this->actingAs($usuario)->post(route('cedulas.fisica.cerrar', $this->partido), ['confirmar' => '1'])->assertForbidden();
         }
 
-        $this->actingAs($this->usuario('Administrador General'))->get(route('cedulas.fisica.create', $this->partido))->assertOk();
         $this->assertDatabaseCount('cedulas_arbitrales', 0);
+
+        // El Administrador General también transcribe
+        $administrador = $this->usuario('Administrador General');
+        $this->actingAs($administrador)->get(route('cedulas.fisica.create', $this->partido))->assertOk();
+        $this->actingAs($administrador)->post(route('cedulas.fisica.store', $this->partido), $this->formulario(['goles_local' => '2']))
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('cedulas.fisica.create', $this->partido));
+        $this->assertSame(2, CedulaArbitral::query()->where('partido_id', $this->partido->id)->sole()->goles_local);
 
         auth()->logout();
         $this->get(route('cedulas.fisicas.index'))->assertRedirect();
+    }
+
+    // Obligatorio 1 (#89): el mismo formulario con otros datos (por ejemplo, con «Atrás») no se aplica ni dice que se guardó
+    public function test_reenviar_la_misma_clave_con_otros_datos_no_cambia_nada_ni_informa_exito(): void
+    {
+        [$goleador] = $this->jugadores('local', 1);
+        $datos = $this->formulario([
+            'goles_local' => '2',
+            'goles_visitante' => '1',
+            'alineacion' => [$goleador->id => ['asistio' => '1']],
+            'eventos' => [['jugador_id' => $goleador->id, 'tipo' => 'Gol', 'minuto' => '12']],
+            'incidencias' => [['descripcion' => 'Invasión de cancha']],
+        ]);
+        $this->actingAs($this->capturista)->post(route('cedulas.fisica.store', $this->partido), $datos)->assertSessionHas('success');
+
+        $cambiados = array_replace($datos, [
+            'goles_local' => '3',
+            'eventos' => [['jugador_id' => $goleador->id, 'tipo' => 'Gol', 'minuto' => '15']],
+            'incidencias' => [['descripcion' => 'Otra cosa']],
+        ]);
+        $this->actingAs($this->capturista)->post(route('cedulas.fisica.store', $this->partido), $cambiados)
+            ->assertRedirect(route('cedulas.show', $this->partido))
+            ->assertSessionMissing('success')
+            ->assertSessionHas('warning', fn (string $aviso): bool => str_contains($aviso, 'ya se había guardado'));
+
+        $cedula = CedulaArbitral::query()->sole();
+        $this->assertSame([2, 1], [$cedula->goles_local, $cedula->goles_visitante]);
+        $this->assertSame([12], EventoPartido::query()->pluck('minuto')->all());
+        $this->assertSame(['Invasión de cancha'], IncidenciaPartido::query()->pluck('descripcion')->all());
+
+        // El aviso se ve en la cédula
+        $this->actingAs($this->capturista)->post(route('cedulas.fisica.store', $this->partido), $cambiados);
+        $this->actingAs($this->capturista)->get(route('cedulas.show', $this->partido))->assertSee('ya se había guardado');
+    }
+
+    // Obligatorio 2 (#89): volver a guardar el formulario sin cambios no vuelve a guardar la alineación
+    public function test_guardar_otra_vez_sin_cambios_no_toca_la_alineacion(): void
+    {
+        [$goleador, $companero] = $this->jugadores('local', 2);
+        $alineacion = [$goleador->id => ['asistio' => '1', 'numero_camiseta' => '9'], $companero->id => ['asistio' => '1', 'numero_camiseta' => '5']];
+        $capitanes = [$this->partido->equipo_local_id => (string) $goleador->id];
+
+        $this->actingAs($this->capturista)->post(route('cedulas.fisica.store', $this->partido), $this->formulario(['alineacion' => $alineacion, 'capitanes' => $capitanes]))
+            ->assertSessionHasNoErrors();
+        $envios = EnvioCedula::query()->where('tipo', EnvioCedula::ALINEACION)->count();
+        $auditorias = AuditoriaLog::query()->where('tabla_afectada', 'alineaciones_partido')->count();
+
+        // El formulario se vuelve a abrir (clave nueva) y se envía con lo mismo
+        $this->actingAs($this->capturista)->post(route('cedulas.fisica.store', $this->partido), $this->formulario(['alineacion' => $alineacion, 'capitanes' => $capitanes]))
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success');
+
+        $this->assertSame($envios, EnvioCedula::query()->where('tipo', EnvioCedula::ALINEACION)->count());
+        $this->assertSame($auditorias, AuditoriaLog::query()->where('tabla_afectada', 'alineaciones_partido')->count());
+
+        // Un cambio real sí se guarda
+        $alineacion[$companero->id]['numero_camiseta'] = '7';
+        $this->actingAs($this->capturista)->post(route('cedulas.fisica.store', $this->partido), $this->formulario(['alineacion' => $alineacion, 'capitanes' => $capitanes]))
+            ->assertSessionHasNoErrors();
+        $this->assertSame(7, AlineacionPartido::query()->where('jugador_id', $companero->id)->sole()->numero_camiseta);
+        $this->assertSame($envios + 1, EnvioCedula::query()->where('tipo', EnvioCedula::ALINEACION)->count());
+    }
+
+    // Respuesta 51 del PO: no se transcribe sobre una cédula que el árbitro ya capturó en campo; sus firmas se conservan
+    public function test_no_transcribe_sobre_una_cedula_capturada_y_firmada_en_campo(): void
+    {
+        Storage::fake('local');
+        [$goleador] = $this->jugadores('local', 1);
+        $cedulas = app(CedulaService::class);
+        $cedula = $cedulas->abrir($this->partido);
+        $cedulas->guardarMarcador($cedula, 1, 0, (string) Str::uuid());
+        foreach (['local', 'visitante'] as $lado) {
+            Storage::disk('local')->put('cedulas/'.$cedula->id.'/firma-'.$lado.'.png', 'png');
+        }
+        $cedula->update(['firma_capitan_local' => 'cedulas/'.$cedula->id.'/firma-local.png', 'firma_capitan_visitante' => 'cedulas/'.$cedula->id.'/firma-visitante.png']);
+
+        $this->actingAs($this->capturista)->get(route('cedulas.fisicas.index'))->assertOk()->assertDontSee(route('cedulas.fisica.create', $this->partido), false);
+        $this->actingAs($this->capturista)->get(route('cedulas.fisica.create', $this->partido))
+            ->assertOk()
+            ->assertSee('El árbitro ya capturó esta cédula en campo')
+            ->assertDontSee('name="clave_envio"', false);
+        $this->actingAs($this->capturista)->get(route('cedulas.show', $this->partido))->assertOk()->assertDontSee('cédula en papel</a>', false);
+
+        // El mismo formulario precargado que antes borraba las firmas
+        $this->actingAs($this->capturista)->post(route('cedulas.fisica.store', $this->partido), $this->formulario([
+            'goles_local' => '1',
+            'alineacion' => [$goleador->id => ['asistio' => '0']],
+        ]))->assertSessionHasErrors(['cedula' => CapturaCedulaFisicaService::CAPTURADA_EN_CAMPO]);
+
+        $cedula->refresh();
+        $this->assertSame(CedulaArbitral::ORIGEN_CAMPO, $cedula->origen);
+        $this->assertNull($cedula->capturada_por_id);
+        $this->assertNotNull($cedula->firma_capitan_local);
+        $this->assertNotNull($cedula->firma_capitan_visitante);
+        Storage::disk('local')->assertExists('cedulas/'.$cedula->id.'/firma-local.png');
+    }
+
+    // Respuesta 51: si el árbitro solo abrió la cédula y no capturó nada, el Capturista sí transcribe
+    public function test_transcribe_sobre_una_cedula_abierta_sin_captura(): void
+    {
+        app(CedulaService::class)->abrir($this->partido);
+
+        $this->actingAs($this->capturista)->get(route('cedulas.fisicas.index'))->assertSee(route('cedulas.fisica.create', $this->partido), false);
+        $this->actingAs($this->capturista)->post(route('cedulas.fisica.store', $this->partido), $this->formulario(['goles_local' => '4']))
+            ->assertSessionHasNoErrors();
+
+        $cedula = CedulaArbitral::query()->sole();
+        $this->assertSame(CedulaArbitral::ORIGEN_PAPEL, $cedula->origen);
+        $this->assertSame(4, $cedula->goles_local);
+    }
+
+    public function test_un_jugador_de_otro_partido_en_la_alineacion_se_rechaza(): void
+    {
+        $ajeno = Jugador::query()->where('equipo_id', $this->partidoConArbitro()->equipo_local_id)->firstOrFail();
+
+        $this->actingAs($this->capturista)->post(route('cedulas.fisica.store', $this->partido), $this->formulario([
+            'alineacion' => [$ajeno->id => ['asistio' => '1']],
+        ]))->assertSessionHasErrors(['alineacion.'.$ajeno->id => 'El jugador no pertenece a los equipos de este partido.']);
+
+        $this->assertSame(0, AlineacionPartido::query()->where('jugador_id', $ajeno->id)->where('asistio', true)->count());
+    }
+
+    public function test_la_lista_muestra_las_cedulas_abiertas_y_oculta_las_cerradas(): void
+    {
+        $cerrado = $this->partidoConArbitro();
+        app(CedulaService::class)->abrir($this->partido);
+        app(CedulaService::class)->abrir($cerrado)->update(['estado' => CedulaArbitral::CERRADA]);
+
+        $this->actingAs($this->capturista)->get(route('cedulas.fisicas.index'))
+            ->assertOk()
+            ->assertSee(route('cedulas.fisica.create', $this->partido), false)
+            ->assertDontSee(route('cedulas.fisica.create', $cerrado), false);
+    }
+
+    // Recomendado (#89): en un partido donde no se puede guardar, un aviso en lugar del formulario y sin enlace
+    public function test_un_partido_fuera_de_captura_muestra_un_aviso_sin_formulario(): void
+    {
+        foreach (['borrador', 'programado', 'finalizado', 'cancelado'] as $estado) {
+            $this->partido->forceFill(['estado' => $estado])->save();
+
+            $this->actingAs($this->capturista)->get(route('cedulas.fisica.create', $this->partido))
+                ->assertOk()
+                ->assertSee('La cédula solo se captura cuando el partido está confirmado o en juego')
+                ->assertDontSee('name="clave_envio"', false);
+            $this->actingAs($this->capturista)->get(route('cedulas.show', $this->partido))->assertOk()->assertDontSee('Capturar desde la cédula en papel');
+        }
+    }
+
+    // Respuesta 50 del PO: el Capturista cierra la cédula en papel con el escaneo firmado; el partido queda finalizado
+    public function test_el_capturista_cierra_la_cedula_en_papel_con_su_escaneo(): void
+    {
+        Storage::fake('local');
+        [$goleador] = $this->jugadores('local', 1);
+        $this->actingAs($this->capturista)->post(route('cedulas.fisica.store', $this->partido), $this->formulario([
+            'goles_local' => '1',
+            'alineacion' => [$goleador->id => ['asistio' => '1']],
+            'eventos' => [['jugador_id' => $goleador->id, 'tipo' => 'Gol', 'minuto' => '30']],
+        ]))->assertSessionHasNoErrors();
+
+        // Sin escaneo ni confirmación no se cierra, y el error sale en la sección del cierre
+        $this->actingAs($this->capturista)->from(route('cedulas.fisica.create', $this->partido))
+            ->post(route('cedulas.fisica.cerrar', $this->partido), [])
+            ->assertRedirect(route('cedulas.fisica.create', $this->partido))
+            ->assertSessionHasErrorsIn('cierre', ['cedula_escaneada', 'confirmar']);
+        $this->actingAs($this->capturista)->from(route('cedulas.fisica.create', $this->partido))->followingRedirects()
+            ->post(route('cedulas.fisica.cerrar', $this->partido), ['confirmar' => '1'])
+            ->assertOk()
+            ->assertSee('No se cerró la cédula:')
+            ->assertSee('Adjunta la foto o el escaneo de la cédula en papel');
+        $this->actingAs($this->capturista)->post(route('cedulas.fisica.cerrar', $this->partido), [
+            'cedula_escaneada' => UploadedFile::fake()->create('cedula.docx', 10, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
+            'confirmar' => '1',
+        ])->assertSessionHasErrorsIn('cierre', ['cedula_escaneada' => 'El escaneo de la cédula debe ser una imagen JPG o PNG, o un PDF.']);
+        $this->assertSame(CedulaArbitral::ABIERTA, CedulaArbitral::query()->sole()->estado);
+
+        $this->actingAs($this->capturista)->post(route('cedulas.fisica.cerrar', $this->partido), [
+            'cedula_escaneada' => UploadedFile::fake()->image('cedula.jpg', 800, 1100),
+            'confirmar' => '1',
+        ])->assertSessionHasNoErrors()->assertRedirect(route('cedulas.show', $this->partido));
+
+        $cedula = CedulaArbitral::query()->sole();
+        $this->assertSame(CedulaArbitral::CERRADA, $cedula->estado);
+        $this->assertSame($this->capturista->id, $cedula->cerrada_por_id);
+        $this->assertNotNull($cedula->cedula_papel_ruta);
+        Storage::disk('local')->assertExists((string) $cedula->cedula_papel_ruta);
+        $this->assertSame(Partido::ESTADO_FINALIZADO, $this->partido->refresh()->estado);
+        $this->assertDatabaseHas('auditoria_logs', ['tabla_afectada' => 'cedulas_arbitrales', 'registro_id' => $cedula->id, 'motivo' => 'Cierre de la cédula en papel del partido '.$this->partido->id]);
+
+        // Se consulta el escaneo; ya no se captura ni se cierra otra vez
+        $this->actingAs($this->capturista)->get(route('cedulas.show', $this->partido))->assertOk()->assertSee(route('cedulas.fisica.escaneo', $this->partido), false);
+        $this->actingAs($this->capturista)->get(route('cedulas.fisica.escaneo', $this->partido))->assertOk()->assertHeader('X-Robots-Tag', 'noindex, nofollow');
+        $this->actingAs($this->usuario('Tesorero'))->get(route('cedulas.fisica.escaneo', $this->partido))->assertForbidden();
+        $this->actingAs($this->capturista)->post(route('cedulas.fisica.cerrar', $this->partido), [
+            'cedula_escaneada' => UploadedFile::fake()->image('otra.jpg'),
+            'confirmar' => '1',
+        ])->assertSessionHasErrorsIn('cierre', ['cedula' => 'La cédula está cerrada: ya no se puede modificar.']);
+    }
+
+    // La cédula capturada en campo la cierra el árbitro con las firmas, no el Capturista con un escaneo
+    public function test_no_cierra_con_escaneo_una_cedula_de_campo(): void
+    {
+        Storage::fake('local');
+        app(CedulaService::class)->abrir($this->partido);
+
+        $this->actingAs($this->capturista)->post(route('cedulas.fisica.cerrar', $this->partido), [
+            'cedula_escaneada' => UploadedFile::fake()->image('cedula.png'),
+            'confirmar' => '1',
+        ])->assertSessionHasErrorsIn('cierre', 'cedula');
+
+        $this->assertSame(CedulaArbitral::ABIERTA, CedulaArbitral::query()->sole()->estado);
+        $this->assertSame([], Storage::disk('local')->allFiles());
     }
 
     /**

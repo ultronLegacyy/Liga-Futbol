@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $origen
  * @property int|null $capturada_por_id
  * @property \Illuminate\Support\Carbon|null $capturada_en
+ * @property string|null $cedula_papel_ruta
  */
 class CedulaArbitral extends Model
 {
@@ -53,6 +54,7 @@ class CedulaArbitral extends Model
         'cerrada_por_id',
         'cerrada_en',
         'origen',
+        'cedula_papel_ruta',
         'capturada_por_id',
         'capturada_en',
     ];
@@ -114,6 +116,24 @@ class CedulaArbitral extends Model
     public function esDePapel(): bool
     {
         return $this->origen === self::ORIGEN_PAPEL;
+    }
+
+    /**
+     * Respuesta 51 del PO: el árbitro ya capturó algo en campo (alineación, marcador, informe, goles, tarjetas,
+     * incidencias o firmas). Sobre una cédula así el Capturista no transcribe el papel; las diferencias se
+     * corrigen después del cierre (HU-039).
+     */
+    public function tieneCapturaDeCampo(): bool
+    {
+        if ($this->esDePapel()) {
+            return false;
+        }
+
+        return $this->firma_capitan_local !== null
+            || $this->firma_capitan_visitante !== null
+            || $this->envios()->exists()
+            || $this->eventos()->exists()
+            || $this->incidencias()->exists();
     }
 
     /** @return HasMany<AlineacionPartido, $this> */

@@ -70,7 +70,7 @@ class CedulaArbitralPolicy
      * HU-037: transcribir una cédula en papel. Es para el Capturista y los demás roles con cedulas.capturar
      * que trabajan en la sede; el Árbitro en Campo captura desde el celular (HU-036).
      */
-    public function capturarFisica(User $usuario, ?Partido $partido = null): Response
+    public function capturarFisica(User $usuario): Response
     {
         if (! $usuario->can('cedulas.capturar') || $usuario->hasRole(self::ROL_ARBITRO)) {
             return Response::deny('Solo el Capturista puede transcribir cédulas en papel.');
