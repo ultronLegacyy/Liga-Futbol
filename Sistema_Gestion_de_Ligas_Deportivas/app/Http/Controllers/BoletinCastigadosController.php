@@ -2,17 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\DespublicarBoletinRequest;
 use App\Http\Requests\PublicarBoletinRequest;
 use App\Models\Sancion;
 use App\Models\Temporada;
 use App\Services\VigenciaSancionService;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 /**
- * Controlador para la consulta y publicación del Boletín Oficial de Castigados (HU-046 / RF-10.3, RNF-44).
+ * Controlador para la consulta y publicación del Boletín Oficial de Castigados (HU-046 / RF-10.3, RNF-44, PO #45).
  */
 class BoletinCastigadosController extends Controller
 {
@@ -22,27 +24,22 @@ class BoletinCastigadosController extends Controller
     }
 
     /**
-     * Consulta el boletín semanal oficial de castigados (HU-046 Criterios 2 y 3, RNF-44).
+     * Consulta el boletín semanal oficial de castigados acotado al rol del usuario (PO #45).
      */
     public function index(Request $request): View
     {
+        Gate::authorize('verBoletin', Sancion::class);
+
         $temporadaId = $request->integer('temporada_id') > 0 ? $request->integer('temporada_id') : null;
         $temporadas = Temporada::orderByDesc('id')->get();
-
-        $boletin = $this->vigenciaService->obtenerBoletinCastigados($temporadaId);
-
         $usuario = $request->user();
+
+        $boletin = $this->vigenciaService->obtenerBoletinCastigados($temporadaId, $usuario);
         $puedeAdministrar = $usuario !== null && $usuario->can('disciplina.sancionar');
 
-        $sancionesPendientes = new \Illuminate\Database\Eloquent\Collection();
-        if ($puedeAdministrar) {
-            $sancionesPendientes = Sancion::query()
-                ->with(['expediente', 'persona', 'equipo', 'articulo'])
-                ->where('estado', Sancion::ESTADO_VIGENTE)
-                ->where('publicada_en_boletin', false)
-                ->orderByDesc('id')
-                ->get();
-        }
+        $sancionesPendientes = $puedeAdministrar
+            ? $this->vigenciaService->obtenerSancionesPendientesBoletin($temporadaId)
+            : new Collection();
 
         return view('disciplina.boletin.index', [
             'boletin' => $boletin,
@@ -58,7 +55,7 @@ class BoletinCastigadosController extends Controller
      */
     public function publicar(PublicarBoletinRequest $request): RedirectResponse
     {
-        Gate::authorize('create', Sancion::class);
+        Gate::authorize('publicar', Sancion::class);
 
         $usuario = $request->user();
         if ($usuario === null) {
@@ -68,9 +65,8 @@ class BoletinCastigadosController extends Controller
         $validated = $request->validated();
         $ids = array_map('intval', $validated['sanciones_ids']);
         $motivo = $validated['motivo'];
-        $cargo = $validated['autorizado_por_cargo'] ?? null;
 
-        $totalPublicadas = $this->vigenciaService->publicarEnBoletin($ids, $usuario, $motivo, $cargo);
+        $totalPublicadas = $this->vigenciaService->publicarEnBoletin($ids, $usuario, $motivo);
 
         return redirect()
             ->route('disciplina.boletin.index')
@@ -80,19 +76,16 @@ class BoletinCastigadosController extends Controller
     /**
      * Retira una sanción del boletín oficial.
      */
-    public function despublicar(Request $request, Sancion $sancion): RedirectResponse
+    public function despublicar(DespublicarBoletinRequest $request, Sancion $sancion): RedirectResponse
     {
-        Gate::authorize('create', Sancion::class);
+        Gate::authorize('publicar', $sancion);
 
         $usuario = $request->user();
         if ($usuario === null) {
             abort(403, 'Usuario no autenticado.');
         }
 
-        $validated = $request->validate([
-            'motivo' => ['required', 'string', 'min:5', 'max:500'],
-        ]);
-
+        $validated = $request->validated();
         $this->vigenciaService->despublicarDeBoletin($sancion, $usuario, $validated['motivo']);
 
         return redirect()

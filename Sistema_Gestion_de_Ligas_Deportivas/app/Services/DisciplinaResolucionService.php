@@ -3,14 +3,16 @@
 namespace App\Services;
 
 use App\Models\AudienciaDisciplinaria;
+use App\Models\CargoFinanciero;
 use App\Models\CatalogoArticulo;
 use App\Models\Equipo;
 use App\Models\ExpedienteDisciplinario;
+use App\Models\ExpedienteInvolucrado;
+use App\Models\Jugador;
 use App\Models\Persona;
 use App\Models\Sancion;
 use App\Models\User;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -35,34 +37,45 @@ class DisciplinaResolucionService
         User $usuario,
         ?string $motivo = null
     ): AudienciaDisciplinaria {
-        if (! $expediente->estaAbierto()) {
-            throw ValidationException::withMessages([
-                'expediente' => 'No se pueden registrar audiencias en un expediente que ya se encuentra resuelto o archivado.',
-            ]);
-        }
-
         $motivoAudit = $motivo ?? 'Registro formal de audiencia disciplinaria para expediente '.$expediente->folio;
 
         return $this->auditService->conMotivo($motivoAudit, function () use ($expediente, $datos, $usuario): AudienciaDisciplinaria {
-            return DB::transaction(function () use ($expediente, $datos, $usuario): AudienciaDisciplinaria {
-                $audiencia = AudienciaDisciplinaria::create([
-                    'expediente_id' => $expediente->id,
-                    'fecha_audiencia' => Carbon::parse($datos['fecha_audiencia']),
-                    'lugar_o_medio' => $datos['lugar_o_medio'] ?? 'Sede Oficial de la Liga',
-                    'comparecientes' => $datos['comparecientes'],
-                    'alegatos_defensa' => $datos['alegatos_defensa'],
-                    'resolucion' => $datos['resolucion'] ?? null,
-                    'registrado_por_usuario_id' => $usuario->id,
+            $bloqueado = ExpedienteDisciplinario::query()
+                ->lockForUpdate()
+                ->findOrFail($expediente->id);
+
+            if (! $bloqueado->estaAbierto()) {
+                throw ValidationException::withMessages([
+                    'expediente' => 'No se pueden registrar audiencias en un expediente que ya se encuentra resuelto o archivado.',
                 ]);
+            }
 
-                // Si se incluye resolución expresa en la audiencia, persistirla en observaciones del expediente
-                if (! empty($datos['resolucion'])) {
-                    $expediente->observaciones_comision = $datos['resolucion'];
-                    $expediente->save();
-                }
+            $lugar = isset($datos['lugar_o_medio']) && trim((string) $datos['lugar_o_medio']) !== ''
+                ? trim((string) $datos['lugar_o_medio'])
+                : null;
 
-                return $audiencia;
-            });
+            if ($lugar === null) {
+                throw ValidationException::withMessages([
+                    'lugar_o_medio' => 'El lugar o medio de la audiencia es obligatorio.',
+                ]);
+            }
+
+            $audiencia = AudienciaDisciplinaria::create([
+                'expediente_id' => $bloqueado->id,
+                'fecha_audiencia' => Carbon::parse($datos['fecha_audiencia']),
+                'lugar_o_medio' => $lugar,
+                'comparecientes' => $datos['comparecientes'],
+                'alegatos_defensa' => $datos['alegatos_defensa'],
+                'resolucion' => $datos['resolucion'] ?? null,
+                'registrado_por_usuario_id' => $usuario->id,
+            ]);
+
+            if (! empty($datos['resolucion'])) {
+                $bloqueado->observaciones_comision = $datos['resolucion'];
+                $bloqueado->save();
+            }
+
+            return $audiencia;
         });
     }
 
@@ -75,7 +88,6 @@ class DisciplinaResolucionService
      *     articulo_id?: int|string|null,
      *     tipo_sancion?: string|null,
      *     partidos_suspendidos?: int|string|null,
-     *     partidos_suspension?: int|string|null,
      *     fecha_inicio?: string|null,
      *     fecha_fin?: string|null,
      *     monto_multa?: float|string|null,
@@ -92,18 +104,12 @@ class DisciplinaResolucionService
         User $usuario,
         ?string $motivo = null
     ): Sancion {
-        if (! $expediente->estaAbierto()) {
-            throw ValidationException::withMessages([
-                'expediente' => 'No se pueden dictaminar sanciones en un expediente que ya se encuentra resuelto o archivado.',
-            ]);
-        }
-
         $personaId = ! empty($datos['persona_id']) ? (int) $datos['persona_id'] : null;
         $equipoId = ! empty($datos['equipo_id']) ? (int) $datos['equipo_id'] : null;
 
         if ($personaId === null && $equipoId === null) {
             throw ValidationException::withMessages([
-                'persona_id' => 'Debe especificar al menos una persona o un equipo sancionado.',
+                'persona_id' => 'Debe especificar al menos una persona involucrada o un equipo del expediente.',
             ]);
         }
 
@@ -119,20 +125,32 @@ class DisciplinaResolucionService
             ]);
         }
 
-        $articuloId = ! empty($datos['articulo_id']) ? (int) $datos['articulo_id'] : $expediente->articulo_id;
-        if ($articuloId === null) {
-            $primerArticulo = $expediente->articulos()->first();
-            $articuloId = $primerArticulo?->id;
+        $tipoSancion = (string) ($datos['tipo_sancion'] ?? Sancion::TIPO_PARTIDOS);
+        if (! in_array($tipoSancion, Sancion::TIPOS_PERMITIDOS, true)) {
+            throw ValidationException::withMessages([
+                'tipo_sancion' => 'El tipo de sanción seleccionado no es válido para el reglamento vigente.',
+            ]);
         }
 
-        $tipoSancion = $datos['tipo_sancion'] ?? Sancion::TIPO_PARTIDOS;
-        $partidosSuspendidos = in_array($tipoSancion, [Sancion::TIPO_PARTIDOS, Sancion::TIPO_EQUIPO], true)
-            ? (int) ($datos['partidos_suspendidos'] ?? ($datos['partidos_suspension'] ?? 0))
+        if (in_array($tipoSancion, Sancion::TIPOS_INHABILITANTES, true) && $personaId === null) {
+            throw ValidationException::withMessages([
+                'persona_id' => 'Las suspensiones deportivas por partidos o por tiempo requieren seleccionar a una persona involucrada en el expediente.',
+            ]);
+        }
+
+        $partidosSuspendidos = $tipoSancion === Sancion::TIPO_PARTIDOS
+            ? (int) ($datos['partidos_suspendidos'] ?? 0)
             : 0;
 
-        if (in_array($tipoSancion, [Sancion::TIPO_PARTIDOS, Sancion::TIPO_EQUIPO], true) && $partidosSuspendidos <= 0) {
+        if ($tipoSancion === Sancion::TIPO_PARTIDOS && $partidosSuspendidos <= 0) {
             throw ValidationException::withMessages([
                 'partidos_suspendidos' => 'Una sanción por partidos debe tener al menos 1 partido de suspensión.',
+            ]);
+        }
+
+        if ($tipoSancion === Sancion::TIPO_TEMPORAL && empty($datos['fecha_fin'])) {
+            throw ValidationException::withMessages([
+                'fecha_fin' => 'Una suspensión temporal requiere especificar obligatoriamente la fecha de término.',
             ]);
         }
 
@@ -144,56 +162,169 @@ class DisciplinaResolucionService
 
         $motivoAudit = $motivo ?? 'Dictamen de sanción disciplinaria para expediente '.$expediente->folio;
 
-        return $this->auditService->conMotivo($motivoAudit, function () use ($expediente, $datos, $personaId, $equipoId, $articuloId, $tipoSancion, $partidosSuspendidos, $usuario): Sancion {
-            return DB::transaction(function () use ($expediente, $datos, $personaId, $equipoId, $articuloId, $tipoSancion, $partidosSuspendidos, $usuario): Sancion {
-                $validarInmediatamente = (bool) ($datos['validar_inmediatamente'] ?? false);
-                $publicarEnBoletin = (bool) ($datos['publicar_en_boletin'] ?? false);
+        return $this->auditService->conMotivo($motivoAudit, function () use ($expediente, $datos, $personaId, $equipoId, $tipoSancion, $partidosSuspendidos, $usuario): Sancion {
+            $bloqueado = ExpedienteDisciplinario::query()
+                ->with(['partido.jornada.grupo.categoria'])
+                ->lockForUpdate()
+                ->findOrFail($expediente->id);
 
-                $sancion = new Sancion([
-                    'expediente_id' => $expediente->id,
-                    'persona_id' => $personaId,
-                    'equipo_id' => $equipoId,
-                    'articulo_id' => $articuloId,
-                    'tipo_sancion' => $tipoSancion,
-                    'descripcion_sancion' => $datos['descripcion_sancion'] ?? $datos['motivo_resolucion'] ?? 'Sanción disciplinaria dictaminada',
-                    'motivo_resolucion' => $datos['motivo_resolucion'] ?? $datos['descripcion_sancion'] ?? null,
-                    'partidos_suspendidos' => $partidosSuspendidos,
-                    'partidos_cumplidos' => 0,
-                    'fecha_inicio' => ! empty($datos['fecha_inicio']) ? Carbon::parse($datos['fecha_inicio']) : Carbon::today(),
-                    'fecha_fin' => ! empty($datos['fecha_fin']) ? Carbon::parse($datos['fecha_fin']) : null,
-                    'monto_multa' => ! empty($datos['monto_multa']) ? (float) $datos['monto_multa'] : null,
-                    'estado' => Sancion::ESTADO_VIGENTE,
-                    'publicada_en_boletin' => false,
+            if (! $bloqueado->estaAbierto()) {
+                throw ValidationException::withMessages([
+                    'expediente' => 'No se pueden dictaminar sanciones en un expediente que ya se encuentra resuelto o archivado.',
                 ]);
+            }
 
-                if ($validarInmediatamente) {
-                    $sancion->validado_por_usuario_id = $usuario->id;
-                    $sancion->fecha_validacion = now();
+            if ($personaId !== null) {
+                $esInvolucrado = ExpedienteInvolucrado::query()
+                    ->where('expediente_id', $bloqueado->id)
+                    ->where('persona_id', $personaId)
+                    ->exists();
+
+                if (! $esInvolucrado) {
+                    throw ValidationException::withMessages([
+                        'persona_id' => 'La persona seleccionada no forma parte de los involucrados de este expediente disciplinario.',
+                    ]);
                 }
+            }
 
-                if ($publicarEnBoletin && $validarInmediatamente) {
-                    $sancion->publicada_en_boletin = true;
-                    $sancion->autorizado_por_usuario_id = $usuario->id;
-                    $sancion->autorizado_por_cargo = $usuario->getRoleNames()->first() ?? 'Comisión Disciplinaria';
-                    $sancion->fecha_publicacion = now();
+            if ($equipoId !== null) {
+                $partido = $bloqueado->partido;
+                $equipoValido = $partido !== null
+                    ? in_array($equipoId, [(int) $partido->equipo_local_id, (int) $partido->equipo_visitante_id], true)
+                    : ExpedienteInvolucrado::query()
+                        ->where('expediente_id', $bloqueado->id)
+                        ->where('equipo_id', $equipoId)
+                        ->exists();
+
+                if (! $equipoValido) {
+                    throw ValidationException::withMessages([
+                        'equipo_id' => 'El equipo seleccionado no corresponde al partido ni a los involucrados de este expediente.',
+                    ]);
                 }
+            }
 
-                $sancion->save();
+            $articuloId = ! empty($datos['articulo_id']) ? (int) $datos['articulo_id'] : $bloqueado->articulo_id;
+            if ($articuloId === null) {
+                $primerArticulo = $bloqueado->articulos()->first();
+                $articuloId = $primerArticulo?->id;
+            }
 
-                // HU-046: Calcular vigencia automática
-                $this->vigenciaService->calcularVigencia($sancion);
+            $validarInmediatamente = (bool) ($datos['validar_inmediatamente'] ?? false);
+            $publicarEnBoletin = (bool) ($datos['publicar_en_boletin'] ?? false);
 
-                // HU-045: Marcar expediente como resuelto si se indica
-                $cerrarExpediente = (bool) ($datos['cerrar_expediente'] ?? true);
-                if ($cerrarExpediente) {
-                    $expediente->estado = ExpedienteDisciplinario::ESTADO_RESUELTO;
-                    $expediente->observaciones_comision = $datos['motivo_resolucion'] ?? $datos['descripcion_sancion'];
-                    $expediente->save();
-                }
+            if ($publicarEnBoletin && ! $validarInmediatamente) {
+                throw ValidationException::withMessages([
+                    'publicar_en_boletin' => 'RNF-44: No se puede publicar una sanción en el boletín sin validarla formalmente.',
+                ]);
+            }
 
-                return $sancion;
-            });
+            $fechaInicio = ! empty($datos['fecha_inicio'])
+                ? Carbon::parse($datos['fecha_inicio'], Sancion::ZONA_HORARIA)->toDateString()
+                : Carbon::today(Sancion::ZONA_HORARIA)->toDateString();
+
+            $fechaFin = $tipoSancion === Sancion::TIPO_TEMPORAL && ! empty($datos['fecha_fin'])
+                ? Carbon::parse($datos['fecha_fin'], Sancion::ZONA_HORARIA)->toDateString()
+                : null;
+
+            $sancion = new Sancion([
+                'expediente_id' => $bloqueado->id,
+                'persona_id' => $personaId,
+                'equipo_id' => $equipoId,
+                'articulo_id' => $articuloId,
+                'tipo_sancion' => $tipoSancion,
+                'descripcion_sancion' => $datos['descripcion_sancion'] ?? $datos['motivo_resolucion'] ?? 'Sanción disciplinaria dictaminada',
+                'motivo_resolucion' => $datos['motivo_resolucion'] ?? $datos['descripcion_sancion'] ?? null,
+                'partidos_suspendidos' => $partidosSuspendidos,
+                'partidos_cumplidos' => 0,
+                'fecha_inicio' => $fechaInicio,
+                'fecha_fin' => $fechaFin,
+                'monto_multa' => $tipoSancion === Sancion::TIPO_MULTA && ! empty($datos['monto_multa']) ? (float) $datos['monto_multa'] : null,
+                'estado' => Sancion::ESTADO_VIGENTE,
+                'publicada_en_boletin' => false,
+            ]);
+
+            if ($validarInmediatamente) {
+                $sancion->validado_por_usuario_id = $usuario->id;
+                $sancion->fecha_validacion = now();
+            }
+
+            if ($publicarEnBoletin) {
+                $sancion->publicada_en_boletin = true;
+                $sancion->autorizado_por_usuario_id = $usuario->id;
+                $sancion->autorizado_por_cargo = $usuario->getRoleNames()->first() ?? 'Comisión Disciplinaria';
+                $sancion->fecha_publicacion = now();
+            }
+
+            $sancion->save();
+
+            $this->vigenciaService->calcularVigencia($sancion);
+
+            if ($tipoSancion === Sancion::TIPO_MULTA) {
+                $this->generarCargoMultaClub($bloqueado, $sancion, $equipoId, $personaId, $fechaInicio);
+            }
+
+            $cerrarExpediente = (bool) ($datos['cerrar_expediente'] ?? true);
+            if ($cerrarExpediente) {
+                $bloqueado->estado = ExpedienteDisciplinario::ESTADO_RESUELTO;
+                $bloqueado->observaciones_comision = $datos['motivo_resolucion'] ?? $datos['descripcion_sancion'] ?? null;
+                $bloqueado->save();
+            }
+
+            return $sancion;
         });
+    }
+
+    /**
+     * Genera el cargo financiero por multa al club correspondiente (PO #47).
+     */
+    private function generarCargoMultaClub(
+        ExpedienteDisciplinario $expediente,
+        Sancion $sancion,
+        ?int $equipoId,
+        ?int $personaId,
+        string $fechaVencimiento
+    ): void {
+        $equipo = $equipoId !== null ? Equipo::find($equipoId) : null;
+
+        if ($equipo === null && $personaId !== null) {
+            $involucrado = $expediente->involucrados()
+                ->with('equipo')
+                ->where('persona_id', $personaId)
+                ->whereNotNull('equipo_id')
+                ->first();
+            $equipo = $involucrado?->equipo;
+
+            if ($equipo === null) {
+                $jugador = Jugador::query()
+                    ->with('equipo')
+                    ->where('persona_id', $personaId)
+                    ->where('estado_elegibilidad', '!=', 'Baja')
+                    ->latest('id')
+                    ->first();
+                $equipo = $jugador?->equipo;
+            }
+        }
+
+        $clubId = $equipo?->club_id;
+        if ($clubId === null) {
+            return;
+        }
+
+        $grupo = $expediente->partido?->jornada?->grupo;
+        $temporadaId = $grupo !== null
+            ? ($grupo->temporada_id ?? $grupo->categoria->temporada_id)
+            : null;
+
+        CargoFinanciero::create([
+            'club_id' => $clubId,
+            'equipo_id' => $equipo->id,
+            'persona_id' => $personaId,
+            'temporada_id' => $temporadaId,
+            'concepto' => 'Multa',
+            'monto' => $sancion->monto_multa,
+            'vencimiento' => $fechaVencimiento,
+            'estado' => 'Pendiente',
+        ]);
     }
 
     /**
@@ -204,7 +335,7 @@ class DisciplinaResolucionService
      *     audiencias: \Illuminate\Database\Eloquent\Collection<int, AudienciaDisciplinaria>,
      *     sanciones: \Illuminate\Database\Eloquent\Collection<int, Sancion>,
      *     articulos: \Illuminate\Database\Eloquent\Collection<int, CatalogoArticulo>,
-     *     involucrados: \Illuminate\Database\Eloquent\Collection<int, \App\Models\ExpedienteInvolucrado>,
+     *     involucrados: \Illuminate\Database\Eloquent\Collection<int, ExpedienteInvolucrado>,
      *     evidencias: \Illuminate\Database\Eloquent\Collection<int, \App\Models\ExpedienteEvidencia>
      * }
      */
@@ -223,6 +354,7 @@ class DisciplinaResolucionService
             'sanciones.persona:id,nombre,apellidos',
             'sanciones.equipo:id,nombre',
             'sanciones.articulo:id,codigo,descripcion',
+            'sanciones.partidoHasta.jornada:id,numero_jornada',
             'sanciones.partidoHasta.local:id,nombre',
             'sanciones.partidoHasta.visitante:id,nombre',
             'sanciones.validadoPor:id,name,email',

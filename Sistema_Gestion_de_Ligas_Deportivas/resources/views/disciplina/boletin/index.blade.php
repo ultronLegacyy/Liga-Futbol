@@ -17,9 +17,11 @@
             </p>
         </div>
         <div class="flex gap-3">
-            <a href="{{ route('disciplina.expedientes.index') }}" class="rounded-lg border border-gray-600 px-4 py-2 text-sm font-semibold text-gray-300 hover:bg-gray-700">
-                Ver Expedientes Disciplinarios
-            </a>
+            @can('viewAny', App\Models\ExpedienteDisciplinario::class)
+                <a href="{{ route('disciplina.expedientes.index') }}" class="rounded-lg border border-gray-600 px-4 py-2 text-sm font-semibold text-gray-300 hover:bg-gray-700">
+                    Ver Expedientes Disciplinarios
+                </a>
+            @endcan
         </div>
     </div>
 
@@ -83,7 +85,7 @@
                     Sanciones Activas en el Boletín Oficial
                 </h2>
                 <p class="text-xs text-gray-400">
-                    Castigos en vigor que inhabilitan la alineación de jugadores o programación de equipos (IU-05).
+                    Castigos en vigor que inhabilitan la participación de jugadores en encuentros oficiales (IU-05).
                 </p>
             </div>
             <span class="rounded-full bg-red-900/80 border border-red-700 px-3 py-1 text-xs font-bold text-red-200">
@@ -135,7 +137,7 @@
                             </td>
                             <td class="px-4 py-3">
                                 <span class="rounded bg-red-950 border border-red-800 px-2 py-0.5 text-xs font-mono font-bold text-red-300">
-                                    {{ $sancion->articulo?->codigo ?? 'ART-GEN' }}
+                                    {{ $sancion->articulo?->codigo ?? 'Reglamento' }}
                                 </span>
                                 <p class="mt-1 text-xs text-gray-300 line-clamp-2">
                                     {{ $sancion->articulo?->descripcion ?? $sancion->descripcion_sancion }}
@@ -149,7 +151,7 @@
                             <td class="px-4 py-3 whitespace-nowrap">
                                 @if ($sancion->partidos_suspendidos > 0)
                                     <div class="font-bold text-white">
-                                        {{ $sancion->partidosRestantes() }} restantes
+                                        Faltan {{ $sancion->partidosRestantes() }} {{ $sancion->partidosRestantes() === 1 ? 'partido' : 'partidos' }} ({{ $sancion->partidosRestantes() }} restantes)
                                     </div>
                                     <div class="text-xs text-gray-400">
                                         ({{ $sancion->partidos_cumplidos }} de {{ $sancion->partidos_suspendidos }} cumplidos)
@@ -177,7 +179,7 @@
                             <td class="px-4 py-3 text-xs text-gray-300">
                                 <div><strong class="text-emerald-400">{{ $sancion->autorizado_por_cargo ?? $sancion->autorizadoPor?->name ?? 'Comisión Disciplinaria' }}</strong></div>
                                 <div class="text-gray-400">
-                                    {{ $sancion->autorizadoPor?->name ? $sancion->autorizadoPor->name . ' · ' : '' }}{{ $sancion->fecha_publicacion ? $sancion->fecha_publicacion->format('d/m/Y H:i') : 'Publicación Oficial' }}
+                                    {{ $sancion->autorizadoPor?->name ? $sancion->autorizadoPor->name . ' · ' : '' }}{{ $sancion->fecha_publicacion ? $sancion->fecha_publicacion->timezone(\App\Models\Sancion::ZONA_HORARIA)->format('d/m/Y H:i') : 'Publicación Oficial' }}
                                 </div>
                             </td>
                         </tr>
@@ -264,18 +266,12 @@
                     </table>
                 </div>
 
-                <div class="grid gap-4 md:grid-cols-2 pt-4 border-t border-gray-700">
-                    <div>
-                        <label for="autorizado_por_cargo" class="block text-xs font-semibold text-gray-300 mb-1">
-                            Cargo Autorizador Oficial * (RNF-44)
-                        </label>
-                        <input type="text" id="autorizado_por_cargo" name="autorizado_por_cargo" required placeholder="Ej. Presidente de la Comisión Disciplinaria" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-amber-500 focus:outline-none">
-                    </div>
+                <div class="pt-4 border-t border-gray-700">
                     <div>
                         <label for="motivo_publicacion" class="block text-xs font-semibold text-gray-300 mb-1">
-                            Motivo o Justificación de la Publicación Oficial * (RNF-30)
+                            Motivo o Justificación de la Publicación Oficial * (RNF-30; el cargo autorizador se registra automáticamente según el rol de tu cuenta)
                         </label>
-                        <input type="text" id="motivo_publicacion" name="motivo" required placeholder="Ej. Publicación del boletín semanal de sanciones de la jornada" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-amber-500 focus:outline-none">
+                        <input type="text" id="motivo_publicacion" name="motivo" required value="{{ old('motivo') }}" placeholder="Ej. Publicación del boletín semanal de sanciones de la jornada" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-amber-500 focus:outline-none">
                     </div>
                 </div>
 

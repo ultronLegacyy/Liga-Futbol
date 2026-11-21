@@ -329,7 +329,7 @@
             @endforelse
         </div>
 
-        @can('gestionar', $expediente)
+        @can('create', App\Models\AudienciaDisciplinaria::class)
             @if ($expediente->estaAbierto())
                 <div class="mt-6 border-t border-indigo-900/50 pt-5">
                     <h3 class="text-base font-bold text-indigo-200 mb-3">Registrar Nueva Audiencia de Comparecencia</h3>
@@ -338,7 +338,7 @@
                         <div class="grid gap-4 md:grid-cols-2">
                             <div>
                                 <label for="fecha_audiencia" class="block text-xs font-semibold text-gray-300 mb-1">Fecha y Hora de Comparecencia *</label>
-                                <input type="datetime-local" id="fecha_audiencia" name="fecha_audiencia" required value="{{ old('fecha_audiencia', now()->format('Y-m-d\TH:i')) }}" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none">
+                                <input type="datetime-local" id="fecha_audiencia" name="fecha_audiencia" required value="{{ old('fecha_audiencia', now(\App\Models\Sancion::ZONA_HORARIA)->format('Y-m-d\TH:i')) }}" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none">
                             </div>
                             <div>
                                 <label for="lugar_o_medio" class="block text-xs font-semibold text-gray-300 mb-1">Lugar o Medio de Celebración *</label>
@@ -477,7 +477,7 @@
                             <div class="mt-1 text-gray-200">
                                 Validación:
                                 @if ($sancion->estaValidada())
-                                    <span class="text-emerald-300 font-medium">Sí ({{ $sancion->validadoPor?->name ?? 'Usuario' }} el {{ $sancion->fecha_validacion?->format('d/m/Y') }})</span>
+                                    <span class="text-emerald-300 font-medium">Sí ({{ $sancion->validadoPor?->name ?? 'Usuario' }} el {{ $sancion->fecha_validacion?->timezone(\App\Models\Sancion::ZONA_HORARIA)->format('d/m/Y') }})</span>
                                 @else
                                     <span class="text-amber-400">Pendiente de validación</span>
                                 @endif
@@ -485,7 +485,7 @@
                             <div class="text-gray-200">
                                 Autorización Boletín:
                                 @if ($sancion->publicada_en_boletin)
-                                    <span class="text-emerald-300 font-medium">{{ $sancion->autorizado_por_cargo ?? $sancion->autorizadoPor?->name ?? 'Comisión' }} ({{ $sancion->fecha_publicacion?->format('d/m/Y') }})</span>
+                                    <span class="text-emerald-300 font-medium">{{ $sancion->autorizado_por_cargo ?? $sancion->autorizadoPor?->name ?? 'Comisión' }} ({{ $sancion->fecha_publicacion?->timezone(\App\Models\Sancion::ZONA_HORARIA)->format('d/m/Y H:i') }})</span>
                                 @else
                                     <span class="text-gray-400">Sin publicar</span>
                                 @endif
@@ -499,9 +499,9 @@
                     </div>
 
                     <!-- Botones de Gestión de Sanción (Validar, Publicar en Boletín) -->
-                    @can('gestionar', $expediente)
-                        <div class="mt-4 pt-3 border-t border-gray-800 flex flex-wrap items-center justify-end gap-3 text-xs">
-                            @if (! $sancion->estaValidada())
+                    <div class="mt-4 pt-3 border-t border-gray-800 flex flex-wrap items-center justify-end gap-3 text-xs">
+                        @if (! $sancion->estaValidada() && $sancion->estaVigente())
+                            @can('validar', $sancion)
                                 <form method="POST" action="{{ route('disciplina.sanciones.validar', $sancion) }}" class="flex flex-wrap items-center gap-2">
                                     @csrf
                                     <input type="text" name="motivo" required minlength="5" value="Validación oficial de la sanción por la Comisión Disciplinaria" placeholder="Motivo de validación oficial..." class="rounded border border-gray-600 bg-gray-900 px-2 py-1 text-xs text-white placeholder-gray-500 focus:border-indigo-500 focus:outline-none min-w-[240px]">
@@ -509,26 +509,29 @@
                                         Validar Sanción Oficialmente (RNF-44)
                                     </button>
                                 </form>
-                            @elseif (! $sancion->publicada_en_boletin && $sancion->estaVigente())
+                            @endcan
+                        @elseif (! $sancion->publicada_en_boletin && $sancion->estaVigente())
+                            @can('publicar', $sancion)
                                 <form method="POST" action="{{ route('disciplina.sanciones.publicar-boletin', $sancion) }}" class="flex flex-wrap items-center gap-2">
                                     @csrf
-                                    <input type="text" name="autorizado_por_cargo" required placeholder="Cargo autorizador (ej. Presidente Comisión)" class="rounded border border-gray-600 bg-gray-900 px-2 py-1 text-xs text-white placeholder-gray-500 focus:border-emerald-500 focus:outline-none">
                                     <input type="hidden" name="motivo" value="Publicación individual autorizada en boletín oficial de castigados">
                                     <button type="submit" class="rounded bg-emerald-700 px-3 py-1.5 font-semibold text-white hover:bg-emerald-600">
                                         Publicar en Boletín Oficial
                                     </button>
                                 </form>
-                            @elseif ($sancion->publicada_en_boletin)
-                                <form method="POST" action="{{ route('disciplina.sanciones.despublicar-boletin', $sancion) }}" onsubmit="return confirm('¿Retirar esta sanción del boletín de castigados?');">
+                            @endcan
+                        @elseif ($sancion->publicada_en_boletin)
+                            @can('publicar', $sancion)
+                                <form method="POST" action="{{ route('disciplina.sanciones.despublicar', $sancion) }}" onsubmit="return confirm('¿Retirar esta sanción del boletín de castigados?');">
                                     @csrf
                                     <input type="hidden" name="motivo" value="Retiro oficial de la sanción del boletín de castigados">
                                     <button type="submit" class="rounded border border-red-800 px-3 py-1.5 font-semibold text-red-300 hover:bg-red-900/40">
                                         Retirar del Boletín
                                     </button>
                                 </form>
-                            @endif
-                        </div>
-                    @endcan
+                            @endcan
+                        @endif
+                    </div>
                 </div>
             @empty
                 <div class="rounded-lg border border-gray-700 bg-gray-900/40 p-4 text-center text-sm text-gray-400">
@@ -538,7 +541,7 @@
         </div>
 
         <!-- Formulario de Dictamen y Resolución Definitiva (RF-10.2 / RF-10.3) -->
-        @can('gestionar', $expediente)
+        @can('create', App\Models\Sancion::class)
             @if ($expediente->estaAbierto())
                 <div class="mt-6 border-t border-emerald-900/50 pt-5">
                     <h3 class="text-base font-bold text-emerald-200 mb-2">Dictaminar Resolución y Sanción Disciplinaria (RF-10.2)</h3>
@@ -598,9 +601,7 @@
                                 <label for="tipo_sancion" class="block text-xs font-semibold text-gray-300 mb-1">Tipo de Sanción *</label>
                                 <select id="tipo_sancion" name="tipo_sancion" required class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none">
                                     <option value="partidos_suspension" {{ old('tipo_sancion', 'partidos_suspension') === 'partidos_suspension' ? 'selected' : '' }}>Suspensión por Partidos (Jugador)</option>
-                                    <option value="suspension_equipo" {{ old('tipo_sancion') === 'suspension_equipo' ? 'selected' : '' }}>Suspensión de Equipo por Partidos</option>
                                     <option value="suspension_temporal" {{ old('tipo_sancion') === 'suspension_temporal' ? 'selected' : '' }}>Suspensión Temporal (Fechas)</option>
-                                    <option value="inhabilitacion" {{ old('tipo_sancion') === 'inhabilitacion' ? 'selected' : '' }}>Inhabilitación Definitiva</option>
                                     <option value="multa_economica" {{ old('tipo_sancion') === 'multa_economica' ? 'selected' : '' }}>Multa Económica</option>
                                     <option value="amonestacion" {{ old('tipo_sancion') === 'amonestacion' ? 'selected' : '' }}>Amonestación Escrita</option>
                                 </select>
@@ -615,10 +616,10 @@
                         <div class="grid gap-4 md:grid-cols-3">
                             <div>
                                 <label for="fecha_inicio" class="block text-xs font-semibold text-gray-300 mb-1">Fecha de Inicio de Sanción</label>
-                                <input type="date" id="fecha_inicio" name="fecha_inicio" value="{{ old('fecha_inicio', now()->format('Y-m-d')) }}" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none">
+                                <input type="date" id="fecha_inicio" name="fecha_inicio" value="{{ old('fecha_inicio', now(\App\Models\Sancion::ZONA_HORARIA)->format('Y-m-d')) }}" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none">
                             </div>
                             <div>
-                                <label for="fecha_fin" class="block text-xs font-semibold text-gray-300 mb-1">Fecha de Término (Opcional)</label>
+                                <label for="fecha_fin" class="block text-xs font-semibold text-gray-300 mb-1">Fecha de Término (Obligatoria si es Temporal)</label>
                                 <input type="date" id="fecha_fin" name="fecha_fin" value="{{ old('fecha_fin') }}" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none">
                             </div>
                             <div>
@@ -694,11 +695,16 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!tipoSelect || !partidosInput) return;
 
     const sincronizarCamposSancion = () => {
-        const requierePartidos = ['partidos_suspension', 'suspension_equipo'].includes(tipoSelect.value);
+        const requierePartidos = tipoSelect.value === 'partidos_suspension';
         if (!requierePartidos) {
             partidosInput.value = '0';
         } else if (parseInt(partidosInput.value || '0', 10) <= 0) {
             partidosInput.value = '1';
+        }
+
+        const fechaFinInput = document.getElementById('fecha_fin');
+        if (fechaFinInput) {
+            fechaFinInput.required = tipoSelect.value === 'suspension_temporal';
         }
     };
 

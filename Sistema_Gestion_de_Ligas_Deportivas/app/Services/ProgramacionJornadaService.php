@@ -21,8 +21,7 @@ class ProgramacionJornadaService
 {
     public function __construct(
         private readonly AsignacionCanchaService $canchaService,
-        private readonly ReprogramacionPartidoService $reprogramacionService,
-        private readonly ControlSancionesDeportivasService $controlSanciones,
+        private readonly ReprogramacionPartidoService $reprogramacionService
     ) {
     }
 
@@ -208,25 +207,23 @@ class ProgramacionJornadaService
             ]);
         }
 
+        // HU-027 CA2: Bloqueo si el equipo tiene sanción vigente que le impide jugar
+        if ($this->equipoTieneSancionVigente($local)) {
+            throw ValidationException::withMessages([
+                'equipo_local_id' => "El equipo {$local->nombre} cuenta con una sanción disciplinaria vigente que le impide ser programado.",
+            ]);
+        }
+
+        if ($this->equipoTieneSancionVigente($visitante)) {
+            throw ValidationException::withMessages([
+                'equipo_visitante_id' => "El equipo {$visitante->nombre} cuenta con una sanción disciplinaria vigente que le impide ser programado.",
+            ]);
+        }
+
         $canchaId = ! empty($datos['cancha_id']) ? (int) $datos['cancha_id'] : null;
         $arbitroId = ! empty($datos['arbitro_id']) ? (int) $datos['arbitro_id'] : null;
         $fecha = ! empty($datos['fecha_partido']) ? Carbon::parse($datos['fecha_partido'])->toDateString() : null;
         $hora = ! empty($datos['hora_partido']) ? Carbon::parse($datos['hora_partido'])->format('H:i:s') : null;
-
-        // HU-047 / RF-10.4: Bloqueo si el equipo tiene sanción vigente que le impide jugar (IU-05)
-        if ($this->equipoTieneSancionVigente($local, $fecha)) {
-            $this->controlSanciones->validarProgramacionEquipo($local, 'equipo_local_id', $fecha);
-            throw ValidationException::withMessages([
-                'equipo_local_id' => "[IU-05] El equipo {$local->nombre} cuenta con una sanción disciplinaria vigente que le impide ser programado.",
-            ]);
-        }
-
-        if ($this->equipoTieneSancionVigente($visitante, $fecha)) {
-            $this->controlSanciones->validarProgramacionEquipo($visitante, 'equipo_visitante_id', $fecha);
-            throw ValidationException::withMessages([
-                'equipo_visitante_id' => "[IU-05] El equipo {$visitante->nombre} cuenta con una sanción disciplinaria vigente que le impide ser programado.",
-            ]);
-        }
 
         if ($canchaId !== null || $arbitroId !== null) {
             if ($fecha === null || $hora === null) {
@@ -396,21 +393,6 @@ class ProgramacionJornadaService
         $hora = array_key_exists('hora_partido', $datos)
             ? (! empty($datos['hora_partido']) ? Carbon::parse($datos['hora_partido'])->format('H:i:s') : null)
             : $partido->hora_partido;
-
-        // HU-047 / RF-10.4: Bloqueo si el equipo tiene sanción vigente que le impide jugar (IU-05)
-        if ($this->equipoTieneSancionVigente($local, $fecha)) {
-            $this->controlSanciones->validarProgramacionEquipo($local, 'equipo_local_id', $fecha);
-            throw ValidationException::withMessages([
-                'equipo_local_id' => "[IU-05] El equipo {$local->nombre} cuenta con una sanción disciplinaria vigente que le impide ser programado.",
-            ]);
-        }
-
-        if ($this->equipoTieneSancionVigente($visitante, $fecha)) {
-            $this->controlSanciones->validarProgramacionEquipo($visitante, 'equipo_visitante_id', $fecha);
-            throw ValidationException::withMessages([
-                'equipo_visitante_id' => "[IU-05] El equipo {$visitante->nombre} cuenta con una sanción disciplinaria vigente que le impide ser programado.",
-            ]);
-        }
 
         if ($canchaId !== null || $arbitroId !== null) {
             if ($fecha === null || $hora === null) {
@@ -707,15 +689,11 @@ class ProgramacionJornadaService
     }
 
     /**
-     * Evalúa si un equipo cuenta con una sanción disciplinaria vigente que le impida jugar (HU-027 CA2, HU-047 RF-10.4).
+     * Evalúa si un equipo cuenta con una sanción disciplinaria vigente que le impida jugar (HU-027 CA2).
      */
-    public function equipoTieneSancionVigente(Equipo $equipo, ?string $fechaPartido = null): bool
+    public function equipoTieneSancionVigente(Equipo $equipo): bool
     {
         if ($equipo->partidos_default_acumulados >= 3) {
-            return true;
-        }
-
-        if ($this->controlSanciones->equipoTieneSancionVigente($equipo, $fechaPartido)) {
             return true;
         }
 

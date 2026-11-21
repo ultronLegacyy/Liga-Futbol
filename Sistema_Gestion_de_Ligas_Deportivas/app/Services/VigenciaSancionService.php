@@ -6,13 +6,14 @@ use App\Models\Jugador;
 use App\Models\Partido;
 use App\Models\Sancion;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Servicio para calcular vigencia de sanciones y administrar el boletín oficial de castigados (HU-046 / RF-10.3, RNF-44).
+ * Servicio para calcular vigencia de sanciones y administrar el boletín interno de castigados (HU-046 / RF-10.3, RNF-44).
  */
 class VigenciaSancionService
 {
@@ -22,79 +23,35 @@ class VigenciaSancionService
     }
 
     /**
-     * Calcula hasta qué fecha o partido sigue vigente la sanción (HU-046 Criterio 1).
+     * Normaliza y actualiza el estado de vigencia de la sanción según su tipo, sin plazos por omisión ni estimaciones (PO #47).
      */
     public function calcularVigencia(Sancion $sancion): Sancion
     {
-        $fechaInicio = $sancion->fecha_inicio ?? Carbon::today();
-        $sancion->fecha_inicio = Carbon::parse($fechaInicio);
+        $fechaInicio = $sancion->fecha_inicio !== null
+            ? $sancion->fecha_inicio->toDateString()
+            : Carbon::today(Sancion::ZONA_HORARIA)->toDateString();
 
-        // Si ya está cumplida, conservar la fecha real de cumplimiento sin reproyectar partidos futuros
-        if ($sancion->estaCumplida()) {
+        $sancion->fecha_inicio = Carbon::parse($fechaInicio, Sancion::ZONA_HORARIA);
+
+        if ($sancion->estaCumplida() || $sancion->estado === Sancion::ESTADO_CANCELADA) {
             $sancion->save();
 
             return $sancion;
         }
 
-        // 1. Sanciones por partidos de suspensión
-        if ($sancion->partidos_suspendidos > 0 && $sancion->partidosRestantes() > 0) {
-            $equipoId = $sancion->equipo_id;
+        if ($sancion->tipo_sancion === Sancion::TIPO_PARTIDOS) {
+            // Una suspensión por partidos se cumple contando partidos oficiales reales; no se estima fecha_fin por calendario (PO #47).
+            $sancion->partido_suspension_hasta_id = null;
+            $sancion->fecha_fin = null;
 
-            // Si la sanción es a persona, ubicar el equipo en que compite
-            if ($equipoId === null && $sancion->persona_id !== null) {
-                // Primero revisar involucrados del expediente
-                $involucrado = $sancion->expediente->involucrados()
-                    ->where('persona_id', $sancion->persona_id)
-                    ->whereNotNull('equipo_id')
-                    ->first();
-
-                if ($involucrado !== null) {
-                    $equipoId = $involucrado->equipo_id;
-                } else {
-                    $jugador = Jugador::query()
-                        ->where('persona_id', $sancion->persona_id)
-                        ->where('estado_elegibilidad', '!=', 'Baja')
-                        ->latest('id')
-                        ->first();
-                    $equipoId = $jugador?->equipo_id;
-                }
+            if ($sancion->partidos_suspendidos > 0 && $sancion->partidos_cumplidos >= $sancion->partidos_suspendidos) {
+                $sancion->estado = Sancion::ESTADO_CUMPLIDA;
             }
-
-            if ($equipoId !== null) {
-                $partidosRestantes = $sancion->partidosRestantes();
-                $partidoOrigenId = $sancion->expediente->partido_id;
-
-                // Proyectar los siguientes N partidos programados del equipo (excluyendo el partido origen de la falta)
-                $proximosPartidos = Partido::query()
-                    ->where(function ($q) use ($equipoId): void {
-                        $q->where('equipo_local_id', $equipoId)
-                            ->orWhere('equipo_visitante_id', $equipoId);
-                    })
-                    ->when($partidoOrigenId !== null, fn ($q) => $q->where('id', '!=', $partidoOrigenId))
-                    ->whereNotIn('estado', [Partido::ESTADO_FINALIZADO, Partido::ESTADO_CANCELADO])
-                    ->whereNotNull('fecha_partido')
-                    ->orderBy('fecha_partido')
-                    ->orderBy('hora_partido')
-                    ->take($partidosRestantes)
-                    ->get();
-
-                if ($proximosPartidos->isNotEmpty()) {
-                    /** @var Partido $ultimoPartido */
-                    $ultimoPartido = $proximosPartidos->last();
-                    $sancion->partido_suspension_hasta_id = $ultimoPartido->id;
-                    $sancion->fecha_fin = Carbon::parse($ultimoPartido->fecha_partido);
-                } else {
-                    // Si aún no hay partidos generados en calendario, estimar 7 días por partido
-                    $diasEstimados = $partidosRestantes * 7;
-                    $sancion->fecha_fin = Carbon::parse($sancion->fecha_inicio)->addDays($diasEstimados);
-                }
-            } else {
-                $diasEstimados = $sancion->partidosRestantes() * 7;
-                $sancion->fecha_fin = Carbon::parse($sancion->fecha_inicio)->addDays($diasEstimados);
+        } elseif ($sancion->tipo_sancion === Sancion::TIPO_TEMPORAL && $sancion->fecha_fin !== null) {
+            $hoy = Carbon::today(Sancion::ZONA_HORARIA)->toDateString();
+            if ($sancion->fecha_fin->toDateString() < $hoy) {
+                $sancion->estado = Sancion::ESTADO_CUMPLIDA;
             }
-        } elseif ($sancion->tipo_sancion === Sancion::TIPO_TEMPORAL && $sancion->fecha_fin === null) {
-            // Predeterminado de 30 días si no se especificó fecha_fin
-            $sancion->fecha_fin = Carbon::parse($sancion->fecha_inicio)->addDays(30);
         }
 
         $sancion->save();
@@ -103,8 +60,8 @@ class VigenciaSancionService
     }
 
     /**
-     * Computa partidos cumplidos para jugadores o equipos tras la finalización de un partido oficial.
-     * Criterio 2: cuando la sanción se cumple, pasa a estado Cumplida y deja de estar activa.
+     * Computa partidos cumplidos para jugadores sancionados tras la finalización de un partido oficial.
+     * Las sanciones activas de temporadas previas siguen asociadas a persona_id y se descuentan en el equipo actual (PO #49).
      */
     public function computarPartidoJugado(Partido $partido): void
     {
@@ -115,103 +72,133 @@ class VigenciaSancionService
         }
 
         DB::transaction(function () use ($equiposIds, $partido): void {
-            // 1. Sanciones a equipos participantes (sanciones colectivas donde no hay persona individual)
-            $sancionesEquipos = Sancion::query()
-                ->with('expediente')
-                ->whereNull('persona_id')
-                ->whereIn('equipo_id', $equiposIds)
-                ->where('estado', Sancion::ESTADO_VIGENTE)
-                ->where('partidos_suspendidos', '>', 0)
-                ->whereHas('expediente', fn ($q) => $q->where('partido_id', '!=', $partido->id))
-                ->lockForUpdate()
-                ->get();
-
-            foreach ($sancionesEquipos as $sancion) {
-                $this->aplicarDescuentoPartido($sancion, $partido);
-            }
-
-            // 2. Sanciones a jugadores con inscripción activa en los equipos participantes
             $personasIds = Jugador::query()
                 ->whereIn('equipo_id', $equiposIds)
                 ->where('estado_elegibilidad', '!=', 'Baja')
                 ->pluck('persona_id')
                 ->filter()
                 ->unique()
-                ->toArray();
+                ->values()
+                ->all();
 
-            if (! empty($personasIds)) {
-                $sancionesJugadores = Sancion::query()
-                    ->with('expediente')
-                    ->whereIn('persona_id', $personasIds)
-                    ->where('estado', Sancion::ESTADO_VIGENTE)
-                    ->where('partidos_suspendidos', '>', 0)
-                    ->whereHas('expediente', fn ($q) => $q->where('partido_id', '!=', $partido->id))
-                    ->lockForUpdate()
-                    ->get();
+            if (empty($personasIds)) {
+                return;
+            }
 
-                foreach ($sancionesJugadores as $sancion) {
-                    $this->aplicarDescuentoPartido($sancion, $partido);
-                }
+            $sancionesJugadores = Sancion::query()
+                ->with('expediente')
+                ->whereIn('persona_id', $personasIds)
+                ->where('tipo_sancion', Sancion::TIPO_PARTIDOS)
+                ->where('estado', Sancion::ESTADO_VIGENTE)
+                ->where('partidos_suspendidos', '>', 0)
+                ->whereHas('expediente', function (Builder $q) use ($partido): void {
+                    // Incluye expedientes creados manualmente sin partido_id (evita que partido_id != X ignore NULL en SQL).
+                    $q->where(function (Builder $eq) use ($partido): void {
+                        $eq->whereNull('partido_id')
+                            ->orWhere('partido_id', '!=', $partido->id);
+                    });
+                })
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($sancionesJugadores as $sancion) {
+                $this->aplicarDescuentoPartido($sancion, $partido);
             }
         });
     }
 
     /**
-     * Valida formalmente una sanción dictaminada por la Comisión Disciplinaria (RNF-44).
+     * Valida formalmente una sanción vigente dictaminada por la Comisión Disciplinaria (RNF-44).
      */
     public function validarSancion(Sancion $sancion, User $usuario, string $motivo): Sancion
     {
         return $this->auditService->conMotivo($motivo, function () use ($sancion, $usuario): Sancion {
-            $sancion->validado_por_usuario_id = $usuario->id;
-            $sancion->fecha_validacion = now();
-            $sancion->save();
+            $bloqueada = Sancion::query()
+                ->lockForUpdate()
+                ->findOrFail($sancion->id);
 
-            return $sancion;
+            if (! $bloqueada->estaVigente()) {
+                throw ValidationException::withMessages([
+                    'sancion' => 'Solo se pueden validar sanciones disciplinarias que se encuentren vigentes.',
+                ]);
+            }
+
+            if ($bloqueada->estaValidada()) {
+                throw ValidationException::withMessages([
+                    'sancion' => 'RNF-44: Esta sanción ya fue validada formalmente y su validador registrado es inmutable.',
+                ]);
+            }
+
+            $bloqueada->validado_por_usuario_id = $usuario->id;
+            $bloqueada->fecha_validacion = now();
+            $bloqueada->save();
+
+            return $bloqueada;
         });
     }
 
     /**
-     * Publica una o varias sanciones previamente validadas en el boletín semanal de castigados (RNF-44).
-     * Toda publicación oficial registra de forma inalterable quién la autorizó y bajo qué cargo.
+     * Publica una o varias sanciones previamente validadas en el boletín oficial de castigados (RNF-44).
+     * Toda publicación oficial registra de forma inalterable al usuario autorizador y el cargo derivado de su rol.
      *
      * @param  array<int>  $sancionesIds
      * @return int Cantidad de sanciones publicadas
-     *
-     * @throws ValidationException Si se intenta publicar una sanción aún no validada por la Comisión
      */
-    public function publicarEnBoletin(array $sancionesIds, User $usuario, string $motivo, ?string $autorizadoPorCargo = null): int
+    public function publicarEnBoletin(array $sancionesIds, User $usuario, string $motivo): int
     {
-        return $this->auditService->conMotivo($motivo, function () use ($sancionesIds, $usuario, $autorizadoPorCargo): int {
+        return $this->auditService->conMotivo($motivo, function () use ($sancionesIds, $usuario): int {
+            $idsOrdenados = array_values(array_unique(array_map('intval', $sancionesIds)));
+            sort($idsOrdenados);
+
             $sanciones = Sancion::query()
-                ->whereIn('id', $sancionesIds)
-                ->where('estado', Sancion::ESTADO_VIGENTE)
+                ->whereIn('id', $idsOrdenados)
+                ->orderBy('id')
+                ->lockForUpdate()
                 ->get();
 
             if ($sanciones->isEmpty()) {
                 throw ValidationException::withMessages([
-                    'sanciones_ids' => 'No se encontraron sanciones vigentes seleccionadas para publicar en el boletín.',
+                    'sanciones_ids' => 'No se encontraron sanciones seleccionadas para publicar en el boletín.',
                 ]);
             }
 
+            $hoy = Carbon::today(Sancion::ZONA_HORARIA)->toDateString();
+
             foreach ($sanciones as $sancion) {
-                // RNF-44: Un expediente/sanción sin validar por la Comisión Disciplinaria no puede publicarse
+                if (! $sancion->estaVigente()) {
+                    throw ValidationException::withMessages([
+                        'sanciones_ids' => "La sanción #{$sancion->id} no se encuentra vigente para publicarse en el boletín.",
+                    ]);
+                }
+
+                if ($sancion->tipo_sancion === Sancion::TIPO_TEMPORAL && $sancion->fecha_fin !== null && $sancion->fecha_fin->toDateString() < $hoy) {
+                    throw ValidationException::withMessages([
+                        'sanciones_ids' => "La sanción #{$sancion->id} ya concluyó su periodo de vigencia temporal.",
+                    ]);
+                }
+
                 if (! $sancion->estaValidada()) {
                     throw ValidationException::withMessages([
                         'sanciones_ids' => "RNF-44: La sanción #{$sancion->id} aún no ha sido validada formalmente por la Comisión Disciplinaria y no puede publicarse.",
                     ]);
                 }
+
+                if ($sancion->publicada_en_boletin) {
+                    throw ValidationException::withMessages([
+                        'sanciones_ids' => "RNF-44: La sanción #{$sancion->id} ya se encuentra publicada en el boletín y su autorizador es inmutable.",
+                    ]);
+                }
             }
 
-            $cargo = ($autorizadoPorCargo !== null && trim($autorizadoPorCargo) !== '')
-                ? trim($autorizadoPorCargo)
-                : ($usuario->getRoleNames()->first() ?? 'Comisión Disciplinaria');
+            $cargo = $usuario->getRoleNames()->first() ?? 'Comisión Disciplinaria';
+            $ahora = now();
 
             $publicadas = 0;
             foreach ($sanciones as $sancion) {
                 $sancion->publicada_en_boletin = true;
                 $sancion->autorizado_por_usuario_id = $usuario->id;
                 $sancion->autorizado_por_cargo = $cargo;
-                $sancion->fecha_publicacion = now();
+                $sancion->fecha_publicacion = $ahora;
                 $sancion->save();
 
                 $publicadas++;
@@ -227,23 +214,89 @@ class VigenciaSancionService
     public function despublicarDeBoletin(Sancion $sancion, User $usuario, string $motivo): Sancion
     {
         return $this->auditService->conMotivo($motivo, function () use ($sancion): Sancion {
-            $sancion->publicada_en_boletin = false;
-            $sancion->save();
+            $bloqueada = Sancion::query()
+                ->lockForUpdate()
+                ->findOrFail($sancion->id);
 
-            return $sancion;
+            if (! $bloqueada->publicada_en_boletin) {
+                throw ValidationException::withMessages([
+                    'sancion' => 'La sanción indicada no se encuentra publicada en el boletín oficial.',
+                ]);
+            }
+
+            $bloqueada->publicada_en_boletin = false;
+            $bloqueada->save();
+
+            return $bloqueada;
         });
     }
 
     /**
-     * Obtiene las sanciones activas para el boletín oficial de castigados (HU-046 Criterios 2 y 3, RNF-44).
+     * Obtiene las sanciones vigentes activas para el boletín de castigados (HU-046 Criterios 2 y 3, RNF-44, PO #45).
      *
-     * Reglas estrictas:
-     * 1. Solo sanciones con estado 'Vigente' (las cumplidas ya NO aparecen - Criterio 2).
-     * 2. Solo sanciones formalmente validadas y publicadas por la Comisión (RNF-44 - Criterio 3).
+     * Usa la misma vigencia que scopeInhabilitantes() en hora de Ciudad de México para excluir
+     * suspensiones temporales vencidas, partidos ya cumplidos, multas y amonestaciones.
      *
      * @return Collection<int, Sancion>
      */
-    public function obtenerBoletinCastigados(?int $temporadaId = null): Collection
+    public function obtenerBoletinCastigados(?int $temporadaId = null, ?User $usuario = null): Collection
+    {
+        $query = $this->baseQueryBoletin($temporadaId)
+            ->inhabilitantes();
+
+        if ($usuario === null || $usuario->hasRole('Administrador General') || $usuario->can('disciplina.sancionar')) {
+            $query->publicadasEnBoletin();
+        } elseif ($usuario->hasAnyRole(['Presidente del Club', 'Delegado del Club'])) {
+            // PO #45: Presidente y Delegado del Club ven las sanciones validadas de su club.
+            $clubId = $usuario->club_id;
+            if ($clubId === null) {
+                return new Collection();
+            }
+
+            $query->whereNotNull('validado_por_usuario_id')
+                ->where(function (Builder $scope) use ($clubId): void {
+                    $scope->whereHas('equipo', fn (Builder $eq) => $eq->where('club_id', $clubId))
+                        ->orWhereHas('persona.inscripciones', function (Builder $jq) use ($clubId): void {
+                            $jq->where('estado_elegibilidad', '!=', 'Baja')
+                                ->whereHas('equipo', fn (Builder $eq) => $eq->where('club_id', $clubId));
+                        });
+                });
+        } elseif ($usuario->hasRole('Jugador')) {
+            // PO #45: El jugador ve únicamente sus propias sanciones validadas.
+            $personaId = $usuario->persona_id;
+            if ($personaId === null) {
+                return new Collection();
+            }
+
+            $query->whereNotNull('validado_por_usuario_id')
+                ->where('persona_id', $personaId);
+        } else {
+            return new Collection();
+        }
+
+        return $query->orderByDesc('fecha_publicacion')
+            ->orderByDesc('fecha_validacion')
+            ->get();
+    }
+
+    /**
+     * Obtiene sanciones vigentes pendientes de publicar (solo para Tribunal de Penas / Administrador General).
+     *
+     * @return Collection<int, Sancion>
+     */
+    public function obtenerSancionesPendientesBoletin(?int $temporadaId = null): Collection
+    {
+        return $this->baseQueryBoletin($temporadaId)
+            ->inhabilitantes()
+            ->where('publicada_en_boletin', false)
+            ->orderByDesc('id')
+            ->get();
+    }
+
+    /**
+     * @return Builder<Sancion>
+     */
+    private function baseQueryBoletin(?int $temporadaId = null): Builder
     {
         $query = Sancion::query()
             ->with([
@@ -251,25 +304,23 @@ class VigenciaSancionService
                 'expediente.partido.visitante:id,nombre',
                 'expediente.partido.jornada:id,numero_jornada',
                 'persona:id,nombre,apellidos',
-                'equipo:id,nombre',
+                'equipo:id,club_id,nombre',
                 'articulo:id,codigo,descripcion',
+                'partidoHasta.jornada:id,numero_jornada',
                 'partidoHasta.local:id,nombre',
                 'partidoHasta.visitante:id,nombre',
                 'autorizadoPor:id,name,email',
                 'validadoPor:id,name,email',
-            ])
-            ->where('estado', Sancion::ESTADO_VIGENTE)
-            ->where('publicada_en_boletin', true)
-            ->whereNotNull('validado_por_usuario_id');
+            ]);
 
         if ($temporadaId !== null) {
-            $query->whereHas('expediente.partido.jornada.grupo', function ($q) use ($temporadaId): void {
+            $query->whereHas('expediente.partido.jornada.grupo', function (Builder $q) use ($temporadaId): void {
                 $q->where('temporada_id', $temporadaId)
-                    ->orWhereHas('categoria', fn ($cq) => $cq->where('temporada_id', $temporadaId));
+                    ->orWhereHas('categoria', fn (Builder $cq) => $cq->where('temporada_id', $temporadaId));
             });
         }
 
-        return $query->orderByDesc('fecha_publicacion')->get();
+        return $query;
     }
 
     /**
@@ -277,7 +328,7 @@ class VigenciaSancionService
      */
     private function aplicarDescuentoPartido(Sancion $sancion, Partido $partido): void
     {
-        if ($partido->fecha_partido !== null && $sancion->fecha_inicio !== null && $partido->fecha_partido->lt($sancion->fecha_inicio)) {
+        if ($partido->fecha_partido !== null && $sancion->fecha_inicio !== null && $partido->fecha_partido->toDateString() < $sancion->fecha_inicio->toDateString()) {
             return;
         }
 
@@ -287,8 +338,8 @@ class VigenciaSancionService
             $sancion->estado = Sancion::ESTADO_CUMPLIDA;
             $sancion->partido_suspension_hasta_id = $partido->id;
             $sancion->fecha_fin = $partido->fecha_partido !== null
-                ? Carbon::parse($partido->fecha_partido)
-                : Carbon::today();
+                ? Carbon::parse($partido->fecha_partido->toDateString(), Sancion::ZONA_HORARIA)
+                : Carbon::today(Sancion::ZONA_HORARIA);
             $sancion->save();
 
             return;

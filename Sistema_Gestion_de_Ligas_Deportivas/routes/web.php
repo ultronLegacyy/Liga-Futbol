@@ -232,9 +232,6 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/disciplina/sanciones/{sancion}/publicar-boletin', [SancionController::class, 'publicarBoletin'])
             ->whereNumber('sancion')
             ->name('disciplina.sanciones.publicar-boletin');
-        Route::post('/disciplina/sanciones/{sancion}/despublicar-boletin', [SancionController::class, 'despublicarBoletin'])
-            ->whereNumber('sancion')
-            ->name('disciplina.sanciones.despublicar-boletin');
 
         // Boletín Oficial de Castigados (HU-046 / RF-10.3, RNF-44)
         Route::get('/disciplina/boletin', [BoletinCastigadosController::class, 'index'])

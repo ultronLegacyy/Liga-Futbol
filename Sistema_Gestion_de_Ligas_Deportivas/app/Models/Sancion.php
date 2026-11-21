@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  * Registro de sanciones disciplinarias dictaminadas por el Tribunal de Penas (HU-045, HU-046, HU-047).
@@ -47,6 +48,8 @@ class Sancion extends Model
     use Auditable;
     use HasFactory;
 
+    public const ZONA_HORARIA = 'America/Mexico_City';
+
     public const ESTADO_VIGENTE = 'Vigente';
 
     public const ESTADO_CUMPLIDA = 'Cumplida';
@@ -57,23 +60,23 @@ class Sancion extends Model
 
     public const TIPO_TEMPORAL = 'suspension_temporal';
 
-    public const TIPO_INHABILITACION = 'inhabilitacion';
-
     public const TIPO_MULTA = 'multa_economica';
-
-    public const TIPO_EQUIPO = 'suspension_equipo';
 
     public const TIPO_AMONESTACION = 'amonestacion';
 
-    public const TIPO_SUSPENSION_PARTIDOS = self::TIPO_PARTIDOS;
+    /** @var list<string> */
+    public const TIPOS_PERMITIDOS = [
+        self::TIPO_PARTIDOS,
+        self::TIPO_TEMPORAL,
+        self::TIPO_MULTA,
+        self::TIPO_AMONESTACION,
+    ];
 
-    public const TIPO_SUSPENSION_TEMPORAL = self::TIPO_TEMPORAL;
-
-    public const TIPO_INHABILITACION_DEFINITIVA = self::TIPO_INHABILITACION;
-
-    public const TIPO_MULTA_ECONOMICA = self::TIPO_MULTA;
-
-    public const TIPO_SUSPENSION_EQUIPO = self::TIPO_EQUIPO;
+    /** @var list<string> */
+    public const TIPOS_INHABILITANTES = [
+        self::TIPO_PARTIDOS,
+        self::TIPO_TEMPORAL,
+    ];
 
     protected $table = 'sanciones';
 
@@ -117,16 +120,6 @@ class Sancion extends Model
         ];
     }
 
-    public function getPartidosSuspensionAttribute(): int
-    {
-        return (int) ($this->attributes['partidos_suspendidos'] ?? 0);
-    }
-
-    public function setPartidosSuspensionAttribute($value): void
-    {
-        $this->attributes['partidos_suspendidos'] = (int) $value;
-    }
-
     public function estaVigente(): bool
     {
         return $this->estado === self::ESTADO_VIGENTE;
@@ -160,8 +153,6 @@ class Sancion extends Model
         $detalleSancion = match ($this->tipo_sancion) {
             self::TIPO_PARTIDOS => "{$this->partidos_suspendidos} partido(s) de suspensión ({$this->partidosRestantes()} pendiente(s))",
             self::TIPO_TEMPORAL => 'Suspensión temporal hasta '.($this->fecha_fin?->format('d/m/Y') ?? 'fecha por determinar'),
-            self::TIPO_INHABILITACION => 'Inhabilitación definitiva',
-            self::TIPO_EQUIPO => 'Suspensión de equipo para disputar encuentros oficiales ('.$this->partidosRestantes().' partido(s) pendiente(s))',
             default => $this->descripcion_sancion ?? 'Sanción disciplinaria vigente',
         };
 
@@ -170,7 +161,7 @@ class Sancion extends Model
 
     /**
      * Filtra únicamente sanciones vigentes que inhabilitan la participación deportiva en la fecha dada (HU-047 / RF-10.4).
-     * Excluye multas económicas y amonestaciones, y valida la ventana temporal de suspensiones por fechas.
+     * Excluye multas económicas y amonestaciones, y valida la ventana temporal en hora de Ciudad de México.
      *
      * @param  Builder<Sancion>  $query
      * @return Builder<Sancion>
@@ -178,16 +169,15 @@ class Sancion extends Model
     public function scopeInhabilitantes(Builder $query, ?string $fechaReferencia = null): Builder
     {
         $fecha = $fechaReferencia !== null
-            ? \Illuminate\Support\Carbon::parse($fechaReferencia)->toDateString()
-            : now()->toDateString();
+            ? Carbon::parse($fechaReferencia, self::ZONA_HORARIA)->toDateString()
+            : Carbon::today(self::ZONA_HORARIA)->toDateString();
 
         return $query->where('estado', self::ESTADO_VIGENTE)
             ->where(function (Builder $sub) use ($fecha): void {
                 $sub->where(function (Builder $q): void {
-                    $q->whereIn('tipo_sancion', [self::TIPO_PARTIDOS, self::TIPO_EQUIPO])
+                    $q->where('tipo_sancion', self::TIPO_PARTIDOS)
                         ->whereColumn('partidos_cumplidos', '<', 'partidos_suspendidos');
                 })
-                    ->orWhere('tipo_sancion', self::TIPO_INHABILITACION)
                     ->orWhere(function (Builder $q) use ($fecha): void {
                         $q->where('tipo_sancion', self::TIPO_TEMPORAL)
                             ->where(function (Builder $f) use ($fecha): void {

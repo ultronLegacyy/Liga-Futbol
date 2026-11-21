@@ -2,19 +2,19 @@
 
 namespace App\Services;
 
-use App\Models\Equipo;
 use App\Models\Jugador;
 use App\Models\Partido;
 use App\Models\Sancion;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Servicio para verificar sanciones vigentes e impedir alineación o programación (HU-047 / RF-10.4, IU-05).
+ * Servicio para verificar sanciones vigentes e impedir la participación de jugadores inhabilitados (HU-047 / RF-10.4, IU-05).
  */
 class ControlSancionesDeportivasService
 {
     /**
-     * Valida que un jugador (ni su club completo) tenga sanción inhabilitante antes de ser alineado en un partido (HU-047 Criterio 1, IU-05).
+     * Valida que un jugador no cuente con sanción inhabilitante antes de ser alineado en un partido (HU-047 Criterio 1 y 3, IU-05).
+     * Aplica desde que la sanción es dictaminada (RNF-43 / PO #48), incluso antes de validarse para boletín.
      *
      * @throws ValidationException
      */
@@ -34,60 +34,6 @@ class ControlSancionesDeportivasService
                 'jugador_id' => $mensaje,
             ]);
         }
-
-        // También verificar si el equipo completo tiene sanción colectiva que impida jugar
-        $equipo = $jugadorModel->equipo;
-        if ($equipo !== null) {
-            $sancionEquipo = $this->obtenerSancionVigenteEquipo($equipo, $fechaReferencia);
-            if ($sancionEquipo !== null) {
-                $mensaje = "[IU-05] El equipo '{$equipo->nombre}' cuenta con una sanción disciplinaria vigente ({$sancionEquipo->explicacionRegla()}).";
-                throw ValidationException::withMessages([
-                    'jugador_id' => $mensaje,
-                ]);
-            }
-        }
-    }
-
-    /**
-     * Valida que un equipo no tenga sanción vigente que le impida ser programado (HU-047 Criterio 2, IU-05).
-     *
-     * @throws ValidationException
-     */
-    public function validarProgramacionEquipo(Equipo|int $equipo, ?string $campo = 'equipo_id', ?string $fechaPartido = null): void
-    {
-        $equipoModel = is_int($equipo) ? Equipo::findOrFail($equipo) : $equipo;
-        $sancion = $this->obtenerSancionVigenteEquipo($equipoModel, $fechaPartido);
-
-        if ($sancion !== null) {
-            $clave = $campo ?? 'equipo_id';
-            $mensaje = "[IU-05] Equipo inhabilitado para programación: '{$equipoModel->nombre}' cuenta con una sanción deportiva vigente ({$sancion->explicacionRegla()}).";
-
-            throw ValidationException::withMessages([
-                $clave => $mensaje,
-            ]);
-        }
-    }
-
-    /**
-     * Determina si un equipo tiene alguna sanción disciplinaria vigente que le impida jugar.
-     */
-    public function equipoTieneSancionVigente(Equipo $equipo, ?string $fechaPartido = null): bool
-    {
-        return $this->obtenerSancionVigenteEquipo($equipo, $fechaPartido) !== null;
-    }
-
-    /**
-     * Obtiene la sanción disciplinaria colectiva vigente que inhabilita a un equipo en la fecha indicada.
-     * Solo considera sanciones colectivas al club (persona_id IS NULL) de tipos inhabilitantes.
-     */
-    public function obtenerSancionVigenteEquipo(Equipo $equipo, ?string $fechaPartido = null): ?Sancion
-    {
-        return Sancion::query()
-            ->with(['expediente.articulo', 'articulo'])
-            ->whereNull('persona_id')
-            ->where('equipo_id', $equipo->id)
-            ->inhabilitantes($fechaPartido)
-            ->first();
     }
 
     /**

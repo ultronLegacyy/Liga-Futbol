@@ -22,14 +22,14 @@ class AudienciaDisciplinariaPolicy
 
     public function viewAny(User $usuario): Response
     {
-        return $usuario->can('disciplina.ver') || $usuario->can('disciplina.expedientes')
+        return $usuario->can('disciplina.expedientes')
             ? Response::allow()
             : Response::deny('No cuenta con privilegios para consultar audiencias disciplinarias.');
     }
 
     public function view(User $usuario, AudienciaDisciplinaria $audiencia): Response
     {
-        return $usuario->can('disciplina.ver') || $usuario->can('disciplina.expedientes')
+        return $usuario->can('disciplina.expedientes')
             ? Response::allow()
             : Response::deny('No cuenta con privilegios para consultar esta audiencia disciplinaria.');
     }

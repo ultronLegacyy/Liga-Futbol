@@ -2,10 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\Cancha;
 use App\Models\CatalogoArticulo;
 use App\Models\CedulaArbitral;
-use App\Models\Equipo;
 use App\Models\ExpedienteDisciplinario;
 use App\Models\Jugador;
 use App\Models\Partido;
@@ -13,8 +11,6 @@ use App\Models\Sancion;
 use App\Models\User;
 use App\Services\CedulaService;
 use App\Services\ControlSancionesDeportivasService;
-use App\Services\ProgramacionJornadaService;
-use App\Services\PublicacionProgramacionService;
 use App\Services\ValidacionCedulaService;
 use Database\Seeders\CatalogoSancionesArticulosSeeder;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -27,8 +23,8 @@ use Tests\TestCase;
 
 /**
  * Pruebas de integración para SCRUM-59 / HU-047 / RF-10.4, IU-05:
- * Bloqueo automático de alineación de jugadores sancionados y de programación
- * de equipos suspendidos, con mensajes explícitos de la regla deportiva e inhabilitación.
+ * Bloqueo automático de participación de jugadores sancionados vigentes (por partidos o tiempo),
+ * con mensajes explícitos de la regla deportiva [IU-05] desde el momento del dictamen (RNF-43 / PO #48).
  */
 class BloqueoSancionDeportivaTest extends TestCase
 {
@@ -45,17 +41,11 @@ class BloqueoSancionDeportivaTest extends TestCase
 
     private CedulaService $cedulaService;
 
-    private ProgramacionJornadaService $programacionService;
-
-    private PublicacionProgramacionService $publicacionService;
-
     private ControlSancionesDeportivasService $controlSancionesService;
 
     private ValidacionCedulaService $validacionCedulaService;
 
     private User $arbitroUser;
-
-    private User $adminUser;
 
     protected function setUp(): void
     {
@@ -67,14 +57,11 @@ class BloqueoSancionDeportivaTest extends TestCase
 
         $this->partido = $this->partidoConArbitro();
         $this->cedulaService = app(CedulaService::class);
-        $this->programacionService = app(ProgramacionJornadaService::class);
-        $this->publicacionService = app(PublicacionProgramacionService::class);
         $this->controlSancionesService = app(ControlSancionesDeportivasService::class);
         $this->validacionCedulaService = app(ValidacionCedulaService::class);
 
         $this->cedula = $this->cedulaService->abrir($this->partido);
         $this->arbitroUser = $this->usuario('Árbitro en Campo', $this->partido->arbitro);
-        $this->adminUser = $this->usuario('Administrador General');
 
         $this->articulo = CatalogoArticulo::firstOrCreate(
             ['codigo' => 'ART-303'],
@@ -99,7 +86,7 @@ class BloqueoSancionDeportivaTest extends TestCase
     }
 
     /**
-     * RF-10.4 / IU-05 Criterio 1: Intento de alinear vía servicio y vía HTTP PUT en cédula arbitral
+     * HU-047 CA1 y CA3 / IU-05: Intento de alinear vía servicio y vía HTTP PUT en cédula arbitral
      * a un jugador con sanción vigente es rechazado con HTTP 422 y mensaje IU-05 con folio, artículo y castigo.
      */
     public function test_bloquea_alineacion_de_jugador_con_sancion_vigente_con_mensaje_iu05(): void
@@ -122,7 +109,6 @@ class BloqueoSancionDeportivaTest extends TestCase
             'publicada_en_boletin' => true,
         ]);
 
-        // 1. Prueba directa del servicio de control
         try {
             $this->controlSancionesService->validarAlineacionJugador($jugador, $this->partido);
             $this->fail('Se esperaba ValidationException por sanción vigente.');
@@ -135,7 +121,6 @@ class BloqueoSancionDeportivaTest extends TestCase
             $this->assertStringContainsString('3 partido(s) de suspensión', $error);
         }
 
-        // 2. Prueba HTTP real PUT en cédula arbitral (422 JSON con mensaje IU-05)
         $response = $this->actingAs($this->arbitroUser)
             ->putJson(route('cedulas.alineacion', [$this->partido, $jugador->id]), [
                 'asistio' => true,
@@ -151,10 +136,43 @@ class BloqueoSancionDeportivaTest extends TestCase
     }
 
     /**
-     * Regresión de aislamiento: La sanción individual de un jugador (con equipo_id referencial)
-     * NO debe bloquear ni a otros compañeros de su equipo ni la programación del club.
+     * PO #48 / RNF-43: Una sanción recién dictaminada bloquea inmediatamente al jugador aunque falte validación en boletín.
      */
-    public function test_sancion_individual_de_jugador_no_bloquea_companeros_ni_equipo(): void
+    public function test_bloquea_alineacion_desde_dictamen_sin_esperar_validacion_en_boletin(): void
+    {
+        $jugador = Jugador::where('equipo_id', $this->partido->equipo_local_id)
+            ->where('estado_elegibilidad', 'Activo')
+            ->firstOrFail();
+
+        Sancion::create([
+            'expediente_id' => $this->expediente->id,
+            'persona_id' => $jugador->persona_id,
+            'equipo_id' => $this->partido->equipo_local_id,
+            'articulo_id' => $this->articulo->id,
+            'tipo_sancion' => Sancion::TIPO_PARTIDOS,
+            'partidos_suspendidos' => 1,
+            'partidos_cumplidos' => 0,
+            'estado' => Sancion::ESTADO_VIGENTE,
+            'publicada_en_boletin' => false,
+            'validado_por_usuario_id' => null,
+        ]);
+
+        $response = $this->actingAs($this->arbitroUser)
+            ->putJson(route('cedulas.alineacion', [$this->partido, $jugador->id]), [
+                'asistio' => true,
+                'numero_camiseta' => 14,
+                'clave_envio' => (string) Str::uuid(),
+            ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['jugador_id']);
+        $this->assertStringContainsString('[IU-05]', (string) $response->json('errors.jugador_id.0'));
+    }
+
+    /**
+     * Regresión de aislamiento: La sanción individual de un jugador no bloquea a otros compañeros de su equipo.
+     */
+    public function test_sancion_individual_de_jugador_no_bloquea_companeros(): void
     {
         $activos = Jugador::where('equipo_id', $this->partido->equipo_local_id)
             ->where('estado_elegibilidad', 'Activo')
@@ -177,7 +195,6 @@ class BloqueoSancionDeportivaTest extends TestCase
             'publicada_en_boletin' => true,
         ]);
 
-        // El compañero SÍ puede alinearse vía HTTP
         $response = $this->actingAs($this->arbitroUser)
             ->putJson(route('cedulas.alineacion', [$this->partido, $companeroElegible->id]), [
                 'asistio' => true,
@@ -186,20 +203,12 @@ class BloqueoSancionDeportivaTest extends TestCase
             ]);
 
         $response->assertOk();
-
-        // El equipo NO está suspendido
-        $this->controlSancionesService->validarProgramacionEquipo(
-            $this->partido->equipo_local_id,
-            'equipo_local_id',
-            '2026-11-20'
-        );
-        $this->assertTrue(true);
     }
 
     /**
-     * Regla de negocio: Multas económicas y amonestaciones vigentes NO bloquean participación ni programación.
+     * PO #47: Multas económicas y amonestaciones vigentes NO bloquean participación deportiva.
      */
-    public function test_multa_economica_y_amonestacion_vigentes_no_bloquean_alineacion_ni_programacion(): void
+    public function test_multa_economica_y_amonestacion_vigentes_no_bloquean_alineacion(): void
     {
         $jugador = Jugador::where('equipo_id', $this->partido->equipo_local_id)
             ->where('estado_elegibilidad', 'Activo')
@@ -220,33 +229,34 @@ class BloqueoSancionDeportivaTest extends TestCase
 
         Sancion::create([
             'expediente_id' => $this->expediente->id,
-            'persona_id' => null,
+            'persona_id' => $jugador->persona_id,
             'equipo_id' => $this->partido->equipo_local_id,
             'articulo_id' => $this->articulo->id,
             'tipo_sancion' => Sancion::TIPO_AMONESTACION,
-            'descripcion_sancion' => 'Amonestación institucional al club',
+            'descripcion_sancion' => 'Amonestación formal registrada',
             'partidos_suspendidos' => 0,
             'partidos_cumplidos' => 0,
             'estado' => Sancion::ESTADO_VIGENTE,
         ]);
 
         $this->controlSancionesService->validarAlineacionJugador($jugador, $this->partido);
-        $this->controlSancionesService->validarProgramacionEquipo($this->partido->equipo_local_id, 'equipo_local_id');
 
         $this->assertTrue(true);
     }
 
     /**
-     * Regla temporal: Suspensión temporal bloquea dentro del rango [fecha_inicio, fecha_fin] y permite fuera de él.
+     * Regla temporal y mutación >= en fecha_fin: Suspensión temporal bloquea en primer y último día y permite fuera del rango.
      */
-    public function test_suspension_temporal_respeta_ventana_de_fechas_en_programacion(): void
+    public function test_suspension_temporal_respeta_limites_inclusivos_de_fechas_en_jugador(): void
     {
-        $equipo = Equipo::findOrFail($this->partido->equipo_local_id);
+        $jugador = Jugador::where('equipo_id', $this->partido->equipo_local_id)
+            ->where('estado_elegibilidad', 'Activo')
+            ->firstOrFail();
 
         Sancion::create([
             'expediente_id' => $this->expediente->id,
-            'persona_id' => null,
-            'equipo_id' => $equipo->id,
+            'persona_id' => $jugador->persona_id,
+            'equipo_id' => $this->partido->equipo_local_id,
             'articulo_id' => $this->articulo->id,
             'tipo_sancion' => Sancion::TIPO_TEMPORAL,
             'descripcion_sancion' => 'Suspensión temporal de 15 días',
@@ -257,12 +267,27 @@ class BloqueoSancionDeportivaTest extends TestCase
             'estado' => Sancion::ESTADO_VIGENTE,
         ]);
 
-        // Fuera del rango (posterior al 15 de diciembre) debe permitirse
-        $this->controlSancionesService->validarProgramacionEquipo($equipo, 'equipo_local_id', '2026-12-20');
+        // Un día antes y un día después deben permitirse
+        $this->partido->forceFill(['fecha_partido' => '2026-11-30']);
+        $this->controlSancionesService->validarAlineacionJugador($jugador, $this->partido);
 
-        // Dentro del rango (10 de diciembre) debe bloquear con IU-05
+        $this->partido->forceFill(['fecha_partido' => '2026-12-16']);
+        $this->controlSancionesService->validarAlineacionJugador($jugador, $this->partido);
+
+        // El primer día (2026-12-01) bloquea
+        $bloqueadoInicio = false;
+        try {
+            $this->partido->forceFill(['fecha_partido' => '2026-12-01']);
+            $this->controlSancionesService->validarAlineacionJugador($jugador, $this->partido);
+        } catch (ValidationException $e) {
+            $bloqueadoInicio = str_contains($e->validator->errors()->first('jugador_id'), '[IU-05]');
+        }
+        $this->assertTrue($bloqueadoInicio, 'El primer día de vigencia debe bloquear al jugador.');
+
+        // El último día (2026-12-15) también debe bloquear (>= inclusivo)
         $this->expectException(ValidationException::class);
-        $this->controlSancionesService->validarProgramacionEquipo($equipo, 'equipo_local_id', '2026-12-10');
+        $this->partido->forceFill(['fecha_partido' => '2026-12-15']);
+        $this->controlSancionesService->validarAlineacionJugador($jugador, $this->partido);
     }
 
     /**
@@ -272,7 +297,6 @@ class BloqueoSancionDeportivaTest extends TestCase
     {
         $jugador = Jugador::where('equipo_id', $this->partido->equipo_local_id)->firstOrFail();
 
-        // Crear sanción ya cumplida
         Sancion::create([
             'expediente_id' => $this->expediente->id,
             'persona_id' => $jugador->persona_id,
@@ -292,120 +316,14 @@ class BloqueoSancionDeportivaTest extends TestCase
     }
 
     /**
-     * RF-10.4 / IU-05 Criterio 2: Intento de programar un partido vía servicio y HTTP POST con equipo suspendido
-     * es rechazado con mensaje IU-05 indicando la regla deportiva.
+     * HU-047 / ValidacionCedulaService: Detecta al cierre de cédula si un jugador alineado tiene sanción vigente con IU-05.
      */
-    public function test_bloquea_programacion_de_partido_con_equipo_suspendido_con_mensaje_iu05(): void
+    public function test_validacion_cedula_detecta_sanciones_vigentes_en_alineacion_con_iu05(): void
     {
-        $equipoLocal = Equipo::findOrFail($this->partido->equipo_local_id);
-        $equipoVisitante = Equipo::findOrFail($this->partido->equipo_visitante_id);
-
-        Sancion::create([
-            'expediente_id' => $this->expediente->id,
-            'persona_id' => null,
-            'equipo_id' => $equipoLocal->id,
-            'articulo_id' => $this->articulo->id,
-            'tipo_sancion' => Sancion::TIPO_EQUIPO,
-            'descripcion_sancion' => 'Suspensión del club por incidentes graves',
-            'motivo_resolucion' => 'Resolución que inhabilita al equipo para programación',
-            'partidos_suspendidos' => 2,
-            'partidos_cumplidos' => 0,
-            'estado' => Sancion::ESTADO_VIGENTE,
-            'publicada_en_boletin' => true,
-        ]);
-
-        try {
-            $this->controlSancionesService->validarProgramacionEquipo($equipoLocal, 'equipo_local_id');
-            $this->fail('Se esperaba ValidationException por equipo suspendido.');
-        } catch (ValidationException $e) {
-            $error = $e->validator->errors()->first('equipo_local_id');
-            $this->assertStringContainsString('[IU-05]', $error);
-            $this->assertStringContainsString('Equipo inhabilitado para programación', $error);
-            $this->assertStringContainsString($equipoLocal->nombre, $error);
-            $this->assertStringContainsString($this->expediente->folio, $error);
-        }
-
-        // Intento HTTP POST de alta manual de partido con equipo sancionado
-        $cancha = Cancha::factory()->create();
-        $response = $this->actingAs($this->adminUser)
-            ->post(route('jornadas.partidos.store', $this->partido->jornada), [
-                'equipo_local_id' => $equipoLocal->id,
-                'equipo_visitante_id' => $equipoVisitante->id,
-                'cancha_id' => $cancha->id,
-                'arbitro_id' => $this->partido->arbitro_id,
-                'fecha_partido' => $this->partido->jornada->fecha_inicio->toDateString(),
-                'hora_partido' => '12:00',
-            ]);
-
-        $response->assertSessionHasErrors('equipo_local_id');
-    }
-
-    /**
-     * RF-10.4 / IU-05: El servicio de programación de jornadas lanza excepción al intentar programar equipo sancionado.
-     */
-    public function test_programacion_jornada_service_rechaza_equipo_suspendido(): void
-    {
-        $equipoLocal = Equipo::findOrFail($this->partido->equipo_local_id);
-        $equipoVisitante = Equipo::findOrFail($this->partido->equipo_visitante_id);
-
-        Sancion::create([
-            'expediente_id' => $this->expediente->id,
-            'persona_id' => null,
-            'equipo_id' => $equipoVisitante->id,
-            'articulo_id' => $this->articulo->id,
-            'tipo_sancion' => Sancion::TIPO_EQUIPO,
-            'descripcion_sancion' => 'Suspensión del club visitante',
-            'partidos_suspendidos' => 2,
-            'partidos_cumplidos' => 0,
-            'estado' => Sancion::ESTADO_VIGENTE,
-            'publicada_en_boletin' => true,
-        ]);
-
-        $cancha = Cancha::factory()->create();
-
-        $this->expectException(ValidationException::class);
-
-        $this->programacionService->programarPartido($this->partido->jornada, [
-            'equipo_local_id' => $equipoLocal->id,
-            'equipo_visitante_id' => $equipoVisitante->id,
-            'cancha_id' => $cancha->id,
-            'fecha_partido' => '2026-11-20',
-            'hora_partido' => '12:00:00',
-        ], $this->adminUser);
-    }
-
-    /**
-     * RF-10.4: La detección de conflictos en publicación de jornada y validación de cédula identifican sanciones vigentes.
-     */
-    public function test_publicacion_y_validacion_cedula_detectan_sanciones_vigentes(): void
-    {
-        $equipoLocal = Equipo::findOrFail($this->partido->equipo_local_id);
         $jugadorVisitante = Jugador::where('equipo_id', $this->partido->equipo_visitante_id)
             ->where('estado_elegibilidad', 'Activo')
             ->firstOrFail();
 
-        Sancion::create([
-            'expediente_id' => $this->expediente->id,
-            'persona_id' => null,
-            'equipo_id' => $equipoLocal->id,
-            'articulo_id' => $this->articulo->id,
-            'tipo_sancion' => Sancion::TIPO_EQUIPO,
-            'descripcion_sancion' => 'Suspensión vigente de equipo',
-            'partidos_suspendidos' => 1,
-            'partidos_cumplidos' => 0,
-            'estado' => Sancion::ESTADO_VIGENTE,
-            'publicada_en_boletin' => true,
-        ]);
-
-        // 1. Conflicto en publicación de jornada
-        $conflictos = $this->publicacionService->detectarConflictos($this->partido->jornada);
-        $this->assertNotEmpty($conflictos);
-        $tieneConflictoSancion = collect($conflictos)->contains(function ($c): bool {
-            return str_contains((string) $c, 'sanción disciplinaria vigente');
-        });
-        $this->assertTrue($tieneConflictoSancion);
-
-        // 2. Validación de cédula si alguien forzó asistencia con sanción vigente en tabla sanciones
         $fila = $this->cedula->alineaciones()->where('jugador_id', $jugadorVisitante->id)->firstOrFail();
         $fila->update(['asistio' => true]);
 
@@ -422,7 +340,9 @@ class BloqueoSancionDeportivaTest extends TestCase
         ]);
 
         $hallazgos = $this->validacionCedulaService->validar($this->cedula->fresh());
-        $tieneHallazgoIu05 = collect($hallazgos)->contains(fn (array $h): bool => $h['tipo'] === ValidacionCedulaService::SUSPENDIDO && str_contains($h['mensaje'], '[IU-05]'));
+        $tieneHallazgoIu05 = collect($hallazgos)->contains(
+            fn (array $h): bool => $h['tipo'] === ValidacionCedulaService::SUSPENDIDO && str_contains($h['mensaje'], '[IU-05]')
+        );
         $this->assertTrue($tieneHallazgoIu05);
     }
 }

@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class () extends Migration {
@@ -44,6 +45,10 @@ return new class () extends Migration {
             $table->timestamp('fecha_validacion')->nullable()->after('validado_por_usuario_id');
             $table->foreignId('autorizado_por_usuario_id')->nullable()->after('fecha_validacion')->constrained('usuarios')->nullOnDelete();
             $table->timestamp('fecha_publicacion')->nullable()->after('autorizado_por_usuario_id');
+
+            $table->index('estado', 'sanciones_estado_idx');
+            $table->index('tipo_sancion', 'sanciones_tipo_sancion_idx');
+            $table->index('publicada_en_boletin', 'sanciones_publicada_boletin_idx');
         });
     }
 
@@ -52,7 +57,20 @@ return new class () extends Migration {
      */
     public function down(): void
     {
+        // Eliminar sanciones sin persona_id (ej. multas o amonestaciones colectivas a equipos) antes de restaurar la nulabilidad.
+        DB::table('sanciones')->whereNull('persona_id')->delete();
+
         Schema::table('sanciones', function (Blueprint $table) {
+            if (Schema::hasIndex('sanciones', 'sanciones_estado_idx')) {
+                $table->dropIndex('sanciones_estado_idx');
+            }
+            if (Schema::hasIndex('sanciones', 'sanciones_tipo_sancion_idx')) {
+                $table->dropIndex('sanciones_tipo_sancion_idx');
+            }
+            if (Schema::hasIndex('sanciones', 'sanciones_publicada_boletin_idx')) {
+                $table->dropIndex('sanciones_publicada_boletin_idx');
+            }
+
             $table->dropForeign(['autorizado_por_usuario_id']);
             $table->dropForeign(['validado_por_usuario_id']);
             $table->dropForeign(['partido_suspension_hasta_id']);
