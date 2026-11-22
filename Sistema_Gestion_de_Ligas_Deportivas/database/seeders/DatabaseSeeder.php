@@ -266,6 +266,9 @@ class DatabaseSeeder extends Seeder
 
         // 5. asambleas
         DB::table('asambleas')->insert([
+            // Ya tiene acta: es una asamblea celebrada (HU-053).
+            'tipo' => 'Ordinaria',
+            'estado' => 'Celebrada',
             'fecha' => '2026-09-20',
             'acta_pdf_url' => 'storage/asambleas/acta_ordinaria_2026_09_20.pdf',
             'acuerdos' => 'Se aprobo el inicio del torneo para el mes de octubre con 40 canchas habilitadas.',
@@ -323,12 +326,14 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // 10. categorias
+        // Edades según la Tabla 4 de la ERS (temporada 2026-2027): la rama Libre es para
+        // mayores de 18 años, sin edad máxima; la categoría Juvenil, para nacidos en 2009-2010.
         $catEspecialId = DB::table('categorias')->insertGetId([
             'temporada_id' => $temporadaId,
             'nombre' => 'Primera Especial',
             'rama' => 'Libre',
             'edad_min' => 18,
-            'edad_max' => 35,
+            'edad_max' => null,
             'jerarquia_salto' => 1,
             'created_at' => $now,
             'updated_at' => $now,
@@ -339,7 +344,7 @@ class DatabaseSeeder extends Seeder
             'nombre' => 'Primera Fuerza',
             'rama' => 'Libre',
             'edad_min' => 18,
-            'edad_max' => 35,
+            'edad_max' => null,
             'jerarquia_salto' => 2,
             'created_at' => $now,
             'updated_at' => $now,
@@ -349,8 +354,10 @@ class DatabaseSeeder extends Seeder
             'temporada_id' => $temporadaId,
             'nombre' => 'Juvenil A',
             'rama' => 'Libre',
-            'edad_min' => 14,
-            'edad_max' => 16,
+            'anio_nacimiento_desde' => 2009,
+            'anio_nacimiento_hasta' => 2010,
+            'edad_min' => null,
+            'edad_max' => null,
             'jerarquia_salto' => 3,
             'created_at' => $now,
             'updated_at' => $now,
@@ -552,6 +559,36 @@ class DatabaseSeeder extends Seeder
             'updated_at' => $now,
         ]);
 
+        // HU-036: plantillas de los equipos del partido 2 (confirmado), para la demo de la cédula arbitral.
+        // Cinco activos y un suspendido por equipo; el suspendido sirve para mostrar la validación de HU-075
+        $plantillasDemo = [
+            [$equipo3Id, 'FUAZ', 'Azul', ['Diego', 'Mateo', 'Santiago', 'Emiliano', 'Leonardo', 'Sebastian']],
+            [$equipo4Id, 'HAES', 'Halcon', ['Andres', 'Julian', 'Rodrigo', 'Fernando', 'Ricardo', 'Alejandro']],
+        ];
+
+        foreach ($plantillasDemo as [$equipoDemoId, $prefijoCurp, $apellido, $nombres]) {
+            foreach ($nombres as $indice => $nombre) {
+                $numero = $indice + 1;
+                $personaDemoId = DB::table('personas')->insertGetId([
+                    'nombre' => $nombre,
+                    'apellidos' => $apellido.' Demo',
+                    'fecha_nacimiento' => sprintf('2005-%02d-01', $numero),
+                    'curp' => sprintf('%s05%02d01HMNDMO%02d', $prefijoCurp, $numero, $numero),
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+
+                DB::table('jugadores_equipos')->insert([
+                    'persona_id' => $personaDemoId,
+                    'equipo_id' => $equipoDemoId,
+                    'dorsal' => $numero,
+                    'estado_elegibilidad' => $numero === 6 ? 'Suspendido' : 'Activo',
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
+        }
+
         // 19. arbitros
         $arbitroId = DB::table('arbitros')->insertGetId([
             'persona_id' => $pArbitroId,
@@ -643,7 +680,7 @@ class DatabaseSeeder extends Seeder
             'arbitro_id' => $arbitroId,
             'fecha_partido' => '2026-10-18',
             'hora_partido' => '12:00:00',
-            'estado' => 'programado',
+            'estado' => 'confirmado',
             'created_at' => $now,
             'updated_at' => $now,
         ]);

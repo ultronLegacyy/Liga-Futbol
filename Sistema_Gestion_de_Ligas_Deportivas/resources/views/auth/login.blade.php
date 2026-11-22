@@ -411,6 +411,11 @@
                 </button>
             </form>
 
+            {{-- Portal público (HU-062): la programación se consulta sin cuenta --}}
+            <p style="margin: 1.25rem 0 0; text-align: center;">
+                <a href="{{ route('portal.programacion') }}" class="enlace-olvide">Consultar la programación de partidos sin iniciar sesión</a>
+            </p>
+
         </section>
 
         <footer class="footer">

@@ -103,7 +103,7 @@ class CedulaAccesoTest extends TestCase
         ];
     }
 
-    // Solo se abre en los estados con sentido: programado, confirmado o en juego
+    // Solo se abre en los estados con sentido: confirmado o en juego (respuesta 24)
     #[DataProvider('estadosNoPermitidos')]
     public function test_no_se_abre_en_un_estado_no_permitido(string $estado): void
     {
@@ -114,13 +114,13 @@ class CedulaAccesoTest extends TestCase
             ->from(route('cedulas.show', $this->partido))
             ->post(route('cedulas.abrir', $this->partido))
             ->assertRedirect(route('cedulas.show', $this->partido))
-            ->assertSessionHasErrors(['estado' => 'La cédula solo se abre y se captura cuando el partido está programado, confirmado o en juego.']);
+            ->assertSessionHasErrors(['estado' => 'La cédula solo se abre y se captura cuando el partido está confirmado o en juego.']);
 
         $this->assertFalse(CedulaArbitral::query()->where('partido_id', $this->partido->id)->exists());
         $this->get(route('cedulas.show', $this->partido))
             ->assertOk()
             ->assertDontSee('Abrir cédula')
-            ->assertSee('La cédula solo se abre cuando el partido está programado, confirmado o en juego.');
+            ->assertSee('La cédula solo se abre cuando el partido está confirmado o en juego.');
     }
 
     /**
@@ -128,7 +128,7 @@ class CedulaAccesoTest extends TestCase
      */
     public static function estadosNoPermitidos(): array
     {
-        return ['borrador' => ['borrador'], 'finalizado' => ['finalizado'], 'suspendido' => ['suspendido']];
+        return ['borrador' => ['borrador'], 'programado' => ['programado'], 'finalizado' => ['finalizado'], 'suspendido' => ['suspendido']];
     }
 
     #[DataProvider('estadosPermitidos')]
@@ -148,7 +148,7 @@ class CedulaAccesoTest extends TestCase
      */
     public static function estadosPermitidos(): array
     {
-        return ['programado' => ['programado'], 'confirmado' => ['confirmado'], 'en juego' => ['en juego']];
+        return ['confirmado' => ['confirmado'], 'en juego' => ['en juego']];
     }
 
     // Un jugador registrado antes de abrir aparece; uno registrado después se suma sin perder lo capturado

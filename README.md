@@ -28,6 +28,8 @@ Es un proyecto académico de la materia Ingeniería de Software del **TecNM Camp
 
 ## Instalación local
 
+El paso a paso completo (requisitos, Docker, variables de entorno, datos de ejemplo, cron y respaldos) está en el [manual técnico de instalación](Sistema_Gestion_de_Ligas_Deportivas/docs/manual-tecnico-instalacion.md). El resumen:
+
 ```bash
 cd Sistema_Gestion_de_Ligas_Deportivas
 composer install

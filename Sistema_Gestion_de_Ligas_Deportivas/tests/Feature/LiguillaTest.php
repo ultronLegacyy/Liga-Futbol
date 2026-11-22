@@ -128,6 +128,19 @@ class LiguillaTest extends TestCase
         $this->assertSame(0, LlaveLiguilla::query()->where('grupo_id', $this->grupo->id)->count());
     }
 
+    // Un partido cancelado (HU-029) no impide terminar la fase regular
+    public function test_un_partido_cancelado_no_bloquea_la_liguilla(): void
+    {
+        $cancelado = $this->resultado($this->grupo, 2, $this->equipos['E1'], 0, 0, $this->equipos['E2'], validar: false);
+        $cancelado->partido->forceFill(['estado' => 'cancelado'])->save();
+
+        $this->actingAs($this->usuario('Presidente'))
+            ->post(route('grupos.liguilla.store', $this->grupo))
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(4, LlaveLiguilla::query()->where('grupo_id', $this->grupo->id)->count());
+    }
+
     // Las llaves de un grupo se generan una sola vez
     public function test_no_se_generan_dos_veces(): void
     {
