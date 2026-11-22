@@ -15,7 +15,8 @@ use Illuminate\Validation\ValidationException;
 class PublicacionProgramacionService
 {
     public function __construct(
-        private readonly AsignacionCanchaService $canchaService
+        private readonly AsignacionCanchaService $canchaService,
+        private readonly AvisoProgramacionService $avisos,
     ) {
     }
 
@@ -252,6 +253,9 @@ class PublicacionProgramacionService
                     ]);
                 }
             }
+
+            // HU-064: aviso a los delegados, al confirmarse la publicación
+            $this->avisos->jornadaPublicada($jornadaBloqueada);
 
             return $jornadaBloqueada;
         }, 3);

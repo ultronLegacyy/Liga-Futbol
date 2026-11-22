@@ -186,11 +186,18 @@ class BruteForceProtectionService
                     ."Si fuiste tú y olvidaste tu contraseña, por favor espera a que concluya el período de bloqueo o utiliza la opción de recuperación de contraseña.\n\n"
                     ."Si no reconoces estos intentos, te recomendamos cambiar tu contraseña inmediatamente una vez concluido el período de bloqueo y activar la autenticación de dos factores (2FA) para proteger tu cuenta.";
 
-                Mail::to($user->email)->send(new CorreoDelSistema(
+                $correo = new CorreoDelSistema(
                     asunto: 'Aviso de seguridad: Cuenta bloqueada temporalmente por intentos fallidos',
                     mensaje: $mensaje,
-                ));
+                    tipo: 'bloqueo',
+                );
+                Mail::to($user->email)->send($correo);
             } catch (Throwable $e) {
+                // HU-067: el aviso queda como fallido en el registro de correos
+                if (isset($correo)) {
+                    app(RegistroCorreoService::class)->marcarFallido($correo, $e);
+                }
+
                 Log::error('Falló el envío del aviso de cuenta bloqueada.', [
                     'user_id' => $user->id,
                     'email' => $user->email,

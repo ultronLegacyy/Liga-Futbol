@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Mail\CorreoDelSistema;
+use App\Services\RegistroCorreoService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -37,12 +38,18 @@ class ProbarCorreo extends Command
         $this->line('  - Puerto: '.(string) ($configuracion['port'] ?? 'no aplica'));
         $this->line('  - Usuario: '.(filled($configuracion['username'] ?? null) ? 'configurado' : 'sin usuario'));
 
+        $correo = new CorreoDelSistema(
+            'Correo de prueba del SGLD',
+            "Si recibiste este mensaje, el envío de correo del Sistema de Gestión de Ligas Deportivas funciona en este entorno.\n\nEntorno: ".app()->environment(),
+            tipo: 'prueba',
+        );
+
         try {
-            Mail::to($destinatario)->send(new CorreoDelSistema(
-                'Correo de prueba del SGLD',
-                "Si recibiste este mensaje, el envío de correo del Sistema de Gestión de Ligas Deportivas funciona en este entorno.\n\nEntorno: ".app()->environment(),
-            ));
+            Mail::to($destinatario)->send($correo);
         } catch (Throwable $e) {
+            // HU-067: el intento queda como fallido en el registro de correos
+            app(RegistroCorreoService::class)->marcarFallido($correo, $e);
+
             // Cubre el servidor caído o la autenticación rechazada y también los errores de configuración
             // (esquema, remitente o mailer inválidos). El detalle queda en el log; en la consola, solo un mensaje sin la traza
             Log::error('Falló el envío del correo de prueba (sgld:probar-correo).', [

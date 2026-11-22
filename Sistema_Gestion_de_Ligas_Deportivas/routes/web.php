@@ -22,6 +22,7 @@ use App\Http\Controllers\PagoController;
 use App\Http\Controllers\PartidoController;
 use App\Http\Controllers\PersonaController;
 use App\Http\Controllers\RecuperacionContrasenaController;
+use App\Http\Controllers\RegistroCorreoController;
 use App\Http\Controllers\ReporteFinancieroController;
 use App\Http\Controllers\ReglaTemporadaController;
 use App\Http\Controllers\RolPermisoController;
@@ -252,6 +253,11 @@ Route::middleware(['auth'])->group(function () {
             ->name('reportes.financiero.csv');
         Route::get('/reportes/financiero/pdf', [ReporteFinancieroController::class, 'pdf'])
             ->name('reportes.financiero.pdf');
+
+        // HU-067: registro de cada correo del sistema, solo para quien tiene correos.ver
+        Route::get('/correos', [RegistroCorreoController::class, 'index'])
+            ->middleware('permission:correos.ver')
+            ->name('correos.index');
 
         // Grupo de rutas de administracion de gobernanza y gestión de cuentas (S2-T13)
         Route::middleware(['role:Administrador General'])->prefix('admin')->name('admin.')->group(function () {

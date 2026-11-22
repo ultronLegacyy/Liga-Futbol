@@ -82,7 +82,7 @@ Si el contenedor se detiene, enciéndelo con `docker start sgld-mariadb`.
 | Túnel o balanceador | `TRUSTED_PROXIES` | IP de los proxies cuyos encabezados `X-Forwarded-*` se aceptan, separadas por comas. Por defecto `127.0.0.1,::1`, que es el túnel de Cloudflare en el mismo equipo. **No uses `*`:** cualquiera podría falsificar su IP |
 | Base de datos | `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` (**secreto**) | Con el contenedor del paso 3: `127.0.0.1`, `3306`, `sgld_db`, `sgld` y su contraseña |
 | Administrador de la base | `DB_ADMIN_USERNAME`, `DB_ADMIN_PASSWORD` (**secreto**) | Lo usan los respaldos y `php artisan sgld:usuario-bd`. En producción va el usuario `root` o un administrador |
-| Correo | `MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` (**secreto**), `MAIL_REQUIRE_TLS`, `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` | Los valores de `.env.example` son del Mailpit local (README, sección 10). En producción: el SMTP real y `MAIL_REQUIRE_TLS=true` |
+| Correo | `MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` (**secreto**), `MAIL_REQUIRE_TLS`, `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` | Los valores de `.env.example` son del Mailpit local (README, sección 10). En producción: Brevo, sección 12 |
 | Respaldos (HU-009) | `RESPALDO_DISCO`, `RESPALDO_CLAVE` (**secreto**), `RESPALDO_VOLCADO`, `RESPALDO_IMPORTACION`, `RESPALDO_BASE_RESTAURACION` | Ver la sección 8 |
 | Almacenamiento en la nube (R2) | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (**secreto**), `R2_BUCKET`, `R2_ENDPOINT` | Solo si `RESPALDO_DISCO=r2` |
 | Programación de partidos | `PARTIDO_DURACION_MINUTOS` | Minutos que un partido ocupa su cancha (por defecto 120) |
@@ -164,7 +164,9 @@ Para que corran, agrega una sola línea al cron del usuario que ejecuta la aplic
 * * * * * cd /ruta/a/Liga-Futbol/Sistema_Gestion_de_Ligas_Deportivas && php artisan schedule:run >> /dev/null 2>&1
 ```
 
-Para comprobarlo: `php artisan schedule:list` muestra las 4 tareas y su próxima ejecución. La bitácora queda en `storage/logs/respaldos.log`.
+La misma línea procesa la cola de correos (HU-064): cada minuto corre `queue:work --stop-when-empty`, manda los avisos pendientes y termina. Sin el cron, los avisos a los delegados se quedan en la tabla `jobs` y no salen.
+
+Para comprobarlo: `php artisan schedule:list` muestra las 4 tareas de respaldo y la de la cola, con su próxima ejecución. La bitácora de los respaldos queda en `storage/logs/respaldos.log`.
 
 ## 9. Respaldo y restauración (HU-009)
 
@@ -198,7 +200,7 @@ Todo el detalle está en [respaldos-y-restauracion.md](respaldos-y-restauracion.
 
 - [ ] `http://localhost:8000` (o tu `APP_URL`) muestra la pantalla de inicio de sesión, en español.
 - [ ] Entras con un usuario de ejemplo y ves su menú.
-- [ ] `php artisan schedule:list` muestra las 4 tareas de respaldo.
+- [ ] `php artisan schedule:list` muestra las 4 tareas de respaldo y la de la cola de correos.
 - [ ] `php artisan respaldo:crear --completo` termina con «Respaldo completo-… creado».
 - [ ] Opcional: con `sgld_testing` lista, `DB_DATABASE=sgld_testing php artisan migrate` y después `php artisan test` terminan sin fallas.
 
@@ -212,3 +214,42 @@ Todo el detalle está en [respaldos-y-restauracion.md](respaldos-y-restauracion.
 | Detrás del túnel los enlaces salen con `http://` y los formularios fallan | `APP_URL` no es la dirección del túnel, o el proxy no está en `TRUSTED_PROXIES` |
 | Un cambio en el `.env` no se nota | La configuración está en caché: `php artisan config:clear` |
 | `respaldo:crear` dice que falta la clave | `RESPALDO_CLAVE` está vacía o no son 32 bytes en base64 |
+| Los avisos a los delegados no llegan | No corre el cron de la sección 8, o el SMTP los rechazó: revisa **Registro de correos** en el menú del Administrador General |
+
+## 12. Correo en producción con Brevo (HU-064)
+
+Mientras no haya dominio, todo se prueba con Mailpit (README, sección 10). Cuando lo haya, el sistema manda sus correos por el SMTP autenticado de Brevo, plan gratuito.
+
+**Límite:** el plan gratuito permite unos **300 correos al día**. Cada publicación de jornada manda un correo por delegado, y cada reprogramación uno por delegado de los dos clubes.
+
+### Variables
+
+En el `.env` del servidor, nunca en el repositorio. El usuario y la clave SMTP salen de **SMTP y API** en el panel de Brevo:
+
+```dotenv
+MAIL_MAILER=smtp
+MAIL_SCHEME=smtp
+MAIL_HOST=smtp-relay.brevo.com
+MAIL_PORT=587
+MAIL_REQUIRE_TLS=true
+MAIL_USERNAME=      # el inicio de sesión SMTP de Brevo (secreto)
+MAIL_PASSWORD=      # la clave SMTP de Brevo (secreto)
+MAIL_FROM_ADDRESS=  # una dirección del dominio verificado, por ejemplo no-responder@<dominio>
+```
+
+Después: `php artisan config:cache` y `php artisan sgld:probar-correo <tu correo>`.
+
+### Registros DNS del dominio
+
+Brevo los pide al agregar el dominio en **Remitentes, dominios e IP dedicadas → Dominios**. Copia los valores exactos que muestra el panel; aquí va su forma:
+
+| Registro | Tipo | Nombre | Valor (forma) | Para qué |
+| --- | --- | --- | --- | --- |
+| Código de verificación | TXT | `@` | `brevo-code:…` | Demuestra que el dominio es tuyo |
+| DKIM | CNAME o TXT, según el panel | `…._domainkey` | El que da Brevo | Firma los correos para que no se alteren en el camino |
+| DMARC | TXT | `_dmarc` | `v=DMARC1; p=none; rua=mailto:…` | Indica qué hacer con un correo que falla SPF o DKIM |
+| SPF | TXT | `@` | `v=spf1 include:… ~all`, con el `include` que indique Brevo | Autoriza a Brevo a mandar correo del dominio |
+
+Si el dominio ya tiene un registro SPF, se agrega el `include` de Brevo a ese mismo registro: un dominio solo puede tener uno.
+
+Hasta que el panel marque los cuatro como verificados, los correos pueden caer en spam o rechazarse. Por eso el criterio 2 de HU-064 queda bloqueado mientras no haya dominio.

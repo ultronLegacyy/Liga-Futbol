@@ -18,7 +18,8 @@ use Illuminate\Validation\ValidationException;
 class ReprogramacionPartidoService
 {
     public function __construct(
-        private readonly AsignacionCanchaService $canchaService
+        private readonly AsignacionCanchaService $canchaService,
+        private readonly AvisoProgramacionService $avisos,
     ) {
     }
 
@@ -261,7 +262,7 @@ class ReprogramacionPartidoService
             ]);
 
             // Guardar en la bitácora auditable de reprogramaciones (RNF-22)
-            ReprogramacionPartido::create([
+            $registro = ReprogramacionPartido::create([
                 'partido_id' => $partidoBloqueado->id,
                 'usuario_id' => $usuarioId,
                 'estado_anterior' => $estadoAnterior,
@@ -277,6 +278,9 @@ class ReprogramacionPartidoService
 
             // Revertir la jornada a borrador si estaba en revisión, aprobada o (si cambiaron equipos) publicada (HU-030)
             $jornadaBloqueada->revertirABorradorPorModificacion($cambiaronEquipos);
+
+            // HU-064: aviso a los delegados de los dos clubes, al confirmarse el cambio
+            $this->avisos->partidoReprogramado($partidoBloqueado, $registro);
 
             return $partidoBloqueado;
         }, 3);
