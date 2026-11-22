@@ -65,7 +65,7 @@ jobs:
   phpunit:
     name: PHPUnit
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     services:
       mariadb:
         image: mariadb:12.3

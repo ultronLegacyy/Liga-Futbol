@@ -314,8 +314,11 @@ class GestionJugadorService
         }
     }
 
-    /** El dorsal de una inscripción dada de baja queda libre. */
-    private function exigirDorsalLibre(Equipo $equipo, int|string|null $numero): void
+    /**
+     * El dorsal de una inscripción dada de baja queda libre. Con $excepto, no cuenta esa inscripción
+     * (HU-022: el jugador puede conservar o cambiar su propio dorsal, pero no tomar uno ocupado).
+     */
+    public function exigirDorsalLibre(Equipo $equipo, int|string|null $numero, ?Jugador $excepto = null): void
     {
         if ($numero === null) {
             return;
@@ -325,6 +328,7 @@ class GestionJugadorService
             ->where('equipo_id', $equipo->getKey())
             ->where('dorsal', $numero)
             ->where('estado_elegibilidad', '!=', 'Baja')
+            ->when($excepto !== null, fn (Builder $query): Builder => $query->whereKeyNot($excepto?->getKey()))
             ->exists();
 
         if ($ocupado) {

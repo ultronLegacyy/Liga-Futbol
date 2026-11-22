@@ -8,6 +8,7 @@
     "require": {
         "php": "^8.3",
         "ext-sodium": "*",
+        "barryvdh/laravel-dompdf": "3.1.2",
         "laravel/fortify": "^1.41",
         "laravel/framework": "^13.17",
         "laravel/tinker": "^3.0",
