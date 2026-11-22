@@ -36,6 +36,11 @@
                 </a>
             @endrole
 
+            @can('capturarFisica', App\Models\CedulaArbitral::class)
+                <a href="{{ route('cedulas.fisicas.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-lg {{ request()->routeIs('cedulas.fisica*') ? 'bg-green-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white' }}">
+                    Cédulas en papel
+                </a>
+            @endcan
             @role('Árbitro en Campo')
                 <a href="{{ route('cedulas.mis-partidos') }}" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-lg {{ request()->routeIs('cedulas.*') ? 'bg-green-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white' }}">
                     Mis partidos

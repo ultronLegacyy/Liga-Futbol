@@ -35,6 +35,14 @@
     @if (session('success'))
         <x-alert type="success" :message="session('success')" />
     @endif
+    @include('cedulas._hallazgos')
+    {{-- HU-037: el enlace solo aparece si el papel se puede transcribir (respuesta 51 del PO) --}}
+    @can('capturarFisica', App\Models\CedulaArbitral::class)
+        @inject('capturaPapel', 'App\Services\CapturaCedulaFisicaService')
+        @if ($capturaPapel->motivoNoDisponible($partido, $cedula) === null)
+            <p class="mb-4"><a href="{{ route('cedulas.fisica.create', $partido) }}" class="text-green-400 underline">{{ $cedula?->esDePapel() ? 'Corregir o cerrar la cédula en papel' : 'Capturar desde la cédula en papel' }}</a></p>
+        @endif
+    @endcan
     @if ($errors->any())
         <x-alert type="error" :message="$errors->first()" />
     @endif
