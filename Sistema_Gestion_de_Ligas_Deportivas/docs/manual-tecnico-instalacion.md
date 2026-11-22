@@ -166,7 +166,9 @@ Para que corran, agrega una sola línea al cron del usuario que ejecuta la aplic
 
 La misma línea procesa la cola de correos (HU-064): cada minuto corre `queue:work --stop-when-empty --max-time=50`, manda los avisos pendientes y termina. Sin el cron, los avisos a los delegados se quedan en la tabla `jobs` y no salen.
 
-Para comprobarlo: `php artisan schedule:list` muestra las 4 tareas de respaldo y la de la cola, con su próxima ejecución. La bitácora de los respaldos queda en `storage/logs/respaldos.log`.
+También corre `sgld:recordatorios-pago` todos los días a las 09:00, hora de México (HU-065). Encola un recordatorio para los delegados de cada club con cargos vencidos o que vencen en 3 días o menos. Cada cargo recibe como máximo un aviso de «próximo» y uno de «vencido»: la tabla `recordatorios_pago` guarda los que ya salieron.
+
+Para comprobarlo: `php artisan schedule:list` muestra las 4 tareas de respaldo, la de los recordatorios y la de la cola, con su próxima ejecución. La bitácora de los respaldos queda en `storage/logs/respaldos.log`.
 
 ## 9. Respaldo y restauración (HU-009)
 

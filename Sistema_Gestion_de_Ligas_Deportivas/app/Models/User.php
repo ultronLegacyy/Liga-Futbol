@@ -6,6 +6,7 @@ use App\Mail\CorreoDelSistema;
 use App\Models\Concerns\Auditable;
 use App\Services\RegistroCorreoService;
 use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -78,6 +79,20 @@ class User extends Authenticatable
     public function club(): BelongsTo
     {
         return $this->belongsTo(Club::class, 'club_id');
+    }
+
+    /**
+     * Cuentas activas con el rol «Delegado del Club» de esos clubes (avisos de HU-064 y recordatorios de HU-065).
+     * whereHas en lugar de role(): si el rol no está sembrado devuelve vacío en vez de lanzar una excepción.
+     *
+     * @param  Builder<User>  $query
+     * @param  iterable<int, mixed>  $clubes
+     * @return Builder<User>
+     */
+    public function scopeDelegadosActivos(Builder $query, iterable $clubes): Builder
+    {
+        return $query->whereHas('roles', fn ($consulta) => $consulta->where('name', 'Delegado del Club'))
+            ->whereIn('club_id', $clubes)->where('estatus', 'activo');
     }
 
     /** @return BelongsTo<Persona, $this> */
