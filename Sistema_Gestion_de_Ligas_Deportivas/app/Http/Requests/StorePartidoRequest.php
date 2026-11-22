@@ -5,17 +5,21 @@ namespace App\Http\Requests;
 use App\Models\Jornada;
 use App\Models\Partido;
 use Carbon\Carbon;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 // Validación de alta manual de partidos (HU-027, RF-06.1)
 class StorePartidoRequest extends FormRequest
 {
-    public function authorize(): bool
+    public function authorize(): Response
     {
         $jornada = $this->route('jornada');
 
-        return $this->user()?->can('create', [Partido::class, $jornada]) ?? false;
+        return $jornada instanceof Jornada
+            ? Gate::forUser($this->user())->inspect('create', [Partido::class, $jornada])
+            : Response::deny('La jornada no existe.');
     }
 
     /**
@@ -32,7 +36,7 @@ class StorePartidoRequest extends FormRequest
             ? Carbon::parse($jornada->fecha_fin)->toDateString()
             : null;
 
-        $fechaRules = ['nullable', 'date', 'required_with:cancha_id,arbitro_id'];
+        $fechaRules = ['bail', 'nullable', 'date_format:Y-m-d', 'required_with:cancha_id,arbitro_id'];
         if ($fechaInicio !== null) {
             $fechaRules[] = 'after_or_equal:'.$fechaInicio;
         }
@@ -42,22 +46,23 @@ class StorePartidoRequest extends FormRequest
 
         return [
             'equipo_local_id' => [
+                'bail',
                 'required',
                 'integer',
                 'different:equipo_visitante_id',
                 Rule::exists('equipos', 'id')->where('grupo_id', $grupoId),
             ],
             'equipo_visitante_id' => [
+                'bail',
                 'required',
                 'integer',
                 'different:equipo_local_id',
                 Rule::exists('equipos', 'id')->where('grupo_id', $grupoId),
             ],
-            'cancha_id' => ['nullable', 'integer', Rule::exists('canchas', 'id')],
-            'arbitro_id' => ['nullable', 'integer', Rule::exists('arbitros', 'id')],
+            'cancha_id' => ['bail', 'nullable', 'integer', Rule::exists('canchas', 'id')],
+            'arbitro_id' => ['bail', 'nullable', 'integer', Rule::exists('arbitros', 'id')],
             'fecha_partido' => $fechaRules,
-            'hora_partido' => ['nullable', 'date_format:H:i,H:i:s', 'required_with:cancha_id,arbitro_id'],
-            'estado' => ['nullable', 'string', Rule::in(['borrador', 'programado', 'confirmado', 'en juego', 'finalizado', 'suspendido'])],
+            'hora_partido' => ['bail', 'nullable', 'date_format:H:i,H:i:s', 'required_with:cancha_id,arbitro_id'],
         ];
     }
 

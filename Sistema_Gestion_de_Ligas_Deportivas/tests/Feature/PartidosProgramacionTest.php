@@ -61,7 +61,10 @@ class PartidosProgramacionTest extends TestCase
         $this->programador = $this->crearUsuario('programador_partidos@liga.com', 'Programador de Partidos');
         $this->tesoreroUser = $this->crearUsuario('tesorero_partidos@liga.com', 'Tesorero');
 
-        $this->temporada = Temporada::factory()->activa()->create();
+        $this->temporada = Temporada::factory()->activa()->create([
+            'fecha_inicio' => '2026-01-01',
+            'fecha_fin' => '2026-12-31',
+        ]);
         $categoria = Categoria::factory()->create(['temporada_id' => $this->temporada->id]);
         $this->grupo = Grupo::factory()->create(['categoria_id' => $categoria->id]);
 
@@ -335,6 +338,7 @@ class PartidosProgramacionTest extends TestCase
             'arbitro_id' => $nuevoArbitro->id,
             'fecha_partido' => '2026-11-21',
             'hora_partido' => '16:00',
+            'motivo' => 'Ajuste de horario y sede por disponibilidad de campo.',
         ];
 
         $this->actingAs($this->programador)
@@ -388,7 +392,7 @@ class PartidosProgramacionTest extends TestCase
             'arbitro_id' => $this->arbitro->id,
             'fecha_partido' => '2026-11-20',
             'hora_partido' => '10:00:00',
-            'estado' => 'programado',
+            'estado' => 'borrador',
         ]);
 
         $this->actingAs($this->admin)
@@ -604,6 +608,7 @@ class PartidosProgramacionTest extends TestCase
         $this->actingAs($this->programador)
             ->put(route('partidos.update', $partido), [
                 'hora_partido' => '16:00',
+                'motivo' => 'Ajuste de hora para prueba de bloqueo concurrente.',
             ])
             ->assertRedirect(route('jornadas.show', $this->jornada));
 

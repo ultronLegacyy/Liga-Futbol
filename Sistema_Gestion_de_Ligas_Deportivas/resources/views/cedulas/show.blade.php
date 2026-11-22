@@ -21,6 +21,14 @@
     @if (session('success'))
         <x-alert type="success" :message="session('success')" />
     @endif
+    @include('cedulas._hallazgos')
+    {{-- HU-037: el enlace solo aparece si el papel se puede transcribir (respuesta 51 del PO) --}}
+    @can('capturarFisica', App\Models\CedulaArbitral::class)
+        @inject('capturaPapel', 'App\Services\CapturaCedulaFisicaService')
+        @if ($capturaPapel->motivoNoDisponible($partido, $cedula) === null)
+            <p class="mb-4"><a href="{{ route('cedulas.fisica.create', $partido) }}" class="text-green-400 underline">{{ $cedula?->esDePapel() ? 'Corregir o cerrar la cédula en papel' : 'Capturar desde la cédula en papel' }}</a></p>
+        @endif
+    @endcan
     @if ($errors->any())
         <x-alert type="error" :message="$errors->first()" />
     @endif
@@ -36,7 +44,7 @@
                 </button>
             </form>
         @elseif (! $estadoPermitido)
-            <p class="text-sm text-gray-400 my-4">La cédula solo se abre cuando el partido está programado, confirmado o en juego. Estado actual: {{ $partido->estado }}.</p>
+            <p class="text-sm text-gray-400 my-4">La cédula solo se abre cuando el partido está confirmado o en juego. Estado actual: {{ $partido->estado }}.</p>
         @endif
 
         {{-- Plantilla vigente: la alineación se precarga con ella al abrir la cédula --}}
@@ -67,7 +75,7 @@
         @if ($cedula->estaCerrada())
             <x-alert type="info" message="La cédula está cerrada: solo se consulta." />
         @elseif (! $estadoPermitido)
-            <x-alert type="info" message="El partido ya no está programado, confirmado ni en juego: la cédula solo se consulta." />
+            <x-alert type="info" message="El partido no está confirmado ni en juego: la cédula solo se consulta." />
         @endif
 
         <dl class="grid grid-cols-2 gap-4 text-center mb-8">
@@ -139,6 +147,28 @@
                 @endforeach
             </ul>
         @endif
+
+        {{-- HU-075: reporte arbitral y firmas de los capitanes --}}
+        <h3 class="text-lg font-semibold text-white mt-8 mb-3">Reporte arbitral</h3>
+        <p class="text-sm text-gray-300 whitespace-pre-line">{{ $cedula->informe_arbitral ?? 'Sin reporte.' }}</p>
+
+        <h3 class="text-lg font-semibold text-white mt-8 mb-3">Firmas de los capitanes</h3>
+        {{-- Respuesta 50 del PO: la cédula en papel se cierra con su escaneo firmado en lugar de las firmas digitales --}}
+        @if ($cedula->esDePapel() && $cedula->cedula_papel_ruta)
+            <p class="text-sm text-gray-300 mb-3">Las firmas están en la cédula en papel: <a href="{{ route('cedulas.fisica.escaneo', $partido) }}" class="text-green-400 underline">ver el escaneo de la cédula firmada</a>.</p>
+        @endif
+        <div class="grid gap-4 sm:grid-cols-2">
+            @foreach (['local' => $partido->local?->nombre, 'visitante' => $partido->visitante?->nombre] as $lado => $equipoNombre)
+                <div>
+                    <p class="text-sm text-gray-400 mb-1">{{ $equipoNombre }}</p>
+                    @if (! empty($firmas[$lado]))
+                        <img src="{{ route('cedulas.firma', [$partido, $lado]) }}" alt="Firma del capitán de {{ $equipoNombre }}" class="bg-white rounded-lg max-h-32">
+                    @else
+                        <p class="text-sm text-gray-500">Sin firma.</p>
+                    @endif
+                </div>
+            @endforeach
+        </div>
     @endif
 </div>
 @endsection

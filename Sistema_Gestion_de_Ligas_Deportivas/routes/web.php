@@ -2,14 +2,18 @@
 
 use App\Http\Controllers\AdeudoClubController;
 use App\Http\Controllers\ArbitroController;
+use App\Http\Controllers\AsambleaController;
 use App\Http\Controllers\CanchaBloqueoController;
 use App\Http\Controllers\CanchaController;
 use App\Http\Controllers\CargoFinancieroController;
 use App\Http\Controllers\CedulaController;
+use App\Http\Controllers\CedulaFisicaController;
+use App\Http\Controllers\CierreCedulaController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\EquipoController;
 use App\Http\Controllers\EstadisticasGrupoController;
+use App\Http\Controllers\ExpedienteDisciplinarioController;
 use App\Http\Controllers\ForcePasswordChangeController;
 use App\Http\Controllers\GeneradorEnfrentamientosController;
 use App\Http\Controllers\GrupoController;
@@ -19,7 +23,9 @@ use App\Http\Controllers\JugadorController;
 use App\Http\Controllers\PagoController;
 use App\Http\Controllers\PartidoController;
 use App\Http\Controllers\PersonaController;
+use App\Http\Controllers\PortalController;
 use App\Http\Controllers\RecuperacionContrasenaController;
+use App\Http\Controllers\ReporteFinancieroController;
 use App\Http\Controllers\ReglaTemporadaController;
 use App\Http\Controllers\ResultadoController;
 use App\Http\Controllers\RolPermisoController;
@@ -33,6 +39,12 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return view('auth.login');
 })->name('inicio');
+
+// Portal público (RF-12.3, IU-01): sin cuenta y sin privilegios de edición. 300 consultas por minuto por IP,
+// porque en 4G muchos aficionados comparten la misma IP pública y HU-077 pide 200 usuarios simultáneos
+Route::get('/programacion', [PortalController::class, 'programacion'])
+    ->middleware('throttle:300,1')
+    ->name('portal.programacion');
 
 // Recuperación de contraseña por correo (HU-003). Cada envío tiene su propio contador de intentos por IP
 Route::middleware(['guest'])->group(function () {
@@ -106,10 +118,18 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/grupos/{grupo}/configuracion', [GrupoController::class, 'guardarConfiguracion'])
             ->name('grupos.configuracion.update');
 
-        // Programación de jornadas y descansos por grupo (HU-027, HU-028, RF-06.1, RF-06.2)
+        // Programación de jornadas y descansos por grupo (HU-027, HU-028, HU-030, RF-06.1, RF-06.2, RF-06.5)
         Route::resource('grupos.jornadas', JornadaController::class)->shallow()->only(['index', 'create', 'store', 'show', 'edit', 'update', 'destroy']);
         Route::match(['put', 'patch'], '/jornadas/{jornada}/descanso', [JornadaController::class, 'actualizarDescanso'])
             ->name('jornadas.descanso.update');
+        Route::post('/jornadas/{jornada}/enviar-revision', [JornadaController::class, 'enviarRevision'])
+            ->name('jornadas.enviar-revision');
+        Route::post('/jornadas/{jornada}/aprobar', [JornadaController::class, 'aprobar'])
+            ->name('jornadas.aprobar');
+        Route::post('/jornadas/{jornada}/publicar', [JornadaController::class, 'publicar'])
+            ->name('jornadas.publicar');
+        Route::get('/jornadas/{jornada}/conflictos', [JornadaController::class, 'conflictos'])
+            ->name('jornadas.conflictos');
 
         // Generación automática de rol regular y enfrentamientos (HU-032, RF-07.1)
         // Tabla de posiciones calculada con los resultados oficiales (HU-041, RF-09.1)
@@ -130,7 +150,15 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/jornadas/{jornada}/generar-partidos', [GeneradorEnfrentamientosController::class, 'generarJornada'])
             ->name('jornadas.generar-partidos');
 
-        // Alta manual y reprogramación de partidos en jornadas (HU-027, RF-06.1)
+        // Alta manual, reprogramación, gestión de estados e historial de partidos (HU-027, HU-029, HU-031, RF-06.1, RF-06.3, RF-06.4, RF-06.6)
+        Route::get('/partidos/{partido}/reprogramar', [PartidoController::class, 'formularioReprogramar'])
+            ->name('partidos.reprogramar');
+        Route::post('/partidos/{partido}/reprogramar', [PartidoController::class, 'reprogramar'])
+            ->name('partidos.reprogramar.store');
+        Route::patch('/partidos/{partido}/estado', [PartidoController::class, 'cambiarEstado'])
+            ->name('partidos.estado.update');
+        Route::get('/partidos/{partido}/historial', [PartidoController::class, 'historial'])
+            ->name('partidos.historial');
         Route::resource('jornadas.partidos', PartidoController::class)->shallow()->only(['create', 'store', 'show', 'edit', 'update', 'destroy']);
 
         // Padrón de personas y sus roles por temporada (HU-013, RF-03.2)
@@ -168,6 +196,59 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/partidos/{partido}/cedula/incidencias', [CedulaController::class, 'incidencia'])
             ->whereNumber('partido')
             ->name('cedulas.incidencias');
+        // HU-075: reporte arbitral, anulaciones, firmas de los capitanes y cierre
+        Route::put('/partidos/{partido}/cedula/informe', [CedulaController::class, 'informe'])
+            ->whereNumber('partido')
+            ->name('cedulas.informe');
+        Route::delete('/partidos/{partido}/cedula/eventos/{evento}', [CedulaController::class, 'anularEvento'])
+            ->whereNumber(['partido', 'evento'])
+            ->name('cedulas.eventos.anular');
+        Route::delete('/partidos/{partido}/cedula/incidencias/{incidencia}', [CedulaController::class, 'anularIncidencia'])
+            ->whereNumber(['partido', 'incidencia'])
+            ->name('cedulas.incidencias.anular');
+        Route::get('/partidos/{partido}/cedula/cierre', [CierreCedulaController::class, 'resumen'])
+            ->whereNumber('partido')
+            ->name('cedulas.cierre');
+        Route::post('/partidos/{partido}/cedula/firmas/{lado}', [CierreCedulaController::class, 'firmar'])
+            ->whereNumber('partido')
+            ->whereIn('lado', ['local', 'visitante'])
+            ->name('cedulas.firmar');
+        Route::get('/partidos/{partido}/cedula/firmas/{lado}', [CierreCedulaController::class, 'firma'])
+            ->whereNumber('partido')
+            ->whereIn('lado', ['local', 'visitante'])
+            ->name('cedulas.firma');
+        Route::post('/partidos/{partido}/cedula/cerrar', [CierreCedulaController::class, 'cerrar'])
+            ->whereNumber('partido')
+            ->name('cedulas.cerrar');
+
+        // HU-037: el Capturista transcribe en la sede las cédulas que llegan en papel, con las validaciones de HU-036
+        Route::get('/cedulas/papel', [CedulaFisicaController::class, 'index'])
+            ->name('cedulas.fisicas.index');
+        Route::get('/partidos/{partido}/cedula/papel', [CedulaFisicaController::class, 'create'])
+            ->whereNumber('partido')
+            ->name('cedulas.fisica.create');
+        Route::post('/partidos/{partido}/cedula/papel', [CedulaFisicaController::class, 'store'])
+            ->whereNumber('partido')
+            ->name('cedulas.fisica.store');
+        Route::post('/partidos/{partido}/cedula/papel/cerrar', [CedulaFisicaController::class, 'cerrar'])
+            ->whereNumber('partido')
+            ->name('cedulas.fisica.cerrar');
+        Route::get('/partidos/{partido}/cedula/papel/escaneo', [CedulaFisicaController::class, 'escaneo'])
+            ->whereNumber('partido')
+            ->name('cedulas.fisica.escaneo');
+
+        // Régimen disciplinario y Tribunal de Penas: expedientes y presuntos artículos (HU-044 / RF-10.1)
+        Route::get('/disciplina/expedientes', [ExpedienteDisciplinarioController::class, 'index'])
+            ->name('disciplina.expedientes.index');
+        Route::get('/disciplina/expedientes/{expediente}', [ExpedienteDisciplinarioController::class, 'show'])
+            ->whereNumber('expediente')
+            ->name('disciplina.expedientes.show');
+        Route::post('/disciplina/expedientes/{expediente}/articulos', [ExpedienteDisciplinarioController::class, 'asociarArticulo'])
+            ->whereNumber('expediente')
+            ->name('disciplina.expedientes.articulos.store');
+        Route::delete('/disciplina/expedientes/{expediente}/articulos/{articulo}', [ExpedienteDisciplinarioController::class, 'desasociarArticulo'])
+            ->whereNumber(['expediente', 'articulo'])
+            ->name('disciplina.expedientes.articulos.destroy');
 
         // Validación oficial de resultados: sin validar no cuentan para la tabla (HU-040, RF-08.4)
         Route::middleware(['can:resultados.validar'])->group(function () {
@@ -183,6 +264,19 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/partidos/{partido}/arbitro', [ArbitroController::class, 'asignar'])
             ->name('partidos.arbitro.update');
 
+        // Asambleas de delegados: convocatoria y asistencia (HU-053), acuerdos y comunicados (HU-054), RF-14
+        Route::resource('asambleas', AsambleaController::class)->only(['index', 'create', 'store', 'show']);
+        Route::get('/asambleas/{asamblea}/asistencia', [AsambleaController::class, 'editarAsistencia'])
+            ->name('asambleas.asistencia.edit');
+        Route::put('/asambleas/{asamblea}/asistencia', [AsambleaController::class, 'guardarAsistencia'])
+            ->name('asambleas.asistencia.update');
+        Route::post('/asambleas/{asamblea}/acuerdos', [AsambleaController::class, 'guardarAcuerdo'])
+            ->name('asambleas.acuerdos.store');
+        Route::post('/asambleas/{asamblea}/acuerdos/{acuerdo}/regla-permanente', [AsambleaController::class, 'autorizarAcuerdo'])
+            ->name('asambleas.acuerdos.autorizar');
+        Route::post('/asambleas/{asamblea}/comunicados', [AsambleaController::class, 'guardarComunicado'])
+            ->name('asambleas.comunicados.store');
+
         // Adeudos por club y temporada: quién está al corriente (HU-051, RF-13.2)
         Route::get('/adeudos', [AdeudoClubController::class, 'index'])
             ->name('adeudos.index');
@@ -195,6 +289,14 @@ Route::middleware(['auth'])->group(function () {
             ->name('cargos.pagos.store');
         Route::get('/pagos/{pago}/comprobante', [PagoController::class, 'comprobante'])
             ->name('pagos.comprobante');
+
+        // Reporte financiero por periodo, club, temporada y concepto, y su descarga (HU-052, RF-13.3)
+        Route::get('/reportes/financiero', [ReporteFinancieroController::class, 'index'])
+            ->name('reportes.financiero');
+        Route::get('/reportes/financiero/csv', [ReporteFinancieroController::class, 'csv'])
+            ->name('reportes.financiero.csv');
+        Route::get('/reportes/financiero/pdf', [ReporteFinancieroController::class, 'pdf'])
+            ->name('reportes.financiero.pdf');
 
         // Grupo de rutas de administracion de gobernanza y gestión de cuentas (S2-T13)
         Route::middleware(['role:Administrador General'])->prefix('admin')->name('admin.')->group(function () {
@@ -219,9 +321,12 @@ Route::middleware(['auth'])->group(function () {
             Route::put('/usuarios/{usuario}', [UserController::class, 'update'])->name('usuarios.update');
             Route::patch('/usuarios/{usuario}/toggle-status', [UserController::class, 'toggleStatus'])->name('usuarios.toggleStatus');
 
-            // Permisos de cada rol en solo lectura (HU-081, RF-12.1); cualquier cambio se rechaza (CA3)
+            // Permisos de cada rol: consulta (HU-081) y edición (HU-083), RF-12.1; crear, renombrar o borrar roles se rechaza
             Route::get('/roles', [RolPermisoController::class, 'index'])->name('roles.index');
             Route::get('/roles/{rol}', [RolPermisoController::class, 'show'])->whereNumber('rol')->name('roles.show');
+            // HU-083: edición de los permisos de un rol (va antes de las rutas que rechazan cambios)
+            Route::get('/roles/{rol}/editar', [RolPermisoController::class, 'edit'])->whereNumber('rol')->name('roles.edit');
+            Route::put('/roles/{rol}/permisos', [RolPermisoController::class, 'update'])->whereNumber('rol')->name('roles.permisos.update');
             Route::match(['post', 'put', 'patch', 'delete'], '/roles/{rol?}', [RolPermisoController::class, 'rechazarCambio'])
                 ->whereNumber('rol')->name('roles.cambio');
             Route::match(['post', 'put', 'patch', 'delete'], '/roles/{rol}/permisos/{permiso?}', [RolPermisoController::class, 'rechazarCambio'])
@@ -264,6 +369,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/jugadores', [JugadorController::class, 'store'])->name('jugadores.store');
         Route::post('/equipos/{equipo}/jugadores', [JugadorController::class, 'store'])->name('equipos.jugadores.store');
         Route::get('/jugadores/{jugador}/gestionar', [JugadorController::class, 'gestion'])->name('jugadores.gestion');
+        Route::get('/jugadores/{jugador}/historial', [JugadorController::class, 'historial'])->name('jugadores.historial');
         Route::get('/jugadores/vincular', [JugadorController::class, 'vincularForm'])->name('jugadores.vincular.form');
         Route::post('/jugadores/{jugador}/baja', [JugadorController::class, 'darDeBaja'])->name('jugadores.baja');
         Route::post('/jugadores/{jugador}/renovar', [JugadorController::class, 'renovar'])->name('jugadores.renovar');

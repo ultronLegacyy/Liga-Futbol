@@ -33,7 +33,7 @@ trait CreaPartidoConCedula
             'arbitro_id' => ($arbitro ?? $this->arbitro())->id,
             'fecha_partido' => '2026-11-14',
             'hora_partido' => $hora,
-            'estado' => 'programado',
+            'estado' => 'confirmado',
         ]);
     }
 

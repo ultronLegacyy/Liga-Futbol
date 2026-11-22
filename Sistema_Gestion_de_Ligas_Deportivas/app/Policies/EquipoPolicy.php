@@ -47,7 +47,12 @@ class EquipoPolicy
             return Response::allow();
         }
 
+        // HU-083 (D-030): ademas del rol pide el permiso equipos.ver
         if ($usuario->hasAnyRole(['Presidente del Club', 'Delegado del Club'])) {
+            if (! $usuario->can('equipos.ver')) {
+                return Response::deny('No posee privilegios para visualizar este equipo.');
+            }
+
             return $usuario->club_id !== null && (int) $usuario->club_id === (int) $equipo->club_id
                 ? Response::allow()
                 : Response::deny('Acceso denegado: no cuenta con autorizacion para consultar equipos de otros clubes.');

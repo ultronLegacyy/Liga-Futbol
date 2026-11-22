@@ -110,6 +110,7 @@ class PersonaController extends Controller
         return view('personas.show', [
             'persona' => $persona,
             'rolesPorTemporada' => $persona->rolesPorTemporada(),
+            'equiposPorTemporada' => $persona->equiposPorTemporada(),
             'temporadas' => $this->temporadasAbiertas(),
             'roles' => PersonaRol::ROLES,
         ]);

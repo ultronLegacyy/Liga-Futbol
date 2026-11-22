@@ -26,7 +26,7 @@ class JugadorPolicy
         $esDirectivoDelClub = $equipo !== null
             && $user->club_id !== null
             && (int) $user->club_id === (int) $equipo->club_id
-            && $user->hasAnyRole(['Presidente del Club', 'Delegado del Club']);
+            && $this->esDirectivoConPermiso($user);
 
         return $esElJugador || $esDirectivoDelClub || $this->esSecretario($user)
             ? Response::allow()
@@ -39,7 +39,7 @@ class JugadorPolicy
             && (int) $user->persona_id === (int) $jugador->persona_id;
         $esDirectivoDelClub = $user->club_id !== null
             && (int) $user->club_id === (int) $jugador->equipo->club_id
-            && $user->hasAnyRole(['Presidente del Club', 'Delegado del Club']);
+            && $this->esDirectivoConPermiso($user);
 
         return $esElJugador || $esDirectivoDelClub
             ? Response::allow()
@@ -59,7 +59,7 @@ class JugadorPolicy
      */
     public function viewAny(User $user): Response
     {
-        $esDirectivoDeClub = $user->club_id !== null && $user->hasAnyRole(['Presidente del Club', 'Delegado del Club']);
+        $esDirectivoDeClub = $user->club_id !== null && $this->esDirectivoConPermiso($user);
 
         return $esDirectivoDeClub || $this->esSecretario($user)
             ? Response::allow()
@@ -72,6 +72,15 @@ class JugadorPolicy
         return $user->hasRole('Secretario') && $user->can('jugadores.estado.cambiar')
             ? Response::allow()
             : Response::deny('Solo el Secretario puede cambiar el estado de un jugador.');
+    }
+
+    /**
+     * Presidente o Delegado del Club con el permiso jugadores.ver. HU-083 (D-030): el acceso se decide
+     * también por el permiso, para que quitarlo al rol quite el acceso a las cuentas de ese rol.
+     */
+    private function esDirectivoConPermiso(User $user): bool
+    {
+        return $user->hasAnyRole(['Presidente del Club', 'Delegado del Club']) && $user->can('jugadores.ver');
     }
 
     /**
