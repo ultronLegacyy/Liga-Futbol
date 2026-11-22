@@ -4,17 +4,21 @@ namespace App\Http\Requests;
 
 use App\Models\Partido;
 use Carbon\Carbon;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 // Validación para modificar o reprogramar partidos (HU-027, RF-06.1)
 class UpdatePartidoRequest extends FormRequest
 {
-    public function authorize(): bool
+    public function authorize(): Response
     {
         $partido = $this->route('partido');
 
-        return $this->user()?->can('update', $partido) ?? false;
+        return $partido instanceof Partido
+            ? Gate::forUser($this->user())->inspect('update', $partido)
+            : Response::deny('El partido no existe.');
     }
 
     /**
@@ -32,16 +36,30 @@ class UpdatePartidoRequest extends FormRequest
             ? Carbon::parse($jornada->fecha_fin)->toDateString()
             : null;
 
-        $fechaRules = ['nullable', 'date'];
-        if ($fechaInicio !== null) {
-            $fechaRules[] = 'after_or_equal:'.$fechaInicio;
-        }
-        if ($fechaFin !== null) {
-            $fechaRules[] = 'before_or_equal:'.$fechaFin;
+        $fechaActual = $partido instanceof Partido && $partido->fecha_partido
+            ? Carbon::parse($partido->fecha_partido)->toDateString()
+            : null;
+        $fechaSolicitada = is_string($this->input('fecha_partido')) && $this->input('fecha_partido') !== ''
+            ? $this->input('fecha_partido')
+            : null;
+        $conservaFechaReprogramada = $partido instanceof Partido
+            && ! $partido->esBorrador()
+            && $fechaActual !== null
+            && ($fechaSolicitada === null || $fechaSolicitada === $fechaActual);
+
+        $fechaRules = ['bail', 'nullable', 'date_format:Y-m-d'];
+        if (! $conservaFechaReprogramada) {
+            if ($fechaInicio !== null) {
+                $fechaRules[] = 'after_or_equal:'.$fechaInicio;
+            }
+            if ($fechaFin !== null) {
+                $fechaRules[] = 'before_or_equal:'.$fechaFin;
+            }
         }
 
         return [
             'equipo_local_id' => [
+                'bail',
                 'sometimes',
                 'required',
                 'integer',
@@ -49,17 +67,18 @@ class UpdatePartidoRequest extends FormRequest
                 Rule::exists('equipos', 'id')->where('grupo_id', $grupoId),
             ],
             'equipo_visitante_id' => [
+                'bail',
                 'sometimes',
                 'required',
                 'integer',
                 'different:equipo_local_id',
                 Rule::exists('equipos', 'id')->where('grupo_id', $grupoId),
             ],
-            'cancha_id' => ['nullable', 'integer', Rule::exists('canchas', 'id')],
-            'arbitro_id' => ['nullable', 'integer', Rule::exists('arbitros', 'id')],
+            'cancha_id' => ['bail', 'nullable', 'integer', Rule::exists('canchas', 'id')],
+            'arbitro_id' => ['bail', 'nullable', 'integer', Rule::exists('arbitros', 'id')],
             'fecha_partido' => $fechaRules,
-            'hora_partido' => ['nullable', 'date_format:H:i,H:i:s'],
-            'estado' => ['nullable', 'string', Rule::in(['borrador', 'programado', 'confirmado', 'en juego', 'finalizado', 'suspendido'])],
+            'hora_partido' => ['bail', 'nullable', 'date_format:H:i,H:i:s'],
+            'motivo' => ['bail', 'nullable', 'string', 'min:10', 'max:1000'],
         ];
     }
 
@@ -77,11 +96,12 @@ class UpdatePartidoRequest extends FormRequest
             'equipo_visitante_id.different' => 'El equipo visitante debe ser distinto al equipo local.',
             'cancha_id.exists' => 'La cancha seleccionada no es válida.',
             'arbitro_id.exists' => 'El árbitro seleccionado no es válido.',
-            'fecha_partido.date' => 'La fecha del partido debe ser una fecha válida.',
+            'fecha_partido.date_format' => 'La fecha del partido debe tener el formato YYYY-MM-DD.',
             'fecha_partido.after_or_equal' => 'La fecha del partido no puede ser anterior al inicio de la jornada.',
             'fecha_partido.before_or_equal' => 'La fecha del partido no puede ser posterior al fin de la jornada.',
             'hora_partido.date_format' => 'La hora del partido debe tener el formato HH:MM.',
-            'estado.in' => 'El estado del partido no es válido.',
+            'motivo.min' => 'El motivo de reprogramación debe contener al menos 10 caracteres explicativos.',
+            'motivo.max' => 'El motivo no puede exceder los 1000 caracteres.',
         ];
     }
 }

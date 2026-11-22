@@ -3,6 +3,11 @@
 @section('title', 'Registro de jugador')
 
 @section('content')
+@php
+    // Otros formularios (renovar, transferir) pueden volver aquí con un arreglo en old():
+    // solo se pintan valores de texto para no provocar un error 500 (revisión del #83).
+    $anterior = static fn (string $campo): string => is_scalar($valor = old($campo)) ? (string) $valor : '';
+@endphp
 <main class="mx-auto max-w-5xl p-6" x-data>
     <div class="mb-8">
         <p class="text-sm font-semibold uppercase tracking-widest text-emerald-400">HU-016 · Alta de jugador</p>
@@ -27,22 +32,22 @@
                 <div class="grid gap-5 md:grid-cols-2">
                     <div>
                         <label for="nombre" class="mb-1 block text-sm font-medium text-gray-200">Nombre(s)</label>
-                        <input id="nombre" name="nombre" value="{{ old('nombre') }}" required maxlength="120" autocomplete="given-name" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
+                        <input id="nombre" name="nombre" value="{{ $anterior('nombre') }}" required maxlength="120" autocomplete="given-name" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
                         @error('nombre') <p class="mt-1 text-sm text-red-300">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label for="apellidos" class="mb-1 block text-sm font-medium text-gray-200">Apellidos</label>
-                        <input id="apellidos" name="apellidos" value="{{ old('apellidos') }}" required maxlength="160" autocomplete="family-name" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
+                        <input id="apellidos" name="apellidos" value="{{ $anterior('apellidos') }}" required maxlength="160" autocomplete="family-name" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
                         @error('apellidos') <p class="mt-1 text-sm text-red-300">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label for="fecha_nacimiento" class="mb-1 block text-sm font-medium text-gray-200">Fecha de nacimiento</label>
-                        <input id="fecha_nacimiento" name="fecha_nacimiento" type="date" value="{{ old('fecha_nacimiento') }}" required max="{{ now()->toDateString() }}" autocomplete="bday" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
+                        <input id="fecha_nacimiento" name="fecha_nacimiento" type="date" value="{{ $anterior('fecha_nacimiento') }}" required max="{{ now()->toDateString() }}" autocomplete="bday" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
                         @error('fecha_nacimiento') <p class="mt-1 text-sm text-red-300">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label for="curp" class="mb-1 block text-sm font-medium text-gray-200">CURP</label>
-                        <input id="curp" name="curp" value="{{ old('curp') }}" required minlength="18" maxlength="18" autocomplete="off" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 uppercase text-white focus:border-emerald-500 focus:outline-none">
+                        <input id="curp" name="curp" value="{{ $anterior('curp') }}" required minlength="18" maxlength="18" autocomplete="off" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 uppercase text-white focus:border-emerald-500 focus:outline-none">
                         @error('curp') <p class="mt-1 text-sm text-red-300">{{ $message }}</p> @enderror
                     </div>
                 </div>
@@ -66,7 +71,7 @@
                         <select id="categoria_id" name="categoria_id" required disabled class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white disabled:opacity-50">
                             <option value="">Selecciona categoría</option>
                             @foreach ($categorias as $categoria)
-                                <option value="{{ $categoria->id }}" data-temporada="{{ $categoria->temporada_id }}" @selected(old('categoria_id') == $categoria->id)>{{ $categoria->nombre }}</option>
+                                <option value="{{ $categoria->id }}" data-temporada="{{ $categoria->temporada_id }}" data-requiere-tutor="{{ in_array($categoria->id, $categoriasConTutor, true) ? '1' : '0' }}" @selected(old('categoria_id') == $categoria->id)>{{ $categoria->nombre }}</option>
                             @endforeach
                         </select>
                         @error('categoria_id') <p class="mt-1 text-sm text-red-300">{{ $message }}</p> @enderror
@@ -83,7 +88,7 @@
                     </div>
                     <div>
                         <label for="dorsal" class="mb-1 block text-sm font-medium text-gray-200">Dorsal (opcional)</label>
-                        <input id="dorsal" name="dorsal" type="number" min="1" max="99" value="{{ old('dorsal') }}" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white">
+                        <input id="dorsal" name="dorsal" type="number" min="1" max="99" value="{{ $anterior('dorsal') }}" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white">
                         @error('dorsal') <p class="mt-1 text-sm text-red-300">{{ $message }}</p> @enderror
                     </div>
                 </div>
@@ -126,10 +131,61 @@
                         <video id="vista-camara" autoplay playsinline muted class="hidden max-h-64 w-full rounded-lg bg-black" aria-label="Vista previa de la cámara"></video>
                         <img id="vista-fotografia" alt="Vista previa de la fotografía" class="hidden max-h-64 rounded-lg border border-gray-700">
                         <canvas id="lienzo-fotografia" class="hidden"></canvas>
-                        <input id="fotografia-base64" name="fotografia_base64" type="hidden" value="{{ old('fotografia_base64') }}">
+                        <input id="fotografia-base64" name="fotografia_base64" type="hidden" value="{{ $anterior('fotografia_base64') }}">
                         <p id="estado-camara" role="status" aria-live="polite" class="text-sm text-gray-400"></p>
                     </div>
                 </div>
+            </section>
+
+            <section id="seccion-tutor" aria-labelledby="tutor-titulo" class="rounded-lg border border-amber-700/60 bg-amber-950/20 p-5">
+                <h2 id="tutor-titulo" class="text-xl font-semibold text-white">Consentimiento del tutor</h2>
+                <p class="mt-1 text-sm text-amber-100">Obligatorio si el jugador es de la rama infantil, de categoría Juvenil o menor de 18 años. Sin el consentimiento de su madre, padre o tutor no se puede guardar el registro.</p>
+                @error('tutor') <p role="alert" class="mt-3 rounded border border-red-700 bg-red-950/40 p-3 text-sm text-red-200">{{ $message }}</p> @enderror
+                @error('tutor.consentimiento') <p role="alert" class="mt-3 rounded border border-red-700 bg-red-950/40 p-3 text-sm text-red-200">{{ $message }}</p> @enderror
+                <div class="mt-4 grid gap-5 md:grid-cols-2">
+                    <div>
+                        <label for="tutor-nombre" class="mb-1 block text-sm font-medium text-gray-200">Nombre completo del tutor</label>
+                        <input id="tutor-nombre" name="tutor[nombre_completo]" value="{{ $anterior('tutor.nombre_completo') }}" maxlength="200" autocomplete="off" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
+                        @error('tutor.nombre_completo') <p class="mt-1 text-sm text-red-300">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label for="tutor-parentesco" class="mb-1 block text-sm font-medium text-gray-200">Parentesco</label>
+                        <select id="tutor-parentesco" name="tutor[parentesco]" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white">
+                            <option value="">Selecciona parentesco</option>
+                            @foreach (config('privacidad.parentescos_tutor') as $parentesco)
+                                <option value="{{ $parentesco }}" @selected(old('tutor.parentesco') === $parentesco)>{{ $parentesco }}</option>
+                            @endforeach
+                        </select>
+                        @error('tutor.parentesco') <p class="mt-1 text-sm text-red-300">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label for="tutor-telefono" class="mb-1 block text-sm font-medium text-gray-200">Teléfono (10 dígitos)</label>
+                        <input id="tutor-telefono" name="tutor[telefono]" type="tel" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" value="{{ $anterior('tutor.telefono') }}" autocomplete="off" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
+                        @error('tutor.telefono') <p class="mt-1 text-sm text-red-300">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label for="tutor-correo" class="mb-1 block text-sm font-medium text-gray-200">Correo (opcional)</label>
+                        <input id="tutor-correo" name="tutor[correo]" type="email" maxlength="160" value="{{ $anterior('tutor.correo') }}" autocomplete="off" class="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
+                        @error('tutor.correo') <p class="mt-1 text-sm text-red-300">{{ $message }}</p> @enderror
+                    </div>
+                </div>
+                <label class="mt-4 flex items-start gap-3 text-sm text-gray-100">
+                    <input id="tutor-consentimiento" name="tutor[consentimiento]" type="checkbox" value="1" @checked(old('tutor.consentimiento')) class="mt-1 h-4 w-4 rounded border-gray-500 bg-gray-900 text-emerald-600">
+                    <span>La madre, padre o tutor leyó el aviso de privacidad y da su consentimiento para el tratamiento de los datos personales del jugador.</span>
+                </label>
+            </section>
+
+            <section aria-labelledby="aviso-titulo" class="rounded-lg border border-gray-700 bg-gray-900/60 p-5">
+                <h2 id="aviso-titulo" class="text-xl font-semibold text-white">Aviso de privacidad</h2>
+                <p class="mt-1 text-sm text-gray-300">Muéstralo al jugador o a su tutor antes de guardar el registro.</p>
+                <div id="aviso-privacidad" tabindex="0" class="mt-4 max-h-64 overflow-y-auto rounded-lg border border-gray-700 bg-gray-950/60 p-4">
+                    @include('privacidad._aviso_jugador')
+                </div>
+                <label class="mt-4 flex items-start gap-3 text-sm text-gray-100">
+                    <input id="aviso-aceptado" name="aviso_privacidad_aceptado" type="checkbox" value="1" required @checked(old('aviso_privacidad_aceptado')) class="mt-1 h-4 w-4 rounded border-gray-500 bg-gray-900 text-emerald-600">
+                    <span>Mostré el aviso de privacidad al jugador o a su tutor y lo leyó.</span>
+                </label>
+                @error('aviso_privacidad_aceptado') <p role="alert" class="mt-2 text-sm text-red-300">{{ $message }}</p> @enderror
             </section>
 
             <div class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-700 pt-5">
@@ -176,9 +232,33 @@
         equipo.disabled = !temporadaId || !categoriaId;
     };
 
-    temporada.addEventListener('change', () => { categoria.value = ''; equipo.value = ''; filtrar(); });
-    categoria.addEventListener('change', () => { equipo.value = ''; filtrar(); });
+    // HU-020: solo es ayuda visual; el servidor decide si exige el consentimiento del tutor.
+    const seccionTutor = document.getElementById('seccion-tutor');
+    const nacimiento = document.getElementById('fecha_nacimiento');
+    const camposTutor = ['tutor-nombre', 'tutor-parentesco', 'tutor-telefono', 'tutor-consentimiento'].map((id) => document.getElementById(id));
+    const mayoriaDeEdad = {{ (int) config('privacidad.mayoria_de_edad') }};
+
+    const esMenor = () => {
+        if (!nacimiento?.value) return false;
+        const fecha = new Date(nacimiento.value + 'T00:00:00');
+        const hoy = new Date();
+        let edad = hoy.getFullYear() - fecha.getFullYear();
+        if (hoy.getMonth() < fecha.getMonth() || (hoy.getMonth() === fecha.getMonth() && hoy.getDate() < fecha.getDate())) edad--;
+        return edad < mayoriaDeEdad;
+    };
+
+    const actualizarTutor = () => {
+        if (!seccionTutor) return;
+        const requiere = categoria.selectedOptions[0]?.dataset.requiereTutor === '1' || esMenor();
+        seccionTutor.hidden = !requiere;
+        camposTutor.forEach((campo) => { if (campo) campo.required = requiere; });
+    };
+
+    temporada.addEventListener('change', () => { categoria.value = ''; equipo.value = ''; filtrar(); actualizarTutor(); });
+    categoria.addEventListener('change', () => { equipo.value = ''; filtrar(); actualizarTutor(); });
+    nacimiento?.addEventListener('change', actualizarTutor);
     filtrar();
+    actualizarTutor();
 
     fotografia?.addEventListener('change', () => {
         fotografiaBase64.value = '';

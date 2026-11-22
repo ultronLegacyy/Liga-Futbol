@@ -12,12 +12,12 @@ class CedulaArbitralPolicy
     private const ROL_ARBITRO = 'Árbitro en Campo';
 
     /**
-     * El Administrador General pasa en todo, salvo en abrir y firmar: abrir la cédula le toca al árbitro asignado
+     * El Administrador General pasa en todo, salvo en abrir, firmar y cerrar: le tocan al árbitro asignado
      * y la matriz no le da cedulas.firmar (HU-075).
      */
     public function before(User $usuario, string $habilidad): ?bool
     {
-        if (in_array($habilidad, ['abrir', 'firmar'], true)) {
+        if (in_array($habilidad, ['abrir', 'firmar', 'cerrar'], true)) {
             return null;
         }
 
@@ -64,6 +64,35 @@ class CedulaArbitralPolicy
         }
 
         return $this->accesoDelArbitro($usuario, $partido);
+    }
+
+    /**
+     * HU-037: transcribir una cédula en papel. Es para el Capturista y los demás roles con cedulas.capturar
+     * que trabajan en la sede; el Árbitro en Campo captura desde el celular (HU-036).
+     */
+    public function capturarFisica(User $usuario): Response
+    {
+        if (! $usuario->can('cedulas.capturar') || $usuario->hasRole(self::ROL_ARBITRO)) {
+            return Response::deny('Solo el Capturista puede transcribir cédulas en papel.');
+        }
+
+        return Response::allow();
+    }
+
+    // HU-075: recabar la firma de los capitanes; solo el árbitro asignado, con cedulas.firmar
+    public function firmar(User $usuario, Partido $partido): Response
+    {
+        if (! $usuario->can('cedulas.firmar')) {
+            return Response::deny('No cuenta con privilegios para recabar firmas ni cerrar cédulas arbitrales.');
+        }
+
+        return $this->accesoDelArbitro($usuario, $partido);
+    }
+
+    // HU-075: cerrar la cédula; lo mismo que firmar
+    public function cerrar(User $usuario, Partido $partido): Response
+    {
+        return $this->firmar($usuario, $partido);
     }
 
     /**

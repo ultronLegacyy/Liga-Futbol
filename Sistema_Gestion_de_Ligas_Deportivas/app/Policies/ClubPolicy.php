@@ -38,7 +38,8 @@ class ClubPolicy
                 && (int) $usuario->club_id === (int) $club->id);
     }
 
-    // Mitigacion de ID Tampering segun requisito RNF-29: un directivo solo puede consultar su propio club
+    // Mitigacion de ID Tampering segun requisito RNF-29: un directivo solo puede consultar su propio club.
+    // HU-083 (D-030): ademas del rol pide el permiso clubes.ver, para que quitarlo al rol quite el acceso
     public function view(User $usuario, Club $club): Response
     {
         if ($usuario->hasRole('Administrador General')) {
@@ -46,6 +47,10 @@ class ClubPolicy
         }
 
         if ($usuario->hasAnyRole(['Presidente del Club', 'Delegado del Club'])) {
+            if (! $usuario->can('clubes.ver')) {
+                return Response::deny('No posee privilegios para visualizar la informacion de este club deportivo.');
+            }
+
             return $usuario->club_id !== null && (int) $usuario->club_id === (int) $club->id
                 ? Response::allow()
                 : Response::deny('Acceso denegado: no cuenta con autorizacion para consultar la informacion de otros clubes deportivos.');

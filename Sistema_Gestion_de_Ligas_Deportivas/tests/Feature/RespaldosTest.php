@@ -53,6 +53,9 @@ class RespaldosTest extends TestCase
         config([
             'respaldos.clave' => base64_encode(random_bytes(32)),
             'respaldos.disco' => 'respaldos',
+            // Los programas por defecto, aunque el .env local use docker exec (RESPALDO_VOLCADO y RESPALDO_IMPORTACION)
+            'respaldos.volcado' => 'mariadb-dump',
+            'respaldos.importacion' => 'mariadb',
             'respaldos.trabajo' => $this->temporal.'/trabajo',
             'respaldos.restauracion.base' => 'sgld_restauracion_prueba',
             'respaldos.restauracion.carpeta' => $this->temporal.'/restauracion',
