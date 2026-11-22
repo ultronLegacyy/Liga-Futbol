@@ -19,6 +19,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $goles_local
  * @property int $goles_visitante
  * @property \Illuminate\Support\Carbon|null $cerrada_en
+ * @property string $origen
+ * @property int|null $capturada_por_id
+ * @property \Illuminate\Support\Carbon|null $capturada_en
+ * @property string|null $cedula_papel_ruta
  */
 class CedulaArbitral extends Model
 {
@@ -28,6 +32,11 @@ class CedulaArbitral extends Model
     public const ABIERTA = 'abierta';
 
     public const CERRADA = 'cerrada';
+
+    // HU-037: la cédula se captura en campo desde el celular o se transcribe desde la cédula en papel
+    public const ORIGEN_CAMPO = 'campo';
+
+    public const ORIGEN_PAPEL = 'papel';
 
     // Estados del partido en que el árbitro abre la cédula y captura (respuesta 24 de Medina, 14/11)
     public const ESTADOS_PARTIDO_CAPTURA = ['confirmado', 'en juego'];
@@ -44,6 +53,10 @@ class CedulaArbitral extends Model
         'firma_capitan_visitante',
         'cerrada_por_id',
         'cerrada_en',
+        'origen',
+        'cedula_papel_ruta',
+        'capturada_por_id',
+        'capturada_en',
     ];
 
     /**
@@ -55,6 +68,7 @@ class CedulaArbitral extends Model
             'goles_local' => 'integer',
             'goles_visitante' => 'integer',
             'cerrada_en' => 'datetime',
+            'capturada_en' => 'datetime',
         ];
     }
 
@@ -91,6 +105,35 @@ class CedulaArbitral extends Model
     public function cerradaPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'cerrada_por_id');
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function capturadaPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'capturada_por_id');
+    }
+
+    public function esDePapel(): bool
+    {
+        return $this->origen === self::ORIGEN_PAPEL;
+    }
+
+    /**
+     * Respuesta 51 del PO: el árbitro ya capturó algo en campo (alineación, marcador, informe, goles, tarjetas,
+     * incidencias o firmas). Sobre una cédula así el Capturista no transcribe el papel; las diferencias se
+     * corrigen después del cierre (HU-039).
+     */
+    public function tieneCapturaDeCampo(): bool
+    {
+        if ($this->esDePapel()) {
+            return false;
+        }
+
+        return $this->firma_capitan_local !== null
+            || $this->firma_capitan_visitante !== null
+            || $this->envios()->exists()
+            || $this->eventos()->exists()
+            || $this->incidencias()->exists();
     }
 
     /** @return HasMany<AlineacionPartido, $this> */

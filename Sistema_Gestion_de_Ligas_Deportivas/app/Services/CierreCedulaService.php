@@ -6,6 +6,7 @@ use App\Models\CedulaArbitral;
 use App\Models\Jornada;
 use App\Models\Partido;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -95,26 +96,80 @@ class CierreCedulaService
                 throw ValidationException::withMessages(['firmas' => 'No se puede cerrar la cédula sin la firma de los dos capitanes. Falta: '.implode(' y ', $faltantes).'.']);
             }
 
-            $hallazgos = $this->validacion->validar($bloqueada);
-
-            if ($hallazgos !== []) {
-                throw ValidationException::withMessages(['validacion' => array_column($hallazgos, 'mensaje')]);
-            }
-
-            $bloqueada->update([
-                'estado' => CedulaArbitral::CERRADA,
-                'cerrada_por_id' => $usuario->id,
-                'cerrada_en' => now(),
-            ]);
-
-            // Respuesta 28 del PO: el partido pasa a finalizado al cerrarse la cédula (HU-075)
-            $this->estados->finalizarPorCierreDeCedula($partido, $usuario->id, $motivo);
-
-            // HU-044 / RF-10.1: Generar expediente disciplinario si la cédula contiene incidencias
-            $this->expedientes->generarDesdeCedulaSiAplica($bloqueada);
-
-            return $bloqueada;
+            return $this->finalizarCierre($bloqueada, $partido, $usuario, $motivo);
         });
+    }
+
+    /**
+     * Respuesta 50 del PO (HU-037): el Capturista cierra la cédula transcrita del papel. El escaneo de la cédula
+     * firmada por el árbitro y los capitanes sustituye a las firmas digitales; lo demás es igual al cierre digital:
+     * se validan los hallazgos, el partido pasa a «finalizado» (respuesta 28) y se genera el expediente (HU-044).
+     */
+    public function cerrarDesdePapel(CedulaArbitral $cedula, UploadedFile $escaneo, User $usuario): CedulaArbitral
+    {
+        $extension = strtolower($escaneo->extension());
+        $ruta = $escaneo->storeAs('cedulas/'.$cedula->id, 'papel-'.Str::uuid().'.'.$extension, 'local');
+
+        if ($ruta === false) {
+            throw ValidationException::withMessages(['cedula_escaneada' => 'No se pudo guardar el escaneo de la cédula; intenta de nuevo.']);
+        }
+
+        $motivo = 'Cierre de la cédula en papel del partido '.$cedula->partido_id;
+
+        try {
+            return $this->auditoria->conMotivo($motivo, function () use ($cedula, $usuario, $motivo, $ruta): CedulaArbitral {
+                // Mismo orden de bloqueo que el cierre digital: jornada, partido y luego la cédula
+                $jornadaId = Partido::query()->whereKey($cedula->partido_id)->value('jornada_id');
+                Jornada::query()->whereKey($jornadaId)->lockForUpdate()->firstOrFail();
+                $partido = Partido::query()->whereKey($cedula->partido_id)->lockForUpdate()->firstOrFail();
+                $bloqueada = $this->cedulas->bloquearAbierta($cedula);
+
+                if (! $bloqueada->esDePapel()) {
+                    throw ValidationException::withMessages(['cedula' => 'Solo se cierra así una cédula transcrita desde el papel; la cédula capturada en campo la cierra el árbitro con las firmas.']);
+                }
+
+                $bloqueada->update(['cedula_papel_ruta' => $ruta]);
+
+                return $this->finalizarCierre($bloqueada, $partido, $usuario, $motivo);
+            });
+        } catch (Throwable $error) {
+            // Si el cierre no se guardó, el escaneo no se queda huérfano
+            Storage::disk('local')->delete($ruta);
+
+            throw $error;
+        }
+    }
+
+    // Escaneo de la cédula en papel, solo si es de esta cédula y existe en el disco privado
+    public function rutaDeEscaneo(CedulaArbitral $cedula): ?string
+    {
+        $ruta = $cedula->cedula_papel_ruta;
+
+        return is_string($ruta) && str_starts_with($ruta, 'cedulas/'.$cedula->id.'/papel-') && Storage::disk('local')->exists($ruta) ? $ruta : null;
+    }
+
+    // Pasos comunes del cierre: hallazgos, estado de la cédula, partido finalizado y expediente disciplinario
+    private function finalizarCierre(CedulaArbitral $bloqueada, Partido $partido, User $usuario, string $motivo): CedulaArbitral
+    {
+        $hallazgos = $this->validacion->validar($bloqueada);
+
+        if ($hallazgos !== []) {
+            throw ValidationException::withMessages(['validacion' => array_column($hallazgos, 'mensaje')]);
+        }
+
+        $bloqueada->update([
+            'estado' => CedulaArbitral::CERRADA,
+            'cerrada_por_id' => $usuario->id,
+            'cerrada_en' => now(),
+        ]);
+
+        // Respuesta 28 del PO: el partido pasa a finalizado al cerrarse la cédula (HU-075)
+        $this->estados->finalizarPorCierreDeCedula($partido, $usuario->id, $motivo);
+
+        // HU-044 / RF-10.1: Generar expediente disciplinario si la cédula contiene incidencias
+        $this->expedientes->generarDesdeCedulaSiAplica($bloqueada);
+
+        return $bloqueada;
     }
 
     /**
