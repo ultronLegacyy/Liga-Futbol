@@ -34,6 +34,14 @@ class CargoFinancieroPolicy
             : Response::deny('No cuenta con privilegios para consultar las cuotas y cargos.');
     }
 
+    // Reporte financiero por periodo, club, temporada y concepto (HU-052, RF-13.3); también lo consulta el Presidente
+    public function verReporte(User $usuario): Response
+    {
+        return $usuario->can('finanzas.reportes')
+            ? Response::allow()
+            : Response::deny('No cuenta con privilegios para consultar el reporte financiero.');
+    }
+
     // Registrar una cuota de inscripción o un cargo de arbitraje o cancha
     public function create(User $usuario): Response
     {

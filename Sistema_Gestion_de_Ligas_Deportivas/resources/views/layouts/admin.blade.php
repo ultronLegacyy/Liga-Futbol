@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    {{-- HU-022 (RNF-30): las pantallas internas tienen datos personales y no se indexan --}}
+    <meta name="robots" content="noindex, nofollow, noarchive">
     <title>@yield('title', 'Sistema de Gestión de Ligas Deportivas')</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -34,6 +36,11 @@
                 </a>
             @endrole
 
+            @can('capturarFisica', App\Models\CedulaArbitral::class)
+                <a href="{{ route('cedulas.fisicas.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-lg {{ request()->routeIs('cedulas.fisica*') ? 'bg-green-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white' }}">
+                    Cédulas en papel
+                </a>
+            @endcan
             @role('Árbitro en Campo')
                 <a href="{{ route('cedulas.mis-partidos') }}" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-lg {{ request()->routeIs('cedulas.*') ? 'bg-green-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white' }}">
                     Mis partidos
@@ -90,6 +97,21 @@
                 </a>
                 <a href="{{ route('adeudos.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-lg {{ request()->routeIs('adeudos.*') ? 'bg-green-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white' }}">
                     Adeudos por club
+                </a>
+            @endcan
+            @can('viewAny', App\Models\Asamblea::class)
+                <a href="{{ route('asambleas.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-lg {{ request()->routeIs('asambleas.*') ? 'bg-green-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white' }}">
+                    Asambleas
+                </a>
+            @endcan
+            @can('viewAny', App\Models\ExpedienteDisciplinario::class)
+                <a href="{{ route('disciplina.expedientes.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-lg {{ request()->routeIs('disciplina.expedientes.*') ? 'bg-green-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white' }}">
+                    Expedientes disciplinarios
+                </a>
+            @endcan
+            @can('verReporte', App\Models\CargoFinanciero::class)
+                <a href="{{ route('reportes.financiero') }}" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-lg {{ request()->routeIs('reportes.financiero*') ? 'bg-green-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white' }}">
+                    Reporte financiero
                 </a>
             @endcan
         </nav>

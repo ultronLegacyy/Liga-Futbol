@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -32,8 +33,10 @@ class CedulaService
 
     private const CLAVE_DE_OTRA_CEDULA = 'La clave de envío ya se usó en otra cédula.';
 
-    public function __construct(private readonly AuditService $auditoria)
-    {
+    public function __construct(
+        private readonly AuditService $auditoria,
+        private readonly ReglaEdadCategoriaService $reglaEdad,
+    ) {
     }
 
     /**
@@ -103,7 +106,7 @@ class CedulaService
 
         if ($existente !== null) {
             return DB::transaction(function () use ($existente, $partido): CedulaArbitral {
-                $bloqueada = $this->bloquear($existente);
+                $bloqueada = $this->bloquearAbierta($existente);
                 $this->sumarPlantilla($bloqueada, $partido);
 
                 return $bloqueada;
@@ -136,7 +139,7 @@ class CedulaService
         $clave = $this->clave($clave);
 
         return $this->conClaveUnica(fn (): AlineacionPartido => DB::transaction(function () use ($cedula, $jugadorId, $datos, $clave): AlineacionPartido {
-            $bloqueada = $this->bloquear($cedula);
+            $bloqueada = $this->bloquearAbierta($cedula);
             $fila = $bloqueada->alineaciones()->where('jugador_id', $jugadorId)->first();
 
             if ($fila === null) {
@@ -154,6 +157,13 @@ class CedulaService
                 throw ValidationException::withMessages(['numero_camiseta' => 'El número de camiseta debe estar entre 0 y 999.']);
             }
 
+            $asistio = (bool) ($datos['asistio'] ?? $fila->asistio);
+
+            // HU-021: en la rama infantil solo se alinea a quien cumple, según su CURP, la edad de la categoría
+            if ($asistio) {
+                $this->reglaEdad->validarAlineacion($fila->jugador()->firstOrFail());
+            }
+
             $esCapitan = (bool) ($datos['es_capitan'] ?? $fila->es_capitan);
 
             if ($esCapitan) {
@@ -164,10 +174,11 @@ class CedulaService
             }
 
             $fila->update([
-                'asistio' => (bool) ($datos['asistio'] ?? $fila->asistio),
+                'asistio' => $asistio,
                 'numero_camiseta' => $numero,
                 'es_capitan' => $esCapitan,
             ]);
+            $this->quitarFirmas($bloqueada);
 
             $bloqueada->envios()->create(['tipo' => EnvioCedula::ALINEACION, 'clave_envio' => $clave]);
 
@@ -185,10 +196,14 @@ class CedulaService
         }
 
         return $this->conClaveUnica(fn (): CedulaArbitral => $this->auditoria->conMotivo('Marcador de la cédula arbitral del partido '.$cedula->partido_id, function () use ($cedula, $golesLocal, $golesVisitante, $clave): CedulaArbitral {
-            $bloqueada = $this->bloquear($cedula);
+            $bloqueada = $this->bloquearAbierta($cedula);
 
             if ($this->yaAplicada($bloqueada, $clave)) {
                 return $bloqueada;
+            }
+
+            if ((int) $bloqueada->goles_local !== $golesLocal || (int) $bloqueada->goles_visitante !== $golesVisitante) {
+                $this->quitarFirmas($bloqueada);
             }
 
             $bloqueada->update(['goles_local' => $golesLocal, 'goles_visitante' => $golesVisitante]);
@@ -221,7 +236,7 @@ class CedulaService
         $jugadorId = (int) $datos['jugador_id'];
 
         return $this->conClaveUnica(fn (): EventoPartido => $this->auditoria->conMotivo('Evento '.$datos['tipo'].' en la cédula arbitral del partido '.$cedula->partido_id, function () use ($cedula, $datos, $clave, $autogol, $minuto, $jugadorId): EventoPartido {
-            $bloqueada = $this->bloquear($cedula);
+            $bloqueada = $this->bloquearAbierta($cedula);
             $repetido = EventoPartido::query()->where('clave_envio', $clave)->first();
 
             if ($repetido !== null) {
@@ -232,6 +247,8 @@ class CedulaService
             if (! $bloqueada->alineaciones()->where('jugador_id', $jugadorId)->exists()) {
                 throw ValidationException::withMessages(['jugador_id' => 'El jugador no pertenece a los equipos de este partido.']);
             }
+
+            $this->quitarFirmas($bloqueada);
 
             return $bloqueada->eventos()->create([
                 'jugador_id' => $jugadorId,
@@ -261,7 +278,7 @@ class CedulaService
         $equipoId = isset($datos['equipo_id']) && $datos['equipo_id'] !== '' ? (int) $datos['equipo_id'] : null;
 
         return $this->conClaveUnica(fn (): IncidenciaPartido => $this->auditoria->conMotivo('Incidencia en la cédula arbitral del partido '.$cedula->partido_id, function () use ($cedula, $clave, $descripcion, $minuto, $equipoId): IncidenciaPartido {
-            $bloqueada = $this->bloquear($cedula);
+            $bloqueada = $this->bloquearAbierta($cedula);
             $repetida = IncidenciaPartido::query()->where('clave_envio', $clave)->first();
 
             if ($repetida !== null) {
@@ -274,6 +291,8 @@ class CedulaService
                 throw ValidationException::withMessages(['equipo_id' => 'El equipo no juega este partido.']);
             }
 
+            $this->quitarFirmas($bloqueada);
+
             return $bloqueada->incidencias()->create([
                 'equipo_id' => $equipoId,
                 'minuto' => $minuto,
@@ -283,12 +302,86 @@ class CedulaService
         }));
     }
 
-    // Solo se abre y se captura mientras el partido está programado, confirmado o en juego
+    // HU-075: reporte arbitral en texto libre; viaja por la cola sin conexión con su clave de envío
+    public function guardarInforme(CedulaArbitral $cedula, ?string $informe, string $clave): CedulaArbitral
+    {
+        $clave = $this->clave($clave);
+        $informe = $informe === null || trim($informe) === '' ? null : trim($informe);
+
+        if ($informe !== null && mb_strlen($informe) > 5000) {
+            throw ValidationException::withMessages(['informe_arbitral' => 'El reporte arbitral admite hasta 5000 caracteres.']);
+        }
+
+        return $this->conClaveUnica(fn (): CedulaArbitral => $this->auditoria->conMotivo('Reporte arbitral de la cédula del partido '.$cedula->partido_id, function () use ($cedula, $informe, $clave): CedulaArbitral {
+            $bloqueada = $this->bloquearAbierta($cedula);
+
+            if ($this->yaAplicada($bloqueada, $clave)) {
+                return $bloqueada;
+            }
+
+            if ($bloqueada->informe_arbitral !== $informe) {
+                $this->quitarFirmas($bloqueada);
+                $bloqueada->update(['informe_arbitral' => $informe]);
+            }
+
+            $bloqueada->envios()->create(['tipo' => EnvioCedula::INFORME, 'clave_envio' => $clave]);
+
+            return $bloqueada;
+        }));
+    }
+
+    // HU-075: anula un gol o una tarjeta mal capturados, con motivo; queda en la auditoría como eliminación
+    public function anularEvento(CedulaArbitral $cedula, int $eventoId, string $motivo): void
+    {
+        $motivo = $this->motivoDeAnulacion($motivo);
+
+        $this->auditoria->conMotivo('Anulación de un evento de la cédula del partido '.$cedula->partido_id.': '.$motivo, function () use ($cedula, $eventoId): void {
+            $bloqueada = $this->bloquearAbierta($cedula);
+            $evento = $bloqueada->eventos()->whereKey($eventoId)->firstOrFail();
+
+            $this->quitarFirmas($bloqueada);
+            $evento->delete();
+        });
+    }
+
+    // HU-075: anula una incidencia mal capturada, con motivo
+    public function anularIncidencia(CedulaArbitral $cedula, int $incidenciaId, string $motivo): void
+    {
+        $motivo = $this->motivoDeAnulacion($motivo);
+
+        $this->auditoria->conMotivo('Anulación de una incidencia de la cédula del partido '.$cedula->partido_id.': '.$motivo, function () use ($cedula, $incidenciaId): void {
+            $bloqueada = $this->bloquearAbierta($cedula);
+            $incidencia = $bloqueada->incidencias()->whereKey($incidenciaId)->firstOrFail();
+
+            $this->quitarFirmas($bloqueada);
+            $incidencia->delete();
+        });
+    }
+
+    /**
+     * HU-075: cualquier cambio después de firmar borra las dos firmas, para que nadie firme algo distinto de lo que se cierra.
+     * Se escribe sin el modelo para que la operación deje una sola entrada en la auditoría; los archivos se borran al confirmar.
+     */
+    public function quitarFirmas(CedulaArbitral $bloqueada): void
+    {
+        $rutas = array_values(array_filter([$bloqueada->firma_capitan_local, $bloqueada->firma_capitan_visitante]));
+
+        if ($rutas === []) {
+            return;
+        }
+
+        CedulaArbitral::query()->whereKey($bloqueada->id)->update(['firma_capitan_local' => null, 'firma_capitan_visitante' => null]);
+        $bloqueada->forceFill(['firma_capitan_local' => null, 'firma_capitan_visitante' => null])->syncOriginal();
+
+        DB::afterCommit(fn () => Storage::disk('local')->delete(array_values(array_filter($rutas, fn (string $ruta): bool => str_starts_with($ruta, 'cedulas/')))));
+    }
+
+    // Solo se abre y se captura mientras el partido está confirmado o en juego
     public function validarEstadoDelPartido(Partido $partido): void
     {
         if (! in_array($partido->estado, CedulaArbitral::ESTADOS_PARTIDO_CAPTURA, true)) {
             throw ValidationException::withMessages([
-                'estado' => 'La cédula solo se abre y se captura cuando el partido está programado, confirmado o en juego.',
+                'estado' => 'La cédula solo se abre y se captura cuando el partido está confirmado o en juego.',
             ]);
         }
     }
@@ -330,8 +423,11 @@ class CedulaService
         ])->all());
     }
 
-    // Bloquea la cédula para serializar los cambios; una cédula cerrada, o de un partido fuera de juego, ya no se edita
-    private function bloquear(CedulaArbitral $cedula): CedulaArbitral
+    /**
+     * Bloquea la cédula para serializar los cambios; una cédula cerrada, o de un partido fuera de juego, ya no se edita.
+     * Se llama dentro de una transacción; la usan también las firmas y el cierre (HU-075).
+     */
+    public function bloquearAbierta(CedulaArbitral $cedula): CedulaArbitral
     {
         $bloqueada = CedulaArbitral::query()->lockForUpdate()->findOrFail($cedula->id);
 
@@ -342,6 +438,17 @@ class CedulaService
         $this->validarEstadoDelPartido($bloqueada->partido()->firstOrFail());
 
         return $bloqueada;
+    }
+
+    private function motivoDeAnulacion(string $motivo): string
+    {
+        $motivo = trim($motivo);
+
+        if (mb_strlen($motivo) < 5 || mb_strlen($motivo) > 500) {
+            throw ValidationException::withMessages(['motivo' => 'El motivo de la anulación debe tener entre 5 y 500 caracteres.']);
+        }
+
+        return $motivo;
     }
 
     private function rechazarCerrada(): never

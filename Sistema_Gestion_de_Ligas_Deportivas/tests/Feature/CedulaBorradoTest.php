@@ -120,6 +120,10 @@ class CedulaBorradoTest extends TestCase
         $cedulaVacia = $this->cedulas->abrir($this->partido);
         $programador = $this->usuario('Programador de Partidos');
 
+        // Bajo HU-031 el borrado físico de partidos se reserva a estado borrador
+        $sinCedula->update(['estado' => Partido::ESTADO_BORRADOR]);
+        $this->partido->update(['estado' => Partido::ESTADO_BORRADOR]);
+
         foreach ([$sinCedula, $this->partido] as $partido) {
             $this->actingAs($programador)
                 ->delete(route('partidos.destroy', $partido))
@@ -134,6 +138,9 @@ class CedulaBorradoTest extends TestCase
     public function test_una_jornada_con_la_cedula_vacia_se_borra(): void
     {
         $this->cedulas->abrir($this->partido);
+
+        // Bajo HU-031 el borrado físico se reserva a partidos en estado borrador
+        $this->partido->update(['estado' => Partido::ESTADO_BORRADOR]);
 
         $this->actingAs($this->usuario('Programador de Partidos'))
             ->delete(route('jornadas.destroy', $this->partido->jornada_id))
