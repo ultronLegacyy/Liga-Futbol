@@ -167,6 +167,9 @@ class CedulaArbitral extends Model
             || $this->envios()->exists()
             || $this->eventos()->exists()
             || $this->incidencias()->exists();
+    }
+
+    /** @return BelongsTo<User, $this> */
     public function validadaPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'validada_por_id');
