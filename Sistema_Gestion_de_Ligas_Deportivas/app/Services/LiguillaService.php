@@ -54,7 +54,10 @@ class LiguillaService
             $problemas[] = 'El número de equipos que clasifican debe ser par para formar los cruces (por ejemplo, 1° vs 8°).';
         }
 
-        $partidos = Partido::query()->whereHas('jornada', fn ($jornada) => $jornada->where('grupo_id', $grupo->id));
+        // Un partido cancelado (HU-029) nunca tendrá resultado: no impide cerrar la fase regular
+        $partidos = Partido::query()
+            ->whereHas('jornada', fn ($jornada) => $jornada->where('grupo_id', $grupo->id))
+            ->where('estado', '!=', 'cancelado');
         $total = (clone $partidos)->count();
         $pendientes = $total - (clone $partidos)->whereHas('cedula', fn ($cedula) => $cedula->oficiales())->count();
 
