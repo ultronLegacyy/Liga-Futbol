@@ -160,7 +160,7 @@ class EstadisticasGrupoService
 
     /**
      * CA2: guarda la tabla de cada jornada cerrada que aún no tiene copia. Una jornada está cerrada cuando
-     * todos sus partidos tienen resultado oficial; solo se copia si las anteriores también lo están,
+     * todos sus partidos no cancelados tienen resultado oficial; solo se copia si las anteriores también lo están,
      * para que la copia refleje la tabla real de esa jornada. Una copia ya guardada no se reescribe.
      */
     public function conservarHistoricos(Grupo $grupo): void
@@ -169,9 +169,10 @@ class EstadisticasGrupoService
 
         $jornadas = Jornada::query()
             ->where('grupo_id', $grupo->id)
+            // Un partido cancelado (HU-029) nunca tendrá resultado: no deja la jornada abierta
             ->withCount([
-                'partidos',
-                'partidos as oficiales_count' => fn ($partido) => $partido->whereHas('cedula', fn ($cedula) => $cedula->oficiales()),
+                'partidos' => fn ($partido) => $partido->where('estado', '!=', 'cancelado'),
+                'partidos as oficiales_count' => fn ($partido) => $partido->where('estado', '!=', 'cancelado')->whereHas('cedula', fn ($cedula) => $cedula->oficiales()),
             ])
             ->orderBy('numero_jornada')
             ->get();

@@ -144,6 +144,19 @@ class EstadisticasGrupoTest extends TestCase
         $this->assertSame(4, TablaPosicionJornada::query()->where('grupo_id', $grupo->id)->count());
     }
 
+    // Un partido cancelado (HU-029) no deja la jornada abierta para siempre
+    public function test_un_partido_cancelado_no_bloquea_el_cierre_de_la_jornada(): void
+    {
+        [$grupo, $e] = $this->grupoConEquipos();
+        $cancelado = $this->resultado($grupo, 1, $e['C'], 0, 0, $e['D'], validar: false);
+        $cancelado->partido->forceFill(['estado' => 'cancelado'])->save();
+        $cancelado->delete();
+
+        $jugado = $this->resultado($grupo, 1, $e['A'], 2, 0, $e['B']);
+
+        $this->assertSame(['A' => [1, 1, 3], 'C' => [2, 0, 0], 'D' => [3, 0, 0], 'B' => [4, 1, 0]], $this->copia($jugado->partido->jornada_id));
+    }
+
     // CA3 (RF-09.4): la pantalla distingue el dato oficial del indicador calculado y muestra la tabla por jornada
     public function test_la_pantalla_distingue_oficial_de_calculado(): void
     {
