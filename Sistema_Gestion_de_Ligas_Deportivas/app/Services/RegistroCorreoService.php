@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Mail\CorreoDelSistema;
 use App\Models\RegistroCorreo;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Str;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
@@ -19,26 +20,33 @@ class RegistroCorreoService
     private const CABECERA_CLAVE = 'X-SGLD-Clave';
 
     /**
-     * Antes de enviar: deja el correo en «pendiente». Devuelve false si esa clave ya se envió, para cancelar el reenvío.
+     * Antes de enviar: reclama la clave dejando el correo en «pendiente». Devuelve false para cancelar el envío si esa
+     * clave ya se envió o si otro proceso la está enviando (dos workers con el mismo aviso).
      */
     public function alEnviar(Email $correo): bool
     {
         $clave = $this->clave($correo);
-        $registro = RegistroCorreo::query()->firstOrNew(['clave' => $clave]);
 
-        if ($registro->exists && $registro->estado === RegistroCorreo::ENVIADO) {
-            return false;
+        try {
+            RegistroCorreo::query()->create([
+                'clave' => $clave,
+                'tipo' => $this->cabecera($correo, 'X-SGLD-Tipo') ?? 'otro',
+                'asunto' => Str::limit((string) ($correo->getSubject() ?? ''), 250, '') ?: '(sin asunto)',
+                'destinatarios' => array_map(fn (Address $direccion): string => $direccion->getAddress(), [...$correo->getTo(), ...$correo->getCc(), ...$correo->getBcc()]),
+                'estado' => RegistroCorreo::PENDIENTE,
+            ]);
+
+            return true;
+        } catch (UniqueConstraintViolationException) {
+            // La clave ya tiene fila: solo pasa quien la reclame con el UPDATE de abajo
         }
 
-        $registro->fill([
-            'tipo' => $this->cabecera($correo, 'X-SGLD-Tipo') ?? 'otro',
-            'asunto' => Str::limit((string) ($correo->getSubject() ?? ''), 250, '') ?: '(sin asunto)',
-            'destinatarios' => array_map(fn (Address $direccion): string => $direccion->getAddress(), [...$correo->getTo(), ...$correo->getCc(), ...$correo->getBcc()]),
-            'estado' => RegistroCorreo::PENDIENTE,
-            'error' => null,
-        ])->save();
-
-        return true;
+        // Se reclama un envío fallido, o un «pendiente» abandonado: el reintento de la cola llega 60 s después.
+        // shortcut: un envío SMTP de más de 30 s podría salir dos veces; subir el margen si el proveedor es tan lento
+        return RegistroCorreo::query()->where('clave', $clave)
+            ->where(fn ($consulta) => $consulta->where('estado', RegistroCorreo::FALLIDO)
+                ->orWhere(fn ($abandonado) => $abandonado->where('estado', RegistroCorreo::PENDIENTE)->where('updated_at', '<', now()->subSeconds(30))))
+            ->update(['estado' => RegistroCorreo::PENDIENTE, 'error' => null]) === 1;
     }
 
     // Después de enviar: «enviado», con la hora

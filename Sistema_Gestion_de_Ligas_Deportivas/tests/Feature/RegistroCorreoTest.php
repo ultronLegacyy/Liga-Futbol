@@ -109,6 +109,25 @@ class RegistroCorreoTest extends TestCase
         $this->assertSame(RegistroCorreo::ENVIADO, RegistroCorreo::query()->where('clave', 'publicacion:1:20261120:7')->sole()->estado);
     }
 
+    // Dos procesos con el mismo aviso: si otro lo está enviando no sale; un «pendiente» abandonado o un «fallido» sí se reintentan
+    public function test_un_aviso_en_curso_en_otro_proceso_no_sale_dos_veces(): void
+    {
+        RegistroCorreo::query()->create(['tipo' => 'aviso_programacion', 'asunto' => 'Programación publicada', 'destinatarios' => ['delegado@liga.test'], 'estado' => RegistroCorreo::PENDIENTE, 'clave' => 'publicacion:9:1:7']);
+        RegistroCorreo::query()->create(['tipo' => 'aviso_programacion', 'asunto' => 'Cambio de programación', 'destinatarios' => ['delegado@liga.test'], 'estado' => RegistroCorreo::FALLIDO, 'error' => 'TransportException', 'clave' => 'reprogramacion:3:7']);
+        $enviar = fn (string $clave) => Mail::to('delegado@liga.test')->send(new AvisoProgramacion('Aviso', 'Datos', $clave));
+        $enviados = fn (): int => count(Mail::mailer('array')->getSymfonyTransport()->messages());
+
+        $enviar('publicacion:9:1:7');
+        $this->assertSame(0, $enviados());
+
+        $this->travel(31)->seconds();
+        $enviar('publicacion:9:1:7');
+        $enviar('reprogramacion:3:7');
+
+        $this->assertSame(2, $enviados());
+        $this->assertSame([[RegistroCorreo::ENVIADO, null]], RegistroCorreo::query()->whereIn('clave', ['publicacion:9:1:7', 'reprogramacion:3:7'])->get()->map(fn (RegistroCorreo $registro): array => [$registro->estado, $registro->error])->unique()->values()->all());
+    }
+
     // Un fallo antes de llegar al transporte también queda registrado
     public function test_un_fallo_antes_del_envio_tambien_queda_registrado(): void
     {

@@ -164,7 +164,7 @@ Para que corran, agrega una sola línea al cron del usuario que ejecuta la aplic
 * * * * * cd /ruta/a/Liga-Futbol/Sistema_Gestion_de_Ligas_Deportivas && php artisan schedule:run >> /dev/null 2>&1
 ```
 
-La misma línea procesa la cola de correos (HU-064): cada minuto corre `queue:work --stop-when-empty`, manda los avisos pendientes y termina. Sin el cron, los avisos a los delegados se quedan en la tabla `jobs` y no salen.
+La misma línea procesa la cola de correos (HU-064): cada minuto corre `queue:work --stop-when-empty --max-time=50`, manda los avisos pendientes y termina. Sin el cron, los avisos a los delegados se quedan en la tabla `jobs` y no salen.
 
 Para comprobarlo: `php artisan schedule:list` muestra las 4 tareas de respaldo y la de la cola, con su próxima ejecución. La bitácora de los respaldos queda en `storage/logs/respaldos.log`.
 

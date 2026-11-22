@@ -4,12 +4,14 @@ namespace App\Services;
 
 use App\Mail\AvisoProgramacion;
 use App\Models\Cancha;
+use App\Models\Equipo;
 use App\Models\Jornada;
 use App\Models\Partido;
 use App\Models\ReprogramacionPartido;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 
@@ -32,7 +34,7 @@ class AvisoProgramacionService
         $titulo = 'Jornada '.$jornada->numero_jornada.' · '.$grupo->nombre.' ('.$grupo->categoria?->nombre.')';
         $publicacion = $jornada->fecha_publicacion ? Carbon::parse($jornada->fecha_publicacion)->format('YmdHis') : now()->format('YmdHis');
 
-        foreach ($this->delegados($partidos) as $delegado) {
+        foreach ($this->delegados($this->clubes($partidos)) as $delegado) {
             $suyos = $partidos->filter(fn (Partido $partido): bool => in_array($delegado->club_id, [$partido->local?->club_id, $partido->visitante?->club_id], true));
 
             $mensaje = "Hola, {$delegado->name}:\n\nSe publicó la programación de la {$titulo}. Estos son los partidos de tu club:\n\n"
@@ -42,33 +44,52 @@ class AvisoProgramacionService
         }
     }
 
-    // Reprogramación o edición de sede u horario: un correo por delegado de los dos clubes, con lo anterior y lo nuevo
-    public function partidoReprogramado(Partido $partido, ReprogramacionPartido $registro): void
+    /**
+     * Reprogramación o edición de sede u horario: un correo por delegado de los dos clubes, con lo anterior y lo nuevo.
+     * Si cambiaron los equipos, también reciben el aviso los delegados de los clubes que salen del partido.
+     *
+     * @param  Collection<int, Equipo>|null  $equiposAnteriores
+     */
+    public function partidoReprogramado(Partido $partido, ReprogramacionPartido $registro, ?Collection $equiposAnteriores = null): void
     {
         $partido->load(['local:id,nombre,club_id', 'visitante:id,nombre,club_id', 'cancha:id,nombre,direccion_ubicacion']);
         $canchaAnterior = $registro->cancha_anterior_id ? Cancha::query()->find($registro->cancha_anterior_id) : null;
         $antes = $this->cuando($registro->fecha_anterior, $registro->hora_anterior).' · '.($canchaAnterior->nombre ?? 'Sin cancha');
+        $equiposAntes = $equiposAnteriores ? "\nEquipos antes: ".$equiposAnteriores->pluck('nombre')->implode(' vs ') : '';
+        $clubes = $this->clubes(new Collection([$partido]))->merge($equiposAnteriores?->pluck('club_id') ?? [])->filter()->unique()->values();
 
-        foreach ($this->delegados(new Collection([$partido])) as $delegado) {
+        foreach ($this->delegados($clubes) as $delegado) {
             $mensaje = "Hola, {$delegado->name}:\n\nCambió la programación de un partido de tu club.\n\n"
-                .$this->datosDelPartido($partido)."\n\nAntes: {$antes}\nMotivo: {$registro->motivo}";
+                .$this->datosDelPartido($partido)."\n\nAntes: {$antes}{$equiposAntes}\nMotivo: {$registro->motivo}";
 
             $this->enviar($delegado, 'Cambio de programación: '.($partido->local->nombre ?? 'Local').' vs '.($partido->visitante->nombre ?? 'Visitante'), $mensaje, 'reprogramacion:'.$registro->id.':'.$delegado->id);
         }
     }
 
     /**
-     * Delegados del Club con cuenta de los clubes que juegan esos partidos (como AsambleaService::delegadosPorClub).
+     * Clubes que juegan esos partidos.
      *
      * @param  Collection<int, Partido>  $partidos
+     * @return SupportCollection<int, mixed>
+     */
+    private function clubes(Collection $partidos): SupportCollection
+    {
+        return $partidos->toBase()->flatMap(fn (Partido $partido): array => [$partido->local?->club_id, $partido->visitante?->club_id])->filter()->unique()->values();
+    }
+
+    /**
+     * Delegados del Club con cuenta de esos clubes (como AsambleaService::delegadosPorClub).
+     *
+     * @param  SupportCollection<int, mixed>  $clubes
      * @return Collection<int, User>
      */
-    private function delegados(Collection $partidos): Collection
+    private function delegados(SupportCollection $clubes): Collection
     {
-        $clubes = $partidos->flatMap(fn (Partido $partido): array => [$partido->local?->club_id, $partido->visitante?->club_id])->filter()->unique()->values();
-
+        // whereHas en lugar de User::role(): si el rol no está sembrado devuelve vacío y no tumba la publicación.
         // Una cuenta desactivada no recibe avisos
-        return User::role('Delegado del Club')->whereIn('club_id', $clubes)->where('estatus', 'activo')->orderBy('id')->get();
+        return User::query()
+            ->whereHas('roles', fn ($consulta) => $consulta->where('name', 'Delegado del Club'))
+            ->whereIn('club_id', $clubes)->where('estatus', 'activo')->orderBy('id')->get();
     }
 
     private function datosDelPartido(Partido $partido): string

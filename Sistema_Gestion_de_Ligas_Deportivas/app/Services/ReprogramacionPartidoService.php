@@ -11,6 +11,7 @@ use App\Models\Partido;
 use App\Models\ReprogramacionPartido;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -250,6 +251,8 @@ class ReprogramacionPartidoService
             $canchaAnteriorId = $partidoBloqueado->cancha_id;
             $fechaAnterior = $partidoBloqueado->fecha_partido ? Carbon::parse($partidoBloqueado->fecha_partido)->toDateString() : null;
             $horaAnterior = $partidoBloqueado->hora_partido;
+            // Con equipos nuevos también se avisa a los clubes que salen del partido (decisión 7 de Daniel, 22/11)
+            $equiposAnteriores = $cambiaronEquipos ? new Collection(array_filter([$partidoBloqueado->local()->first(['id', 'nombre', 'club_id']), $partidoBloqueado->visitante()->first(['id', 'nombre', 'club_id'])])) : null;
 
             $partidoBloqueado->update([
                 'equipo_local_id' => $localId,
@@ -276,11 +279,16 @@ class ReprogramacionPartidoService
                 'motivo' => $motivo,
             ]);
 
+            // HU-064: se avisa si la jornada estaba aprobada o publicada (decisión 7); se toma antes de la reversión, que la deja en borrador
+            $avisar = in_array($jornadaBloqueada->estado, [Jornada::ESTADO_APROBADA, Jornada::ESTADO_PUBLICADA], true);
+
             // Revertir la jornada a borrador si estaba en revisión, aprobada o (si cambiaron equipos) publicada (HU-030)
             $jornadaBloqueada->revertirABorradorPorModificacion($cambiaronEquipos);
 
-            // HU-064: aviso a los delegados de los dos clubes, al confirmarse el cambio
-            $this->avisos->partidoReprogramado($partidoBloqueado, $registro);
+            // Aviso a los delegados de los dos clubes, al confirmarse el cambio
+            if ($avisar) {
+                $this->avisos->partidoReprogramado($partidoBloqueado, $registro, $equiposAnteriores);
+            }
 
             return $partidoBloqueado;
         }, 3);

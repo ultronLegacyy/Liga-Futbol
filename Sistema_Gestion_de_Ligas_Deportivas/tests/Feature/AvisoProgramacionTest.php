@@ -25,6 +25,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 // HU-064 (SCRUM-74, RF-15.1): los delegados de los dos clubes reciben un correo al publicarse o cambiar su partido
@@ -115,6 +116,7 @@ class AvisoProgramacionTest extends TestCase
     {
         Mail::fake();
         $partido = $this->partido('Cobras', 'Águilas', '09:00:00', Partido::ESTADO_PROGRAMADO);
+        $this->jornada->update(['estado' => Jornada::ESTADO_PUBLICADA]);
 
         app(ReprogramacionPartidoService::class)->reprogramar($partido, $this->cambio(), $this->programador);
 
@@ -128,18 +130,60 @@ class AvisoProgramacionTest extends TestCase
         });
     }
 
-    // La edición de sede u horario de un partido publicado también avisa; la de un partido en borrador, no
-    public function test_la_edicion_avisa_solo_si_el_partido_ya_se_publico(): void
+    // La edición de sede u horario avisa si la jornada está aprobada o publicada (decisión 7); en borrador o en revisión, no
+    public function test_la_edicion_avisa_solo_si_la_jornada_esta_aprobada_o_publicada(): void
     {
         Mail::fake();
         $borrador = $this->partido('Delfines', 'Lobos', '11:00:00', Partido::ESTADO_BORRADOR);
         app(ProgramacionJornadaService::class)->actualizarPartido($borrador, $this->edicion($borrador, '12:00'), $this->programador);
         Mail::assertNothingQueued();
 
-        $publicado = $this->partido('Cobras', 'Águilas', '09:00:00', Partido::ESTADO_PROGRAMADO);
-        app(ProgramacionJornadaService::class)->actualizarPartido($publicado, $this->edicion($publicado, '14:00') + ['motivo' => 'Cambio de horario solicitado por la liga.'], $this->programador);
-        Mail::assertQueuedCount(3);
-        Mail::assertQueued(AvisoProgramacion::class, fn (AvisoProgramacion $aviso): bool => $aviso->hasTo('cobras@liga.test') && str_contains($aviso->mensaje, 'a las 14:00 hrs'));
+        // Un partido «programado» de una jornada que aún no se aprueba no se avisa
+        $programado = $this->partido('Cobras', 'Águilas', '09:00:00', Partido::ESTADO_PROGRAMADO);
+        foreach (['07:30' => Jornada::ESTADO_BORRADOR, '08:30' => Jornada::ESTADO_EN_REVISION] as $hora => $estado) {
+            $this->jornada->update(['estado' => $estado]);
+            app(ProgramacionJornadaService::class)->actualizarPartido($programado->refresh(), $this->edicion($programado, $hora) + ['motivo' => 'Ajuste de horario antes de aprobar.'], $this->programador);
+        }
+        Mail::assertNothingQueued();
+
+        foreach (['14:00' => Jornada::ESTADO_APROBADA, '15:00' => Jornada::ESTADO_PUBLICADA] as $hora => $estado) {
+            $this->jornada->update(['estado' => $estado]);
+            app(ProgramacionJornadaService::class)->actualizarPartido($programado->refresh(), $this->edicion($programado, $hora) + ['motivo' => 'Cambio de horario solicitado por la liga.'], $this->programador);
+            Mail::assertQueued(AvisoProgramacion::class, fn (AvisoProgramacion $aviso): bool => $aviso->hasTo('cobras@liga.test') && str_contains($aviso->mensaje, 'a las '.$hora.' hrs'));
+        }
+        Mail::assertQueuedCount(6);
+    }
+
+    // El cambio de equipos de un partido publicado avisa también a los clubes que salen (decisión 7)
+    public function test_el_cambio_de_equipos_avisa_a_los_clubes_que_salen_y_a_los_que_entran(): void
+    {
+        Mail::fake();
+        $partido = $this->partido('Cobras', 'Águilas', '09:00:00', Partido::ESTADO_PROGRAMADO);
+        $this->jornada->update(['estado' => Jornada::ESTADO_PUBLICADA]);
+
+        app(ReprogramacionPartidoService::class)->reprogramar($partido, ['equipo_local_id' => $this->equipos['Delfines']->id] + $this->cambio(), $this->programador);
+
+        $this->assertSame(Jornada::ESTADO_BORRADOR, $this->jornada->refresh()->estado);
+        Mail::assertQueuedCount(4);
+        foreach (['cobras', 'cobras2', 'aguilas', 'delfines'] as $clave) {
+            Mail::assertQueued(AvisoProgramacion::class, fn (AvisoProgramacion $aviso): bool => $aviso->hasTo($this->delegados[$clave]->email)
+                && $aviso->asunto === 'Cambio de programación: Delfines vs Águilas'
+                && str_contains($aviso->mensaje, 'Equipos antes: Cobras vs Águilas'));
+        }
+    }
+
+    // Sin el rol «Delegado del Club» sembrado, la publicación sigue y no avisa a nadie
+    public function test_sin_el_rol_de_delegado_la_publicacion_no_falla(): void
+    {
+        Mail::fake();
+        $this->partido('Cobras', 'Águilas', '09:00:00', Partido::ESTADO_BORRADOR);
+        $this->jornada->update(['estado' => Jornada::ESTADO_APROBADA]);
+        Role::findByName('Delegado del Club')->delete();
+
+        app(PublicacionProgramacionService::class)->publicar($this->jornada, $this->programador);
+
+        $this->assertSame(Jornada::ESTADO_PUBLICADA, $this->jornada->refresh()->estado);
+        Mail::assertNothingQueued();
     }
 
     // Si la operación se revierte, no sale ningún correo
@@ -147,6 +191,7 @@ class AvisoProgramacionTest extends TestCase
     {
         Mail::fake();
         $partido = $this->partido('Cobras', 'Águilas', '09:00:00', Partido::ESTADO_PROGRAMADO);
+        $this->jornada->update(['estado' => Jornada::ESTADO_PUBLICADA]);
 
         try {
             DB::transaction(function () use ($partido): void {
@@ -173,6 +218,7 @@ class AvisoProgramacionTest extends TestCase
     public function test_los_avisos_quedan_en_el_registro_de_correos(): void
     {
         $partido = $this->partido('Cobras', 'Águilas', '09:00:00', Partido::ESTADO_PROGRAMADO);
+        $this->jornada->update(['estado' => Jornada::ESTADO_PUBLICADA]);
 
         app(ReprogramacionPartidoService::class)->reprogramar($partido, $this->cambio(), $this->programador);
 
