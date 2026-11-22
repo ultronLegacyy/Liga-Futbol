@@ -63,6 +63,7 @@ class PermisosRolService
         'roles' => 'Roles y permisos',
         'auditoria' => 'Bitácora de auditoría',
         'correos' => 'Registro de correos',
+        'comunicados' => 'Comunicados',
         'arbitros' => 'Árbitros',
         'partidos' => 'Partidos',
         'cedulas' => 'Cédulas',
