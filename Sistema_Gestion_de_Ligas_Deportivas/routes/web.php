@@ -7,6 +7,7 @@ use App\Http\Controllers\CanchaBloqueoController;
 use App\Http\Controllers\CanchaController;
 use App\Http\Controllers\CargoFinancieroController;
 use App\Http\Controllers\CedulaController;
+use App\Http\Controllers\CedulaFisicaController;
 use App\Http\Controllers\CierreCedulaController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ClubController;
@@ -21,6 +22,7 @@ use App\Http\Controllers\JugadorController;
 use App\Http\Controllers\PagoController;
 use App\Http\Controllers\PartidoController;
 use App\Http\Controllers\PersonaController;
+use App\Http\Controllers\PortalController;
 use App\Http\Controllers\RecuperacionContrasenaController;
 use App\Http\Controllers\RegistroCorreoController;
 use App\Http\Controllers\ReporteFinancieroController;
@@ -35,6 +37,12 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return view('auth.login');
 })->name('inicio');
+
+// Portal público (RF-12.3, IU-01): sin cuenta y sin privilegios de edición. 300 consultas por minuto por IP,
+// porque en 4G muchos aficionados comparten la misma IP pública y HU-077 pide 200 usuarios simultáneos
+Route::get('/programacion', [PortalController::class, 'programacion'])
+    ->middleware('throttle:300,1')
+    ->name('portal.programacion');
 
 // Recuperación de contraseña por correo (HU-003). Cada envío tiene su propio contador de intentos por IP
 Route::middleware(['guest'])->group(function () {
@@ -201,6 +209,22 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/partidos/{partido}/cedula/cerrar', [CierreCedulaController::class, 'cerrar'])
             ->whereNumber('partido')
             ->name('cedulas.cerrar');
+
+        // HU-037: el Capturista transcribe en la sede las cédulas que llegan en papel, con las validaciones de HU-036
+        Route::get('/cedulas/papel', [CedulaFisicaController::class, 'index'])
+            ->name('cedulas.fisicas.index');
+        Route::get('/partidos/{partido}/cedula/papel', [CedulaFisicaController::class, 'create'])
+            ->whereNumber('partido')
+            ->name('cedulas.fisica.create');
+        Route::post('/partidos/{partido}/cedula/papel', [CedulaFisicaController::class, 'store'])
+            ->whereNumber('partido')
+            ->name('cedulas.fisica.store');
+        Route::post('/partidos/{partido}/cedula/papel/cerrar', [CedulaFisicaController::class, 'cerrar'])
+            ->whereNumber('partido')
+            ->name('cedulas.fisica.cerrar');
+        Route::get('/partidos/{partido}/cedula/papel/escaneo', [CedulaFisicaController::class, 'escaneo'])
+            ->whereNumber('partido')
+            ->name('cedulas.fisica.escaneo');
 
         // Régimen disciplinario y Tribunal de Penas: expedientes y presuntos artículos (HU-044 / RF-10.1)
         Route::get('/disciplina/expedientes', [ExpedienteDisciplinarioController::class, 'index'])
