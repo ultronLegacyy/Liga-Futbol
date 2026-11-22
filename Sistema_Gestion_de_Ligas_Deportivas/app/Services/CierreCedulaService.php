@@ -129,11 +129,6 @@ class CierreCedulaService
                     throw ValidationException::withMessages(['cedula' => 'Solo se cierra así una cédula transcrita desde el papel; la cédula capturada en campo la cierra el árbitro con las firmas.']);
                 }
 
-            // HU-046 / RF-10.3: Computar partido oficial jugado para decrementar vigencia de sanciones activas
-            $this->vigenciaSanciones->computarPartidoJugado($partido);
-
-            return $bloqueada;
-        });
                 $bloqueada->update(['cedula_papel_ruta' => $ruta]);
 
                 return $this->finalizarCierre($bloqueada, $partido, $usuario, $motivo);
@@ -174,6 +169,9 @@ class CierreCedulaService
 
         // HU-044 / RF-10.1: Generar expediente disciplinario si la cédula contiene incidencias
         $this->expedientes->generarDesdeCedulaSiAplica($bloqueada);
+
+        // HU-046 / RF-10.3: Computar partido oficial jugado para decrementar vigencia de sanciones activas
+        $this->vigenciaSanciones->computarPartidoJugado($partido);
 
         return $bloqueada;
     }

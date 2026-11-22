@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\CatalogoArticulo;
+use App\Models\CedulaArbitral;
 use App\Models\ExpedienteDisciplinario;
 use App\Models\ExpedienteInvolucrado;
 use App\Models\Jornada;
@@ -17,6 +18,7 @@ use App\Services\VigenciaSancionService;
 use Database\Seeders\CatalogoSancionesArticulosSeeder;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -219,6 +221,82 @@ class VigenciaSancionYBoletinTest extends TestCase
         $this->assertEquals(0, $sancion->partidosRestantes());
         $this->assertEquals(Sancion::ESTADO_CUMPLIDA, $sancion->estado);
         $this->assertTrue($sancion->estaCumplida());
+    }
+
+    /**
+     * HU-046 CA2 / Revisión #95 (37a3c36): El cierre desde cédula en papel (cerrarDesdePapel)
+     * ejecuta finalizarCierre() y también descuenta los partidos de sanciones vigentes.
+     */
+    public function test_cierre_desde_cedula_en_papel_computa_y_descuenta_partido_jugado(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-11-22 12:00', Sancion::ZONA_HORARIA));
+
+        try {
+            $activosLocal = Jugador::where('equipo_id', $this->partido->equipo_local_id)
+                ->where('estado_elegibilidad', 'Activo')
+                ->orderBy('id')
+                ->get();
+            $jugadorSancionado = $activosLocal[0];
+            $companero = $activosLocal[1];
+
+            $sancion = Sancion::create([
+                'expediente_id' => $this->expediente->id,
+                'persona_id' => $jugadorSancionado->persona_id,
+                'equipo_id' => $this->partido->equipo_local_id,
+                'articulo_id' => $this->articulo->id,
+                'tipo_sancion' => Sancion::TIPO_PARTIDOS,
+                'descripcion_sancion' => 'Suspensión de 1 partido por cerrar en papel',
+                'partidos_suspendidos' => 1,
+                'partidos_cumplidos' => 0,
+                'fecha_inicio' => '2026-11-14',
+                'estado' => Sancion::ESTADO_VIGENTE,
+                'publicada_en_boletin' => true,
+                'validado_por_usuario_id' => $this->tribunalUser->id,
+                'fecha_validacion' => now(),
+                'autorizado_por_usuario_id' => $this->tribunalUser->id,
+                'autorizado_por_cargo' => 'Tribunal de Penas',
+                'fecha_publicacion' => now(),
+            ]);
+
+            $capturista = $this->usuario('Capturista');
+
+            // Transcribir la cédula en papel de la jornada 2 (con compañero elegible, sin el sancionado)
+            $this->actingAs($capturista)
+                ->post(route('cedulas.fisica.store', $this->partidoSiguiente), [
+                    'clave_envio' => (string) Str::uuid(),
+                    'goles_local' => '1',
+                    'goles_visitante' => '0',
+                    'alineacion' => [
+                        $companero->id => ['asistio' => '1', 'numero_camiseta' => '9'],
+                    ],
+                    'eventos' => [
+                        ['jugador_id' => $companero->id, 'tipo' => 'Gol', 'minuto' => '25'],
+                    ],
+                ])
+                ->assertSessionHasNoErrors();
+
+            $cedulaPapel = CedulaArbitral::where('partido_id', $this->partidoSiguiente->id)->firstOrFail();
+            $this->assertTrue($cedulaPapel->esDePapel());
+
+            // Cerrar la cédula en papel mediante el endpoint / servicio cerrarDesdePapel()
+            $this->actingAs($capturista)
+                ->post(route('cedulas.fisica.cerrar', $this->partidoSiguiente), [
+                    'cedula_escaneada' => UploadedFile::fake()->createWithContent('cedula.png', $this->png(100, 100)),
+                    'confirmar' => '1',
+                ])
+                ->assertSessionHasNoErrors();
+
+            $this->partidoSiguiente->refresh();
+            $this->assertSame(Partido::ESTADO_FINALIZADO, $this->partidoSiguiente->estado);
+
+            $sancion->refresh();
+            $this->assertSame(1, $sancion->partidos_cumplidos);
+            $this->assertSame(0, $sancion->partidosRestantes());
+            $this->assertSame(Sancion::ESTADO_CUMPLIDA, $sancion->estado);
+            $this->assertTrue($sancion->estaCumplida());
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     /**
