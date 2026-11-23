@@ -135,12 +135,12 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/jornadas/{jornada}/conflictos', [JornadaController::class, 'conflictos'])
             ->name('jornadas.conflictos');
 
-        // Generación automática de rol regular y enfrentamientos (HU-032, RF-07.1)
         // Tabla de posiciones calculada con los resultados oficiales (HU-041, RF-09.1)
         Route::get('/grupos/{grupo}/tabla', [TablaPosicionesController::class, 'show'])
             ->whereNumber('grupo')
             ->name('grupos.tabla');
 
+        // Generación automática de rol regular y enfrentamientos (HU-032, RF-07.1)
         Route::get('/grupos/{grupo}/generar-rol', [GeneradorEnfrentamientosController::class, 'configurar'])
             ->name('grupos.generar-rol');
         Route::post('/grupos/{grupo}/previsualizar-rol', [GeneradorEnfrentamientosController::class, 'previsualizar'])
