@@ -87,7 +87,8 @@ class OperativeRolesAccessTest extends TestCase
         $this->assertTrue($rolProgramador->hasPermissionTo('partidos.programar'));
         $this->assertTrue($rolProgramador->hasPermissionTo('partidos.reprogramar'));
         $this->assertTrue($rolProgramador->hasPermissionTo('cedulas.ver'));
-        $this->assertTrue($rolProgramador->hasPermissionTo('resultados.validar'));
+        // HU-040: solo el Administrador General valida resultados (decision de Daniel, 23/11)
+        $this->assertFalse($rolProgramador->hasPermissionTo('resultados.validar'));
 
         // No debe tener administracion de cuentas, bitacora de auditoria, disciplina sancionatoria ni finanzas
         $this->assertFalse($rolProgramador->hasPermissionTo('usuarios.ver'));

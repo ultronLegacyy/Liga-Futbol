@@ -26,8 +26,10 @@ class ValidacionResultadoService
      */
     public function pendientes(): Collection
     {
+        // Una temporada cerrada solo se consulta: sus pendientes no se listan porque no se pueden validar
         return CedulaArbitral::query()
             ->porValidar()
+            ->whereHas('partido.jornada.grupo.temporada', fn ($temporada) => $temporada->where('estado', '!=', 'cerrada'))
             ->with(['partido.local', 'partido.visitante', 'partido.jornada.grupo.categoria', 'partido.jornada.grupo.temporada'])
             ->orderBy('cerrada_en')
             ->orderBy('id')
@@ -63,7 +65,7 @@ class ValidacionResultadoService
 
                 if (! $bloqueada->estaCerrada()) {
                     throw ValidationException::withMessages([
-                        'resultado' => 'Solo se valida un resultado con la cédula cerrada y firmada por los capitanes.',
+                        'resultado' => 'Solo se valida un resultado con la cédula cerrada.',
                     ]);
                 }
 

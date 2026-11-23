@@ -6,6 +6,7 @@ use App\Events\ResultadoValidado;
 use App\Models\AuditoriaLog;
 use App\Models\CedulaArbitral;
 use App\Models\Partido;
+use App\Models\ReglaTemporada;
 use App\Services\CedulaService;
 use App\Services\ValidacionResultadoService;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -34,6 +35,19 @@ class ValidacionResultadoTest extends TestCase
         $this->seed(RoleAndPermissionSeeder::class);
 
         $this->partido = $this->partidoConArbitro();
+        // Validar dispara el cálculo de la tabla (HU-041), que usa los puntos de las reglas de la temporada
+        ReglaTemporada::create([
+            'temporada_id' => $this->partido->jornada->grupo->temporada_id,
+            'version' => 1,
+            'reglas' => [
+                'cuotas' => ['inscripcion' => 1000],
+                'fechas_limite' => ['registro' => '2026-12-01'],
+                'clasificacion' => ['puntos_victoria' => 3, 'puntos_empate' => 1, 'puntos_derrota' => 0],
+                'desempates' => ['diferencia_goles'],
+                'ascenso_descenso' => ['equipos_ascienden' => 1, 'equipos_descienden' => 1],
+            ],
+            'motivo' => 'Reglas de prueba',
+        ]);
         $servicio = app(CedulaService::class);
         $this->cedula = $servicio->abrir($this->partido);
         $servicio->guardarMarcador($this->cedula, 2, 1, (string) Str::uuid());
@@ -56,7 +70,7 @@ class ValidacionResultadoTest extends TestCase
     {
         Event::fake([ResultadoValidado::class]);
         $this->cerrar($this->cedula);
-        $programador = $this->usuario('Programador de Partidos');
+        $programador = $this->usuario('Administrador General');
 
         $this->actingAs($programador)
             ->post(route('resultados.validar', $this->cedula->id))
@@ -75,7 +89,7 @@ class ValidacionResultadoTest extends TestCase
         $this->cerrar($this->cedula);
         $ultimo = (int) AuditoriaLog::query()->max('id');
 
-        app(ValidacionResultadoService::class)->validar($this->cedula, $this->usuario('Programador de Partidos'));
+        app(ValidacionResultadoService::class)->validar($this->cedula, $this->usuario('Administrador General'));
 
         $log = AuditoriaLog::query()->where('id', '>', $ultimo)->where('tabla_afectada', 'cedulas_arbitrales')->sole();
         $this->assertSame('actualizar', $log->accion);
@@ -86,13 +100,13 @@ class ValidacionResultadoTest extends TestCase
     public function test_no_se_valida_una_cedula_abierta_ni_dos_veces(): void
     {
         $servicio = app(ValidacionResultadoService::class);
-        $usuario = $this->usuario('Programador de Partidos');
+        $usuario = $this->usuario('Administrador General');
 
         try {
             $servicio->validar($this->cedula, $usuario);
             $this->fail('Se validó una cédula abierta.');
         } catch (ValidationException $error) {
-            $this->assertStringContainsString('cédula cerrada', $error->getMessage());
+            $this->assertSame('Solo se valida un resultado con la cédula cerrada.', $error->getMessage());
         }
         $this->assertNull($this->cedula->refresh()->validada_en);
 
@@ -109,7 +123,7 @@ class ValidacionResultadoTest extends TestCase
         $this->cerrar($this->cedula);
         $this->partido->jornada->grupo->temporada->update(['estado' => 'cerrada']);
 
-        $this->actingAs($this->usuario('Programador de Partidos'))
+        $this->actingAs($this->usuario('Administrador General'))
             ->from(route('resultados.index'))
             ->post(route('resultados.validar', $this->cedula->id))
             ->assertRedirect(route('resultados.index'))
@@ -125,7 +139,7 @@ class ValidacionResultadoTest extends TestCase
         Event::listen(ResultadoValidado::class, fn () => throw new RuntimeException('Falla simulada'));
 
         try {
-            app(ValidacionResultadoService::class)->validar($this->cedula, $this->usuario('Programador de Partidos'));
+            app(ValidacionResultadoService::class)->validar($this->cedula, $this->usuario('Administrador General'));
             $this->fail('La falla no se propagó.');
         } catch (RuntimeException) {
         }
@@ -133,20 +147,41 @@ class ValidacionResultadoTest extends TestCase
         $this->assertNull($this->cedula->refresh()->validada_en);
     }
 
-    // Solo quien tiene resultados.validar (Programador de Partidos y Administrador General) entra y valida
-    public function test_solo_quien_tiene_el_permiso_valida(): void
+    // Decisión de Daniel (23/11): solo el Administrador General valida; los demás, el Programador incluido, reciben 403 en español
+    public function test_solo_el_administrador_general_valida(): void
     {
         $this->cerrar($this->cedula);
+        $aviso = 'Solo el Administrador General puede validar los resultados de los partidos.';
 
-        foreach (['Capturista', 'Árbitro en Campo', 'Tesorero', 'Secretario'] as $rol) {
+        foreach (['Programador de Partidos', 'Capturista', 'Árbitro en Campo', 'Tesorero', 'Secretario'] as $rol) {
             $usuario = $this->usuario($rol);
-            $this->actingAs($usuario)->get(route('resultados.index'))->assertForbidden();
-            $this->actingAs($usuario)->post(route('resultados.validar', $this->cedula->id))->assertForbidden();
+            $this->actingAs($usuario)->get(route('resultados.index'))->assertForbidden()->assertSee($aviso)->assertDontSee('This action is unauthorized');
+            $this->actingAs($usuario)->post(route('resultados.validar', $this->cedula->id))->assertForbidden()->assertSee($aviso);
+            $this->actingAs($usuario)->postJson(route('resultados.validar', $this->cedula->id))->assertForbidden()->assertJsonPath('mensaje', $aviso);
         }
         $this->assertNull($this->cedula->refresh()->validada_en);
 
         $this->actingAs($this->usuario('Administrador General'))->get(route('resultados.index'))->assertOk();
         $this->post(route('resultados.validar', 'abc'))->assertNotFound();
+    }
+
+    // Recomendado: una cédula validada sale en oficiales() y ya no en porValidar()
+    public function test_la_cedula_validada_queda_entre_las_oficiales(): void
+    {
+        $this->cerrar($this->cedula);
+        app(ValidacionResultadoService::class)->validar($this->cedula, $this->usuario('Administrador General'));
+
+        $this->assertTrue(CedulaArbitral::query()->oficiales()->whereKey($this->cedula->id)->exists());
+        $this->assertFalse(CedulaArbitral::query()->porValidar()->whereKey($this->cedula->id)->exists());
+    }
+
+    // Recomendado: los pendientes de una temporada cerrada no se listan, porque no se pueden validar
+    public function test_los_pendientes_de_una_temporada_cerrada_no_se_listan(): void
+    {
+        $this->cerrar($this->cedula);
+        $this->partido->jornada->grupo->temporada->update(['estado' => 'cerrada']);
+
+        $this->assertFalse(app(ValidacionResultadoService::class)->pendientes()->contains('id', $this->cedula->id));
     }
 
     // La pantalla lista los pendientes con su marcador y el enlace del menú solo lo ve quien valida
@@ -155,7 +190,7 @@ class ValidacionResultadoTest extends TestCase
         $this->cerrar($this->cedula);
         $local = $this->partido->local->nombre;
 
-        $this->actingAs($this->usuario('Programador de Partidos'))
+        $this->actingAs($this->usuario('Administrador General'))
             ->get(route('resultados.index'))
             ->assertOk()
             ->assertSee('Resultados por validar')
@@ -163,7 +198,7 @@ class ValidacionResultadoTest extends TestCase
             ->assertSee('2 - 1')
             ->assertSee('action="'.route('resultados.validar', $this->cedula->id).'"', false);
 
-        $this->actingAs($this->usuario('Capturista'))
+        $this->actingAs($this->usuario('Programador de Partidos'))
             ->get(route('temporadas.index'))
             ->assertOk()
             ->assertDontSee('href="'.route('resultados.index').'"', false);
@@ -172,7 +207,7 @@ class ValidacionResultadoTest extends TestCase
     // Una cédula abierta todavía no aparece como pendiente de validar
     public function test_una_cedula_abierta_no_aparece_en_pendientes(): void
     {
-        $this->actingAs($this->usuario('Programador de Partidos'))
+        $this->actingAs($this->usuario('Administrador General'))
             ->get(route('resultados.index'))
             ->assertOk()
             ->assertSee('No hay resultados esperando validación.')
