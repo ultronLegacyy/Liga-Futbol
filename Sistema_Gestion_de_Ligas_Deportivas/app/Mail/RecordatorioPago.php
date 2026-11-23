@@ -3,13 +3,13 @@
 namespace App\Mail;
 
 use App\Services\RegistroCorreoService;
-use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-// HU-065 (RF-15.2): recordatorio a un delegado de los adeudos de su club; va por la cola (decisión 2)
-// y solo después de confirmarse la transacción que marca los cargos como avisados
-class RecordatorioPago extends CorreoDelSistema implements ShouldQueueAfterCommit
+// HU-065 (RF-15.2): recordatorio a un delegado de los adeudos de su club; va por la cola (decisión 2).
+// Se encola dentro de la transacción que marca los cargos: si el encolado falla, las marcas se revierten
+class RecordatorioPago extends CorreoDelSistema implements ShouldQueue
 {
     public int $tries = 3;
 
