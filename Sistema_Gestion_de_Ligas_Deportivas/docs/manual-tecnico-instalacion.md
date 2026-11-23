@@ -149,7 +149,7 @@ php artisan sgld:usuario-bd sgld --host=%
      php artisan view:cache
      ```
 
-La cola (`QUEUE_CONNECTION=database`) no necesita un proceso aparte: hoy ninguna tarea se manda a la cola.
+La cola (`QUEUE_CONNECTION=database`) no necesita un proceso aparte: la procesa el programador de tareas cada minuto (sección 8). En un equipo de desarrollo, deja corriendo `php artisan schedule:work` en otra terminal.
 
 ## 8. Tareas programadas (cron)
 
