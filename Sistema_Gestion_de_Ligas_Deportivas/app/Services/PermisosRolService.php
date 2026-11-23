@@ -35,7 +35,6 @@ class PermisosRolService
         'campos.eliminar',
         'roles.ver', 'roles.crear', 'roles.editar', 'roles.eliminar', 'roles.asignar_permiso',
         'auditoria.ver',
-        'disciplina.sancionar',
         'disciplina.ver',
     ];
 
@@ -61,6 +60,8 @@ class PermisosRolService
         'usuarios' => 'Cuentas de usuario',
         'roles' => 'Roles y permisos',
         'auditoria' => 'Bitácora de auditoría',
+        'correos' => 'Registro de correos',
+        'comunicados' => 'Comunicados',
         'arbitros' => 'Árbitros',
         'partidos' => 'Partidos',
         'cedulas' => 'Cédulas',

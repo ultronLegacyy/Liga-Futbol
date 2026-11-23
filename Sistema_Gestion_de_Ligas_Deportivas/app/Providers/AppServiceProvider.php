@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\Arbitro;
 use App\Models\Asamblea;
+use App\Models\AudienciaDisciplinaria;
 use App\Models\BloqueoCancha;
 use App\Models\Cancha;
 use App\Models\CargoFinanciero;
@@ -19,6 +20,7 @@ use App\Models\Jugador;
 use App\Models\Pago;
 use App\Models\Partido;
 use App\Models\Persona;
+use App\Models\Sancion;
 use App\Models\TarjetonDigital;
 use App\Models\Temporada;
 use App\Models\User;
@@ -27,6 +29,7 @@ use App\Observers\DirectivoClubObserver;
 use App\Observers\EquipoObserver;
 use App\Policies\ArbitroPolicy;
 use App\Policies\AsambleaPolicy;
+use App\Policies\AudienciaDisciplinariaPolicy;
 use App\Policies\BloqueoCanchaPolicy;
 use App\Policies\CanchaPolicy;
 use App\Policies\CargoFinancieroPolicy;
@@ -41,6 +44,7 @@ use App\Policies\JugadorPolicy;
 use App\Policies\PagoPolicy;
 use App\Policies\PartidoPolicy;
 use App\Policies\PersonaPolicy;
+use App\Policies\SancionPolicy;
 use App\Policies\TarjetonDigitalPolicy;
 use App\Policies\TemporadaPolicy;
 use App\Policies\UserPolicy;
@@ -92,6 +96,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Pago::class, PagoPolicy::class);
         Gate::policy(Asamblea::class, AsambleaPolicy::class);
         Gate::policy(ExpedienteDisciplinario::class, ExpedienteDisciplinarioPolicy::class);
+        Gate::policy(AudienciaDisciplinaria::class, AudienciaDisciplinariaPolicy::class);
+        Gate::policy(Sancion::class, SancionPolicy::class);
 
         RateLimiter::for('jugador-vinculacion', fn (Request $request): Limit => Limit::perMinute(5)
             ->by(($request->user()?->getAuthIdentifier() ?? 'anonimo').'|'.$request->ip())

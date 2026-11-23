@@ -87,7 +87,8 @@ class OperativeRolesAccessTest extends TestCase
         $this->assertTrue($rolProgramador->hasPermissionTo('partidos.programar'));
         $this->assertTrue($rolProgramador->hasPermissionTo('partidos.reprogramar'));
         $this->assertTrue($rolProgramador->hasPermissionTo('cedulas.ver'));
-        $this->assertTrue($rolProgramador->hasPermissionTo('resultados.validar'));
+        // HU-040: solo el Administrador General valida resultados (decision de Daniel, 23/11)
+        $this->assertFalse($rolProgramador->hasPermissionTo('resultados.validar'));
 
         // No debe tener administracion de cuentas, bitacora de auditoria, disciplina sancionatoria ni finanzas
         $this->assertFalse($rolProgramador->hasPermissionTo('usuarios.ver'));
@@ -138,9 +139,9 @@ class OperativeRolesAccessTest extends TestCase
         $this->assertTrue($rolArbitro->hasPermissionTo('cedulas.ver'));
         $this->assertTrue($rolArbitro->hasPermissionTo('cedulas.capturar'));
         $this->assertTrue($rolArbitro->hasPermissionTo('cedulas.firmar'));
-        $this->assertTrue($rolArbitro->hasPermissionTo('disciplina.ver'));
 
-        // No debe dictaminar sanciones (facultad del Tribunal), ni programar partidos ni bloquear campos
+        // No debe dictaminar sanciones ni acceder al modulo disciplinario, programar partidos ni bloquear campos
+        $this->assertFalse($rolArbitro->hasPermissionTo('disciplina.ver'));
         $this->assertFalse($rolArbitro->hasPermissionTo('disciplina.sancionar'));
         $this->assertFalse($rolArbitro->hasPermissionTo('disciplina.expedientes'));
         $this->assertFalse($rolArbitro->hasPermissionTo('partidos.programar'));

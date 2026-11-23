@@ -36,6 +36,7 @@ class CedulaService
     public function __construct(
         private readonly AuditService $auditoria,
         private readonly ReglaEdadCategoriaService $reglaEdad,
+        private readonly ControlSancionesDeportivasService $controlSanciones,
     ) {
     }
 
@@ -160,8 +161,11 @@ class CedulaService
             $asistio = (bool) ($datos['asistio'] ?? $fila->asistio);
 
             // HU-021: en la rama infantil solo se alinea a quien cumple, según su CURP, la edad de la categoría
+            // HU-047 / RF-10.4: Bloqueo de alineación si el jugador cuenta con sanción deportiva vigente (IU-05)
             if ($asistio) {
-                $this->reglaEdad->validarAlineacion($fila->jugador()->firstOrFail());
+                $jugadorInstancia = $fila->jugador()->firstOrFail();
+                $this->reglaEdad->validarAlineacion($jugadorInstancia);
+                $this->controlSanciones->validarAlineacionJugador($jugadorInstancia, $bloqueada->partido);
             }
 
             $esCapitan = (bool) ($datos['es_capitan'] ?? $fila->es_capitan);

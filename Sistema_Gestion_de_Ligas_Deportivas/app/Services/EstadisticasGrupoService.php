@@ -7,11 +7,13 @@ use App\Models\EventoPartido;
 use App\Models\Grupo;
 use App\Models\Jornada;
 use App\Models\Jugador;
+use App\Models\Partido;
+use App\Models\Sancion;
 use App\Models\TablaPosicionJornada;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Collection as Coleccion;
-use Illuminate\Support\Facades\DB;
 
 /**
  * HU-043 (RF-09.3, RF-09.4): estadísticas de goleo, tarjetas y sanciones de un grupo y copia histórica
@@ -56,28 +58,41 @@ class EstadisticasGrupoService
     }
 
     /**
-     * Tarjetas acumuladas de cada jugador del grupo.
+     * Tarjetas acumuladas de cada jugador del grupo. Decisión de Daniel (23/11): la doble amarilla en un mismo
+     * partido es una roja; la expulsión cuenta una sola vez y la segunda amarilla ya no suma como amarilla.
      *
      * @return Coleccion<int, array{jugador: Jugador, amarillas: int, rojas: int}>
      */
     public function tarjetas(Grupo $grupo): Coleccion
     {
-        $conteo = $this->eventosOficiales($grupo)
+        $porPartido = $this->eventosOficiales($grupo)
             ->whereIn('eventos_partido.tipo', ['Amarilla', 'Roja'])
             ->whereNotNull('eventos_partido.jugador_id')
-            ->groupBy('eventos_partido.jugador_id')
+            ->groupBy('eventos_partido.jugador_id', 'eventos_partido.cedula_id')
             ->selectRaw("eventos_partido.jugador_id, SUM(eventos_partido.tipo = 'Amarilla') AS amarillas, SUM(eventos_partido.tipo = 'Roja') AS rojas")
             ->toBase()
             ->get();
 
-        $jugadores = $this->jugadores($conteo->pluck('jugador_id')->map(fn ($id) => (int) $id)->all());
+        /** @var array<int, array{amarillas: int, rojas: int}> $totales */
+        $totales = [];
+        foreach ($porPartido as $fila) {
+            $amarillas = (int) $fila->amarillas;
+            $expulsado = (int) $fila->rojas > 0 || $amarillas >= 2;
+            $id = (int) $fila->jugador_id;
+
+            $totales[$id] ??= ['amarillas' => 0, 'rojas' => 0];
+            $totales[$id]['amarillas'] += $amarillas >= 2 ? 1 : $amarillas;
+            $totales[$id]['rojas'] += $expulsado ? 1 : 0;
+        }
+
+        $jugadores = $this->jugadores(array_keys($totales));
         $filas = [];
 
-        foreach ($conteo as $fila) {
-            $jugador = $jugadores->get((int) $fila->jugador_id);
+        foreach ($totales as $id => $conteo) {
+            $jugador = $jugadores->get($id);
 
             if ($jugador !== null) {
-                $filas[] = ['jugador' => $jugador, 'amarillas' => (int) $fila->amarillas, 'rojas' => (int) $fila->rojas];
+                $filas[] = ['jugador' => $jugador, 'amarillas' => $conteo['amarillas'], 'rojas' => $conteo['rojas']];
             }
         }
 
@@ -87,31 +102,36 @@ class EstadisticasGrupoService
     }
 
     /**
-     * Sanciones del Tribunal de Penas (HU-045) cuyos expedientes vienen de partidos del grupo.
+     * Sanciones del Tribunal de Penas cuyos expedientes vienen de partidos del grupo, con las mismas reglas de
+     * visibilidad que el boletín (#95, respuesta 45 de Medina; decisión de Daniel, 23/11):
+     * el Tribunal de Penas y el Administrador General ven todas; el Presidente y el Delegado, las validadas de su club;
+     * el Jugador, las suyas validadas. A los demás no se les muestra la sección (SancionPolicy::verBoletin).
      *
-     * @return Coleccion<int, \stdClass>
+     * @return Collection<int, Sancion>
      */
-    public function sanciones(Grupo $grupo): Coleccion
+    public function sanciones(Grupo $grupo, User $usuario): Collection
     {
-        return DB::table('sanciones')
-            ->join('expedientes_disciplinarios', 'expedientes_disciplinarios.id', '=', 'sanciones.expediente_id')
-            ->join('partidos', 'partidos.id', '=', 'expedientes_disciplinarios.partido_id')
-            ->join('jornadas', 'jornadas.id', '=', 'partidos.jornada_id')
-            ->join('personas', 'personas.id', '=', 'sanciones.persona_id')
-            ->where('jornadas.grupo_id', $grupo->id)
-            ->orderByRaw("sanciones.estado = 'Vigente' DESC")
-            ->orderBy('personas.apellidos')
-            ->orderBy('personas.nombre')
-            ->get([
-                'sanciones.id',
-                'personas.nombre',
-                'personas.apellidos',
-                'jornadas.numero_jornada',
-                'sanciones.descripcion_sancion',
-                'sanciones.partidos_suspendidos',
-                'sanciones.partidos_cumplidos',
-                'sanciones.estado',
-            ]);
+        $consulta = Sancion::query()
+            ->whereHas('expediente.partido.jornada', fn ($jornada) => $jornada->where('grupo_id', $grupo->id))
+            ->with(['persona:id,nombre,apellidos', 'equipo:id,nombre,club_id', 'expediente.partido.jornada:id,numero_jornada']);
+
+        if (! $usuario->hasRole('Administrador General') && ! $usuario->can('disciplina.sancionar')) {
+            if ($usuario->hasAnyRole(['Presidente del Club', 'Delegado del Club']) && $usuario->club_id !== null) {
+                $clubId = (int) $usuario->club_id;
+                $consulta->whereNotNull('validado_por_usuario_id')
+                    ->where(fn ($deSuClub) => $deSuClub
+                        ->whereHas('equipo', fn ($equipo) => $equipo->where('club_id', $clubId))
+                        ->orWhereHas('persona.inscripciones', fn ($inscripcion) => $inscripcion
+                            ->where('estado_elegibilidad', '!=', 'Baja')
+                            ->whereHas('equipo', fn ($equipo) => $equipo->where('club_id', $clubId))));
+            } elseif ($usuario->hasRole('Jugador') && $usuario->persona_id !== null) {
+                $consulta->whereNotNull('validado_por_usuario_id')->where('persona_id', $usuario->persona_id);
+            } else {
+                return new Collection();
+            }
+        }
+
+        return $consulta->orderByRaw("estado = 'Vigente' DESC")->orderByDesc('id')->get();
     }
 
     /**
@@ -159,28 +179,39 @@ class EstadisticasGrupoService
     }
 
     /**
-     * CA2: guarda la tabla de cada jornada cerrada que aún no tiene copia. Una jornada está cerrada cuando
-     * todos sus partidos no cancelados tienen resultado oficial; solo se copia si las anteriores también lo están,
-     * para que la copia refleje la tabla real de esa jornada. Una copia ya guardada no se reescribe.
+     * CA2: guarda la tabla de cada jornada cerrada que aún no tiene copia. Una jornada está cerrada cuando no le quedan
+     * partidos pendientes (los cancelados no cuentan) y tiene al menos uno con resultado oficial. Solo se copia si las
+     * anteriores también lo están, para que la copia refleje la tabla real de esa jornada; una jornada con todos sus
+     * partidos cancelados se salta y no bloquea a las siguientes (decisión de Daniel, 23/11). Una copia ya guardada
+     * no se reescribe.
+     *
+     * Bloquea primero la fila del grupo, igual que TablaPosicionesService::recalcular(): si dos validaciones cierran
+     * la misma jornada a la vez, la segunda espera y ya ve la primera, así que una de las dos guarda la copia.
      */
     public function conservarHistoricos(Grupo $grupo): void
     {
+        $bloqueado = Grupo::query()->whereKey($grupo->getKey())->lockForUpdate()->firstOrFail();
         $regla = null;
 
         $jornadas = Jornada::query()
-            ->where('grupo_id', $grupo->id)
-            // Un partido cancelado (HU-029) nunca tendrá resultado: no deja la jornada abierta
+            ->where('grupo_id', $bloqueado->id)
             ->withCount([
-                'partidos' => fn ($partido) => $partido->where('estado', '!=', 'cancelado'),
-                'partidos as oficiales_count' => fn ($partido) => $partido->where('estado', '!=', 'cancelado')->whereHas('cedula', fn ($cedula) => $cedula->oficiales()),
+                'partidos as jugables_count' => fn ($partido) => $partido->where('estado', '!=', Partido::ESTADO_CANCELADO),
+                'partidos as oficiales_count' => fn ($partido) => $partido->where('estado', '!=', Partido::ESTADO_CANCELADO)
+                    ->whereHas('cedula', fn ($cedula) => $cedula->oficiales()),
             ])
             ->orderBy('numero_jornada')
             ->get();
 
         foreach ($jornadas as $jornada) {
-            $total = (int) $jornada->getAttribute('partidos_count');
+            $jugables = (int) $jornada->getAttribute('jugables_count');
 
-            if ($total === 0 || (int) $jornada->getAttribute('oficiales_count') < $total) {
+            // Toda cancelada: la tabla no cambia, no se copia y no frena a las siguientes
+            if ($jugables === 0) {
+                continue;
+            }
+
+            if ((int) $jornada->getAttribute('oficiales_count') < $jugables) {
                 return;
             }
 
@@ -188,11 +219,15 @@ class EstadisticasGrupoService
                 continue;
             }
 
-            $regla ??= $this->tablas->reglaVigente($grupo);
+            // Sin reglas de puntos no hay tabla que copiar (al validar ya se exigen; al cancelar puede no haberlas)
+            $regla ??= $this->tablas->reglaVigenteOpcional($bloqueado);
+            if ($regla === null) {
+                return;
+            }
 
-            foreach ($this->tablas->calcular($grupo, $regla, $jornada->numero_jornada) as $renglon) {
+            foreach ($this->tablas->calcular($bloqueado, $regla, $jornada->numero_jornada) as $renglon) {
                 TablaPosicionJornada::create([
-                    'grupo_id' => $grupo->id,
+                    'grupo_id' => $bloqueado->id,
                     'jornada_id' => $jornada->id,
                     'equipo_id' => $renglon['equipo_id'],
                     'posicion' => $renglon['posicion'],
