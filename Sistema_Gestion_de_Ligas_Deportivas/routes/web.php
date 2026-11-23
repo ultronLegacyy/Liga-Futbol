@@ -7,6 +7,8 @@ use App\Http\Controllers\CanchaBloqueoController;
 use App\Http\Controllers\CanchaController;
 use App\Http\Controllers\CargoFinancieroController;
 use App\Http\Controllers\CedulaController;
+use App\Http\Controllers\AudienciaDisciplinariaController;
+use App\Http\Controllers\BoletinCastigadosController;
 use App\Http\Controllers\CedulaFisicaController;
 use App\Http\Controllers\CierreCedulaController;
 use App\Http\Controllers\CategoriaController;
@@ -27,6 +29,7 @@ use App\Http\Controllers\RecuperacionContrasenaController;
 use App\Http\Controllers\ReporteFinancieroController;
 use App\Http\Controllers\ReglaTemporadaController;
 use App\Http\Controllers\RolPermisoController;
+use App\Http\Controllers\SancionController;
 use App\Http\Controllers\TarjetonDigitalController;
 use App\Http\Controllers\TemporadaController;
 use App\Http\Controllers\UserController;
@@ -237,6 +240,31 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/disciplina/expedientes/{expediente}/articulos/{articulo}', [ExpedienteDisciplinarioController::class, 'desasociarArticulo'])
             ->whereNumber(['expediente', 'articulo'])
             ->name('disciplina.expedientes.articulos.destroy');
+
+        // Audiencias disciplinarias (HU-045 / RF-10.2)
+        Route::post('/disciplina/expedientes/{expediente}/audiencias', [AudienciaDisciplinariaController::class, 'store'])
+            ->whereNumber('expediente')
+            ->name('disciplina.expedientes.audiencias.store');
+
+        // Dictamen y validación de sanciones (HU-045, HU-046 / RF-10.2, RF-10.3)
+        Route::post('/disciplina/expedientes/{expediente}/sanciones', [SancionController::class, 'store'])
+            ->whereNumber('expediente')
+            ->name('disciplina.expedientes.sanciones.store');
+        Route::post('/disciplina/sanciones/{sancion}/validar', [SancionController::class, 'validar'])
+            ->whereNumber('sancion')
+            ->name('disciplina.sanciones.validar');
+        Route::post('/disciplina/sanciones/{sancion}/publicar-boletin', [SancionController::class, 'publicarBoletin'])
+            ->whereNumber('sancion')
+            ->name('disciplina.sanciones.publicar-boletin');
+
+        // Boletín Oficial de Castigados (HU-046 / RF-10.3, RNF-44)
+        Route::get('/disciplina/boletin', [BoletinCastigadosController::class, 'index'])
+            ->name('disciplina.boletin.index');
+        Route::post('/disciplina/boletin/publicar', [BoletinCastigadosController::class, 'publicar'])
+            ->name('disciplina.boletin.publicar');
+        Route::post('/disciplina/sanciones/{sancion}/despublicar', [BoletinCastigadosController::class, 'despublicar'])
+            ->whereNumber('sancion')
+            ->name('disciplina.sanciones.despublicar');
 
         Route::get('/partidos/{partido}/arbitro', [ArbitroController::class, 'editarAsignacion'])
             ->name('partidos.arbitro.edit');
