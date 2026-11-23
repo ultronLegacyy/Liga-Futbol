@@ -13,6 +13,7 @@ use App\Http\Controllers\CedulaFisicaController;
 use App\Http\Controllers\CierreCedulaController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ClubController;
+use App\Http\Controllers\ComunicadoController;
 use App\Http\Controllers\EquipoController;
 use App\Http\Controllers\ExpedienteDisciplinarioController;
 use App\Http\Controllers\ForcePasswordChangeController;
@@ -310,6 +311,13 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/correos', [RegistroCorreoController::class, 'index'])
             ->middleware('permission:correos.ver')
             ->name('correos.index');
+
+        // HU-066: comunicados por correo a grupos de usuarios; antes de enviar se revisa cuántos destinatarios tiene el grupo
+        Route::middleware('permission:comunicados.enviar')->group(function () {
+            Route::get('/comunicados/crear', [ComunicadoController::class, 'create'])->name('comunicados.create');
+            Route::post('/comunicados/revisar', [ComunicadoController::class, 'revisar'])->name('comunicados.revisar');
+            Route::post('/comunicados', [ComunicadoController::class, 'store'])->name('comunicados.store');
+        });
 
         // Grupo de rutas de administracion de gobernanza y gestión de cuentas (S2-T13)
         Route::middleware(['role:Administrador General'])->prefix('admin')->name('admin.')->group(function () {

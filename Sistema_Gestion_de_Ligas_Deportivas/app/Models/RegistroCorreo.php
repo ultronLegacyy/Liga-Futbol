@@ -34,6 +34,7 @@ class RegistroCorreo extends Model
         'prueba' => 'Correo de prueba',
         'aviso_programacion' => 'Aviso de programación',
         'recordatorio_pago' => 'Recordatorio de pago',
+        'comunicado' => 'Comunicado',
         'otro' => 'Otro',
     ];
 
