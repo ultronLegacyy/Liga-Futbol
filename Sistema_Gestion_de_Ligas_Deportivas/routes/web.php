@@ -7,10 +7,13 @@ use App\Http\Controllers\CanchaBloqueoController;
 use App\Http\Controllers\CanchaController;
 use App\Http\Controllers\CargoFinancieroController;
 use App\Http\Controllers\CedulaController;
+use App\Http\Controllers\AudienciaDisciplinariaController;
+use App\Http\Controllers\BoletinCastigadosController;
 use App\Http\Controllers\CedulaFisicaController;
 use App\Http\Controllers\CierreCedulaController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ClubController;
+use App\Http\Controllers\ComunicadoController;
 use App\Http\Controllers\EquipoController;
 use App\Http\Controllers\ExpedienteDisciplinarioController;
 use App\Http\Controllers\ForcePasswordChangeController;
@@ -24,10 +27,12 @@ use App\Http\Controllers\PartidoController;
 use App\Http\Controllers\PersonaController;
 use App\Http\Controllers\PortalController;
 use App\Http\Controllers\RecuperacionContrasenaController;
+use App\Http\Controllers\RegistroCorreoController;
 use App\Http\Controllers\ReporteFinancieroController;
 use App\Http\Controllers\ReglaTemporadaController;
 use App\Http\Controllers\ResultadoController;
 use App\Http\Controllers\RolPermisoController;
+use App\Http\Controllers\SancionController;
 use App\Http\Controllers\TablaPosicionesController;
 use App\Http\Controllers\TarjetonDigitalController;
 use App\Http\Controllers\TemporadaController;
@@ -245,14 +250,38 @@ Route::middleware(['auth'])->group(function () {
             ->whereNumber(['expediente', 'articulo'])
             ->name('disciplina.expedientes.articulos.destroy');
 
-        // Validación oficial de resultados: sin validar no cuentan para la tabla (HU-040, RF-08.4)
-        Route::middleware(['can:resultados.validar'])->group(function () {
-            Route::get('/resultados', [ResultadoController::class, 'index'])
-                ->name('resultados.index');
-            Route::post('/resultados/{cedula}/validar', [ResultadoController::class, 'validar'])
-                ->whereNumber('cedula')
-                ->name('resultados.validar');
-        });
+        // Validación oficial de resultados: sin validar no cuentan para la tabla (HU-040, RF-08.4).
+        // Autoriza CedulaArbitralPolicy::validarResultados, que responde el 403 en español
+        Route::get('/resultados', [ResultadoController::class, 'index'])
+            ->name('resultados.index');
+        Route::post('/resultados/{cedula}/validar', [ResultadoController::class, 'validar'])
+            ->whereNumber('cedula')
+            ->name('resultados.validar');
+
+        // Audiencias disciplinarias (HU-045 / RF-10.2)
+        Route::post('/disciplina/expedientes/{expediente}/audiencias', [AudienciaDisciplinariaController::class, 'store'])
+            ->whereNumber('expediente')
+            ->name('disciplina.expedientes.audiencias.store');
+
+        // Dictamen y validación de sanciones (HU-045, HU-046 / RF-10.2, RF-10.3)
+        Route::post('/disciplina/expedientes/{expediente}/sanciones', [SancionController::class, 'store'])
+            ->whereNumber('expediente')
+            ->name('disciplina.expedientes.sanciones.store');
+        Route::post('/disciplina/sanciones/{sancion}/validar', [SancionController::class, 'validar'])
+            ->whereNumber('sancion')
+            ->name('disciplina.sanciones.validar');
+        Route::post('/disciplina/sanciones/{sancion}/publicar-boletin', [SancionController::class, 'publicarBoletin'])
+            ->whereNumber('sancion')
+            ->name('disciplina.sanciones.publicar-boletin');
+
+        // Boletín Oficial de Castigados (HU-046 / RF-10.3, RNF-44)
+        Route::get('/disciplina/boletin', [BoletinCastigadosController::class, 'index'])
+            ->name('disciplina.boletin.index');
+        Route::post('/disciplina/boletin/publicar', [BoletinCastigadosController::class, 'publicar'])
+            ->name('disciplina.boletin.publicar');
+        Route::post('/disciplina/sanciones/{sancion}/despublicar', [BoletinCastigadosController::class, 'despublicar'])
+            ->whereNumber('sancion')
+            ->name('disciplina.sanciones.despublicar');
 
         Route::get('/partidos/{partido}/arbitro', [ArbitroController::class, 'editarAsignacion'])
             ->name('partidos.arbitro.edit');
@@ -292,6 +321,18 @@ Route::middleware(['auth'])->group(function () {
             ->name('reportes.financiero.csv');
         Route::get('/reportes/financiero/pdf', [ReporteFinancieroController::class, 'pdf'])
             ->name('reportes.financiero.pdf');
+
+        // HU-067: registro de cada correo del sistema, solo para quien tiene correos.ver
+        Route::get('/correos', [RegistroCorreoController::class, 'index'])
+            ->middleware('permission:correos.ver')
+            ->name('correos.index');
+
+        // HU-066: comunicados por correo a grupos de usuarios; antes de enviar se revisa cuántos destinatarios tiene el grupo
+        Route::middleware('permission:comunicados.enviar')->group(function () {
+            Route::get('/comunicados/crear', [ComunicadoController::class, 'create'])->name('comunicados.create');
+            Route::post('/comunicados/revisar', [ComunicadoController::class, 'revisar'])->name('comunicados.revisar');
+            Route::post('/comunicados', [ComunicadoController::class, 'store'])->name('comunicados.store');
+        });
 
         // Grupo de rutas de administracion de gobernanza y gestión de cuentas (S2-T13)
         Route::middleware(['role:Administrador General'])->prefix('admin')->name('admin.')->group(function () {

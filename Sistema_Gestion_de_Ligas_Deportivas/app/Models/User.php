@@ -4,7 +4,9 @@ namespace App\Models;
 
 use App\Mail\CorreoDelSistema;
 use App\Models\Concerns\Auditable;
+use App\Services\RegistroCorreoService;
 use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -13,6 +15,7 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Mail;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Spatie\Permission\Traits\HasRoles;
+use Throwable;
 
 class User extends Authenticatable
 {
@@ -76,6 +79,20 @@ class User extends Authenticatable
     public function club(): BelongsTo
     {
         return $this->belongsTo(Club::class, 'club_id');
+    }
+
+    /**
+     * Cuentas activas con el rol «Delegado del Club» de esos clubes (avisos de HU-064 y recordatorios de HU-065).
+     * whereHas en lugar de role(): si el rol no está sembrado devuelve vacío en vez de lanzar una excepción.
+     *
+     * @param  Builder<User>  $query
+     * @param  iterable<int, mixed>  $clubes
+     * @return Builder<User>
+     */
+    public function scopeDelegadosActivos(Builder $query, iterable $clubes): Builder
+    {
+        return $query->whereHas('roles', fn ($consulta) => $consulta->where('name', 'Delegado del Club'))
+            ->whereIn('club_id', $clubes)->where('estatus', 'activo');
     }
 
     /** @return BelongsTo<Persona, $this> */
@@ -167,7 +184,7 @@ class User extends Authenticatable
         $enlace = rtrim((string) config('app.url'), '/').route('password.reset', ['token' => $token, 'email' => $this->email], false);
         $minutos = (int) config('auth.passwords.users.expire');
 
-        Mail::to($this)->send(new CorreoDelSistema(
+        $correo = new CorreoDelSistema(
             'Recupera tu contraseña del SGLD',
             "Hola, {$this->name}:\n\n"
                 ."Recibimos una solicitud para restablecer la contraseña de tu cuenta en el Sistema de Gestión de Ligas Deportivas.\n\n"
@@ -175,6 +192,16 @@ class User extends Authenticatable
                 .'Si no lo solicitaste, puedes ignorar este correo: tu contraseña no cambiará.',
             $enlace,
             'Restablecer mi contraseña',
-        ));
+            tipo: 'recuperacion',
+        );
+
+        // HU-067: el fallo queda en el registro de correos; RecuperacionContrasenaController lo atrapa y responde lo mismo
+        try {
+            Mail::to($this)->send($correo);
+        } catch (Throwable $error) {
+            app(RegistroCorreoService::class)->marcarFallido($correo, $error);
+
+            throw $error;
+        }
     }
 }

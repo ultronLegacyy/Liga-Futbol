@@ -27,6 +27,11 @@ class ValidacionCedulaService
 
     public const TARJETA_NO_ALINEADO = 'tarjeta_no_alineado';
 
+    public function __construct(
+        private readonly ControlSancionesDeportivasService $controlSanciones = new ControlSancionesDeportivasService(),
+    ) {
+    }
+
     /**
      * @return list<array{tipo: string, mensaje: string}>
      */
@@ -45,9 +50,11 @@ class ValidacionCedulaService
         $hallazgos = [];
         $revisados = [];
 
+        $fechaPartido = $partido->fecha_partido?->toDateString();
+
         // Jugadores que participaron: los que asistieron y los que tienen un gol o una tarjeta
         foreach ($alineaciones->where('asistio', true) as $fila) {
-            $this->revisarJugador($fila->jugador, (int) $fila->equipo_id, $equipos, $hallazgos, $revisados);
+            $this->revisarJugador($fila->jugador, (int) $fila->equipo_id, $equipos, $hallazgos, $revisados, $fechaPartido);
         }
 
         foreach ($eventos as $evento) {
@@ -62,7 +69,7 @@ class ValidacionCedulaService
                 continue;
             }
 
-            $this->revisarJugador($evento->jugador, (int) $fila->equipo_id, $equipos, $hallazgos, $revisados);
+            $this->revisarJugador($evento->jugador, (int) $fila->equipo_id, $equipos, $hallazgos, $revisados, $fechaPartido);
 
             if ($evento->tipo !== 'Gol' && ! $fila->asistio) {
                 $hallazgos[] = [
@@ -80,7 +87,7 @@ class ValidacionCedulaService
      * @param  list<array{tipo: string, mensaje: string}>  $hallazgos
      * @param  array<int, true>  $revisados
      */
-    private function revisarJugador(?Jugador $jugador, int $equipoId, array $equipos, array &$hallazgos, array &$revisados): void
+    private function revisarJugador(?Jugador $jugador, int $equipoId, array $equipos, array &$hallazgos, array &$revisados, ?string $fechaPartido = null): void
     {
         if ($jugador !== null && isset($revisados[$jugador->id])) {
             return;
@@ -95,6 +102,11 @@ class ValidacionCedulaService
             $hallazgos[] = [
                 'tipo' => self::SUSPENDIDO,
                 'mensaje' => $this->nombre($jugador).' ('.$equipos[$equipoId].') está suspendido y aparece en la cédula.',
+            ];
+        } elseif (($sancion = $this->controlSanciones->obtenerSancionVigenteJugador($jugador, $fechaPartido)) !== null) {
+            $hallazgos[] = [
+                'tipo' => self::SUSPENDIDO,
+                'mensaje' => "[IU-05] {$this->nombre($jugador)} ({$equipos[$equipoId]}) cuenta con sanción deportiva vigente ({$sancion->explicacionRegla()}) y aparece en la cédula.",
             ];
         }
 

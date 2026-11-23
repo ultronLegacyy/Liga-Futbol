@@ -7,9 +7,10 @@ use App\Models\User;
 use App\Services\ValidacionResultadoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
-// HU-040 (RF-08.4): validar oficialmente los resultados capturados. La ruta exige resultados.validar
+// HU-040 (RF-08.4): validar oficialmente los resultados capturados. Solo el Administrador General (CedulaArbitralPolicy)
 class ResultadoController extends Controller
 {
     public function __construct(private readonly ValidacionResultadoService $validacion)
@@ -19,6 +20,8 @@ class ResultadoController extends Controller
     // Resultados con la cédula cerrada que esperan validación y los últimos ya oficiales
     public function index(): View
     {
+        Gate::authorize('validarResultados', CedulaArbitral::class);
+
         return view('resultados.index', [
             'pendientes' => $this->validacion->pendientes(),
             'recientes' => $this->validacion->recientes(),
@@ -28,6 +31,8 @@ class ResultadoController extends Controller
     // CA2: el resultado pasa a oficial y dispara el cálculo de la tabla (HU-041)
     public function validar(Request $request, CedulaArbitral $cedula): RedirectResponse
     {
+        Gate::authorize('validarResultados', CedulaArbitral::class);
+
         /** @var User $usuario */
         $usuario = $request->user();
 
