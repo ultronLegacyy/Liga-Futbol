@@ -138,9 +138,9 @@ class OperativeRolesAccessTest extends TestCase
         $this->assertTrue($rolArbitro->hasPermissionTo('cedulas.ver'));
         $this->assertTrue($rolArbitro->hasPermissionTo('cedulas.capturar'));
         $this->assertTrue($rolArbitro->hasPermissionTo('cedulas.firmar'));
-        $this->assertTrue($rolArbitro->hasPermissionTo('disciplina.ver'));
 
-        // No debe dictaminar sanciones (facultad del Tribunal), ni programar partidos ni bloquear campos
+        // No debe dictaminar sanciones ni acceder al modulo disciplinario, programar partidos ni bloquear campos
+        $this->assertFalse($rolArbitro->hasPermissionTo('disciplina.ver'));
         $this->assertFalse($rolArbitro->hasPermissionTo('disciplina.sancionar'));
         $this->assertFalse($rolArbitro->hasPermissionTo('disciplina.expedientes'));
         $this->assertFalse($rolArbitro->hasPermissionTo('partidos.programar'));

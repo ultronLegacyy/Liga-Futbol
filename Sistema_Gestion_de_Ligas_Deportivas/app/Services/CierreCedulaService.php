@@ -31,6 +31,7 @@ class CierreCedulaService
         private readonly ValidacionCedulaService $validacion,
         private readonly ExpedienteDisciplinarioService $expedientes,
         private readonly GestionEstadoPartidoService $estados,
+        private readonly VigenciaSancionService $vigenciaSanciones,
     ) {
     }
 
@@ -168,6 +169,9 @@ class CierreCedulaService
 
         // HU-044 / RF-10.1: Generar expediente disciplinario si la cédula contiene incidencias
         $this->expedientes->generarDesdeCedulaSiAplica($bloqueada);
+
+        // HU-046 / RF-10.3: Computar partido oficial jugado para decrementar vigencia de sanciones activas
+        $this->vigenciaSanciones->computarPartidoJugado($partido);
 
         return $bloqueada;
     }

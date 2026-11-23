@@ -217,6 +217,13 @@ class ExpedienteDisciplinarioService
             'involucrados.persona',
             'involucrados.equipo',
             'evidencias',
+            'audiencias.registradoPor',
+            'sanciones.persona',
+            'sanciones.equipo',
+            'sanciones.articulo',
+            'sanciones.partidoHasta',
+            'sanciones.validadoPor',
+            'sanciones.autorizadoPor',
         ]);
     }
 
