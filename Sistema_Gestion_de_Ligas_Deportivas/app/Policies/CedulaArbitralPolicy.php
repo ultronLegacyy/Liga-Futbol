@@ -111,4 +111,15 @@ class CedulaArbitralPolicy
             ? Response::allow()
             : Response::deny('Solo el árbitro asignado a este partido puede acceder a su cédula.');
     }
+
+    /**
+     * HU-040: validar oficialmente los resultados. Solo el Administrador General (decisión de Daniel, 23/11),
+     * que pasa por before(); se revisa también el permiso para que lo decida la matriz de roles (D-030).
+     */
+    public function validarResultados(User $usuario): Response
+    {
+        return $usuario->can('resultados.validar')
+            ? Response::allow()
+            : Response::deny('Solo el Administrador General puede validar los resultados de los partidos.');
+    }
 }

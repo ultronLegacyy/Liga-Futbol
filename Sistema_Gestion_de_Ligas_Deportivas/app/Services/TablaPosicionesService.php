@@ -99,25 +99,52 @@ class TablaPosicionesService
         $renglones = array_values($tabla);
 
         usort($renglones, function (array $a, array $b) use ($criterios): int {
-            if ($a['puntos'] !== $b['puntos']) {
-                return $b['puntos'] <=> $a['puntos'];
-            }
+            $orden = $this->compararPosicion($a, $b, $criterios);
 
-            foreach ($criterios as $campo) {
-                if ($a[$campo] !== $b[$campo]) {
-                    return $b[$campo] <=> $a[$campo];
-                }
-            }
-
-            // Sin más criterios, orden alfabético para que la tabla sea estable (HU-042 afina los desempates)
-            return strcmp($a['nombre'], $b['nombre']) ?: $a['equipo_id'] <=> $b['equipo_id'];
+            // El nombre solo ordena la lista de equipos que comparten posición; nunca decide la posición
+            return $orden ?: (strcmp($a['nombre'], $b['nombre']) ?: $a['equipo_id'] <=> $b['equipo_id']);
         });
 
+        // Decisión de Daniel (23/11): si siguen empatados después de todos los criterios, comparten la posición (1, 2, 2, 4)
         foreach ($renglones as $indice => $renglon) {
-            $renglones[$indice]['posicion'] = $indice + 1;
+            $empataConElAnterior = $indice > 0 && $this->compararPosicion($renglones[$indice - 1], $renglon, $criterios) === 0;
+            $renglones[$indice]['posicion'] = $empataConElAnterior ? $renglones[$indice - 1]['posicion'] : $indice + 1;
         }
 
         return $renglones;
+    }
+
+    /**
+     * Orden por puntos y luego por cada criterio de desempate; 0 si siguen empatados.
+     *
+     * @param  array{puntos: int, dg: int, gf: int}  $a
+     * @param  array{puntos: int, dg: int, gf: int}  $b
+     * @param  list<'dg'|'gf'>  $criterios
+     */
+    private function compararPosicion(array $a, array $b, array $criterios): int
+    {
+        if ($a['puntos'] !== $b['puntos']) {
+            return $b['puntos'] <=> $a['puntos'];
+        }
+
+        foreach ($criterios as $campo) {
+            if ($a[$campo] !== $b[$campo]) {
+                return $b[$campo] <=> $a[$campo];
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * Versión de las reglas con la que se calculó la tabla guardada del grupo, para mostrarla.
+     */
+    public function reglaDeLaTabla(Grupo $grupo, ?int $version): ?ReglaTemporada
+    {
+        return $version === null ? null : ReglaTemporada::query()
+            ->where('temporada_id', $grupo->temporada_id)
+            ->where('version', $version)
+            ->first();
     }
 
     /**
@@ -131,6 +158,7 @@ class TablaPosicionesService
             ->where('grupo_id', $grupo->id)
             ->with('equipo:id,nombre,club_id', 'equipo.club:id,nombre')
             ->orderBy('posicion')
+            ->orderBy(Equipo::query()->select('nombre')->whereColumn('equipos.id', 'tablas_posiciones.equipo_id'))
             ->get();
     }
 
@@ -224,7 +252,8 @@ class TablaPosicionesService
     }
 
     /**
-     * Campos de la tabla en el orden de desempate configurado; se ignoran los que no se conocen.
+     * Campos de la tabla en el orden de desempate configurado, seguidos de la diferencia de goles y los goles a favor
+     * si la temporada no los incluyó (decisión de Daniel, 23/11). Se ignoran los criterios que no se conocen.
      *
      * @return list<'dg'|'gf'>
      */
@@ -239,7 +268,8 @@ class TablaPosicionesService
             }
         }
 
-        return array_values(array_unique($campos));
+        // Después de los configurados: diferencia de goles y goles a favor, del mismo catálogo de HU-006
+        return array_values(array_unique([...$campos, 'dg', 'gf']));
     }
 
     /**

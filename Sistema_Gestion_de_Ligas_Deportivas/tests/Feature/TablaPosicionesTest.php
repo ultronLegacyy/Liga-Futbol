@@ -10,6 +10,7 @@ use App\Services\TablaPosicionesService;
 use App\Services\ValidacionResultadoService;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
@@ -124,6 +125,53 @@ class TablaPosicionesTest extends TestCase
         }
 
         $this->assertNull($cedula->refresh()->validada_en);
+    }
+
+    // Decisión de Daniel (23/11): con los mismos puntos, diferencia y goles a favor, comparten la posición; el nombre no decide
+    public function test_los_empatados_en_todo_comparten_la_posicion(): void
+    {
+        [$grupo, $e] = $this->grupoConEquipos(['Lobos', 'Pumas', 'Toros', 'Zorros']);
+        $this->resultado($grupo, 1, $e['Lobos'], 0, 0, $e['Pumas']);
+        $this->resultado($grupo, 1, $e['Toros'], 2, 1, $e['Zorros']);
+
+        $this->assertTabla($grupo, [
+            'Toros' => [1, 1, 1, 0, 0, 2, 1, 1, 3],
+            'Lobos' => [2, 1, 0, 1, 0, 0, 0, 0, 1],
+            'Pumas' => [2, 1, 0, 1, 0, 0, 0, 0, 1],
+            'Zorros' => [4, 1, 0, 0, 1, 1, 2, -1, 0],
+        ]);
+    }
+
+    // Decisión de Daniel (23/11): después de los criterios configurados se desempata por diferencia y luego goles a favor
+    public function test_despues_de_los_criterios_configurados_desempata_diferencia_y_goles_a_favor(): void
+    {
+        // La temporada solo configuró goles a favor: A y B anotan 2, pero A tiene mejor diferencia
+        [$grupo, $e] = $this->grupoConEquipos(['A', 'B', 'C', 'D'], desempates: ['goles_favor']);
+        // A: 1 punto, GF 2, DG -1. B: 1 punto, GF 2, DG -2. C y D: 4 puntos; C con más goles a favor
+        $this->resultado($grupo, 1, $e['A'], 1, 1, $e['C']);
+        $this->resultado($grupo, 1, $e['B'], 0, 0, $e['D']);
+        $this->resultado($grupo, 2, $e['A'], 1, 2, $e['D']);
+        $this->resultado($grupo, 2, $e['B'], 2, 4, $e['C']);
+
+        $posiciones = TablaPosicion::query()->where('grupo_id', $grupo->id)->pluck('posicion', 'equipo_id');
+        $this->assertSame(1, $posiciones[$e['C']->id]);
+        $this->assertSame(2, $posiciones[$e['D']->id]);
+        $this->assertSame(3, $posiciones[$e['A']->id]);
+        $this->assertSame(4, $posiciones[$e['B']->id]);
+    }
+
+    // Recomendado: el recálculo bloquea la fila del grupo para que dos validaciones del mismo grupo no se pisen
+    public function test_el_recalculo_bloquea_el_grupo(): void
+    {
+        [$grupo, $e] = $this->grupoConEquipos(['A', 'B']);
+        $consultas = [];
+        DB::listen(function ($consulta) use (&$consultas): void {
+            $consultas[] = strtolower($consulta->sql);
+        });
+
+        app(TablaPosicionesService::class)->recalcular($grupo);
+
+        $this->assertNotEmpty(array_filter($consultas, fn (string $sql): bool => str_contains($sql, 'from `grupos`') && str_contains($sql, 'for update')));
     }
 
     // CA4 (RNF-22): si el cálculo falla a la mitad, no quedan datos parciales y el resultado no queda validado
