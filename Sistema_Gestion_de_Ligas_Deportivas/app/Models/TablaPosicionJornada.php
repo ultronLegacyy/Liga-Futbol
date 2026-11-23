@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $grupo_id
  * @property int $jornada_id
  * @property int $equipo_id
- * @property int|null $posicion
+ * @property int $posicion
  * @property int $pj
  * @property int $pg
  * @property int $pe
@@ -22,7 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $gc
  * @property int $dg
  * @property int $puntos
- * @property int|null $regla_version
+ * @property int $regla_version
  */
 class TablaPosicionJornada extends Model
 {

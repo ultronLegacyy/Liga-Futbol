@@ -17,7 +17,7 @@
     </div>
 
     <p class="text-sm text-gray-300 flex flex-wrap gap-x-4 gap-y-2" aria-label="Simbología">
-        <span><x-badge variant="success">Oficial</x-badge> resultado validado o resolución del Tribunal de Penas.</span>
+        <span><x-badge variant="success">Oficial</x-badge> resultado validado o sanción validada por el Tribunal de Penas.</span>
         <span><x-badge variant="info">Calculado</x-badge> indicador que el sistema obtiene de los datos oficiales.</span>
     </p>
 
@@ -103,15 +103,17 @@
         @endif
     </section>
 
+    @if ($verSanciones)
     <section aria-labelledby="titulo-sanciones" class="space-y-3">
-        <h3 id="titulo-sanciones" class="text-lg font-semibold text-white">Sanciones <x-badge variant="success">Oficial</x-badge></h3>
+        <h3 id="titulo-sanciones" class="text-lg font-semibold text-white">Sanciones</h3>
+        <p class="text-sm text-gray-400">Del Tribunal de Penas, con las mismas reglas que el boletín: «Oficial» indica que ya está validada.</p>
         @if ($sanciones->isEmpty())
-            <p class="text-sm text-gray-400">Sin sanciones del Tribunal de Penas en partidos de este grupo.</p>
+            <p class="text-sm text-gray-400">Sin sanciones que puedas consultar en partidos de este grupo.</p>
         @else
             <x-table caption="Sanciones por partidos del grupo">
                 <thead class="bg-gray-900 text-xs uppercase text-gray-400">
                     <tr>
-                        <th scope="col" class="px-4 py-3">Persona</th>
+                        <th scope="col" class="px-4 py-3">Persona o equipo</th>
                         <th scope="col" class="px-4 py-3">Jornada</th>
                         <th scope="col" class="px-4 py-3">Sanción</th>
                         <th scope="col" class="px-4 py-3 text-right">Partidos (cumplidos / total)</th>
@@ -120,13 +122,24 @@
                 </thead>
                 <tbody class="divide-y divide-gray-700">
                     @foreach ($sanciones as $sancion)
-                        <tr>
-                            <td class="px-4 py-3 text-white">{{ $sancion->nombre }} {{ $sancion->apellidos }}</td>
-                            <td class="px-4 py-3">{{ $sancion->numero_jornada }}</td>
+                        <tr data-sancion="{{ $sancion->id }}">
+                            <td class="px-4 py-3 text-white">
+                                @if ($sancion->persona)
+                                    {{ $sancion->persona->nombre }} {{ $sancion->persona->apellidos }}
+                                @else
+                                    Equipo {{ $sancion->equipo?->nombre ?? 'sin dato' }}
+                                @endif
+                            </td>
+                            <td class="px-4 py-3">{{ $sancion->expediente?->partido?->jornada?->numero_jornada }}</td>
                             <td class="px-4 py-3">{{ $sancion->descripcion_sancion ?? 'Sin descripción' }}</td>
                             <td class="px-4 py-3 text-right">{{ $sancion->partidos_cumplidos }} / {{ $sancion->partidos_suspendidos }}</td>
-                            <td class="px-4 py-3">
+                            <td class="px-4 py-3 space-x-1">
                                 <x-badge :variant="$sancion->estado === 'Vigente' ? 'danger' : 'gray'">{{ $sancion->estado }}</x-badge>
+                                @if ($sancion->estaValidada())
+                                    <x-badge variant="success">Oficial</x-badge>
+                                @else
+                                    <x-badge variant="warning">Sin validar</x-badge>
+                                @endif
                             </td>
                         </tr>
                     @endforeach
@@ -134,6 +147,7 @@
             </x-table>
         @endif
     </section>
+    @endif
 
     <section aria-labelledby="titulo-historico" class="space-y-3">
         <h3 id="titulo-historico" class="text-lg font-semibold text-white">Tabla por jornada <x-badge variant="info">Calculado</x-badge></h3>

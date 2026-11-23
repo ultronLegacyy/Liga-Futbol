@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Grupo;
 use App\Models\Jornada;
+use App\Models\Sancion;
+use App\Models\User;
 use App\Services\EstadisticasGrupoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -19,6 +21,10 @@ class EstadisticasGrupoController extends Controller
     public function show(Request $request, Grupo $grupo): View
     {
         Gate::authorize('view', $grupo);
+        /** @var User|null $usuario */
+        $usuario = $request->user();
+        // Las sanciones siguen las reglas del boletín: la sección solo se muestra a quien puede verlo (SancionPolicy)
+        $verSanciones = $usuario !== null && Gate::forUser($usuario)->allows('verBoletin', Sancion::class);
 
         $grupo->load('categoria:id,nombre', 'temporada:id,nombre');
         $jornadas = $this->estadisticas->jornadasConHistorico($grupo);
@@ -33,7 +39,8 @@ class EstadisticasGrupoController extends Controller
             'resultados' => $this->estadisticas->resultadosOficiales($grupo),
             'goleadores' => $this->estadisticas->goleadores($grupo),
             'tarjetas' => $this->estadisticas->tarjetas($grupo),
-            'sanciones' => $this->estadisticas->sanciones($grupo),
+            'verSanciones' => $usuario !== null && $verSanciones,
+            'sanciones' => $usuario !== null && $verSanciones ? $this->estadisticas->sanciones($grupo, $usuario) : collect(),
             'jornadas' => $jornadas,
             'jornada' => $jornada,
             'historico' => $jornada instanceof Jornada ? $this->estadisticas->historico($jornada) : collect(),

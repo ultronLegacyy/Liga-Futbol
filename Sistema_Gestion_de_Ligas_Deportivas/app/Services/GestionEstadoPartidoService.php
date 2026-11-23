@@ -81,6 +81,11 @@ class GestionEstadoPartidoService
 
             $this->registrarTransicion($partidoBloqueado, $nuevoEstado, $usuarioId, $motivoLimpio);
 
+            // HU-043: cancelar el último partido pendiente puede cerrar la jornada; se guarda su copia de la tabla
+            if ($nuevoEstado === Partido::ESTADO_CANCELADO) {
+                app(EstadisticasGrupoService::class)->conservarHistoricos($jornadaBloqueada->grupo);
+            }
+
             // Revertir la jornada a borrador si estaba en revisión o aprobada (Obligatorio 4 / HU-030)
             $jornadaBloqueada->revertirABorradorPorModificacion(false);
 
