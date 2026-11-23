@@ -139,6 +139,9 @@ class RoleAndPermissionSeeder extends Seeder
             // Modulo Bitacora de Auditoria Inmutable
             'auditoria.ver',
 
+            // Modulo Registro de Correos (HU-067): solo el Administrador General, que recibe todo el catalogo
+            'correos.ver',
+
             // Modulo Arbitraje y Padron de Colegios
             'arbitros.ver',
             'arbitros.crear',
