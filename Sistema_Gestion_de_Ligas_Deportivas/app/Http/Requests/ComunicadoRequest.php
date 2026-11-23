@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\DescartaArreglosEnCamposDeTexto;
 use Database\Seeders\RoleAndPermissionSeeder;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -18,6 +19,12 @@ class ComunicadoRequest extends FormRequest
         return Gate::forUser($this->user())->allows('comunicados.enviar');
     }
 
+    // El 403 en español aunque la ruta llegue sin el middleware del permiso
+    protected function failedAuthorization(): never
+    {
+        throw new AuthorizationException('No posee los permisos requeridos para enviar comunicados.');
+    }
+
     /** @return array<string, array<int, mixed>> */
     public function rules(): array
     {
@@ -29,6 +36,8 @@ class ComunicadoRequest extends FormRequest
             'categoria_id' => ['bail', 'nullable', 'integer', 'exists:categorias,id'],
             'clubes' => ['bail', 'nullable', 'array'],
             'clubes.*' => ['bail', 'integer', 'distinct', 'exists:clubes,id'],
+            // Solo el envío lo exige: viene de la revisión y evita mandar dos veces el mismo comunicado
+            'token' => ['bail', $this->routeIs('comunicados.store') ? 'required' : 'nullable', 'uuid'],
         ];
     }
 
@@ -56,6 +65,8 @@ class ComunicadoRequest extends FormRequest
             'clubes.*.integer' => 'Uno de los clubes elegidos no es válido.',
             'clubes.*.distinct' => 'Un club está repetido.',
             'clubes.*.exists' => 'Uno de los clubes elegidos no existe.',
+            'token.required' => 'Falta la confirmación del envío: revisa los destinatarios antes de enviar.',
+            'token.uuid' => 'La confirmación del envío no es válida: revisa los destinatarios otra vez.',
         ];
     }
 
@@ -76,6 +87,6 @@ class ComunicadoRequest extends FormRequest
     /** @return list<string> */
     protected function camposDeTexto(): array
     {
-        return ['asunto', 'mensaje', 'categoria_id'];
+        return ['asunto', 'mensaje', 'token'];
     }
 }

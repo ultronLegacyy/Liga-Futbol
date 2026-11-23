@@ -8,6 +8,7 @@ use App\Models\Equipo;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
@@ -43,29 +44,41 @@ class ComunicadoService
 
     /**
      * Guarda el comunicado (auditado) y encola un correo por persona, por lotes, sin cargar todo el grupo en memoria.
+     * El token viene de la revisión: un segundo envío con el mismo token (doble clic, «Atrás» y reenviar) se rechaza.
      *
      * @param  array{roles: list<string>, categoria_id: int|null, clubes: list<int>}  $filtros
      */
-    public function enviar(string $asunto, string $mensaje, array $filtros, User $autor): Comunicado
+    public function enviar(string $asunto, string $mensaje, array $filtros, string $token, User $autor): Comunicado
     {
         $total = $this->contar($filtros);
 
-        $comunicado = $this->auditoria->conMotivo('Envío de comunicado por correo', fn (): Comunicado => Comunicado::query()->create([
-            'enviado_por_usuario_id' => $autor->id,
-            'asunto' => $asunto,
-            'mensaje' => $mensaje,
-            'filtros' => $filtros,
-            'total_destinatarios' => $total,
-        ]));
+        try {
+            // Comunicado y correos en la misma transacción: con la cola `database`, si el encolado falla a la mitad se
+            // revierte todo y el Secretario puede volver a enviar sin duplicar a nadie.
+            // shortcut: atómico solo con la cola `database` en la misma conexión; con Redis u otra cola, revisar este orden
+            return $this->auditoria->conMotivo('Envío de comunicado por correo', function () use ($asunto, $mensaje, $filtros, $token, $autor, $total): Comunicado {
+                $comunicado = Comunicado::query()->create([
+                    'enviado_por_usuario_id' => $autor->id,
+                    'asunto' => $asunto,
+                    'mensaje' => $mensaje,
+                    'filtros' => $filtros,
+                    'total_destinatarios' => $total,
+                    'token' => $token,
+                ]);
 
-        // Fuera de la transacción: el comunicado ya quedó guardado. La clave evita un duplicado si se reintenta
-        $this->destinatarios($filtros)->select(['id', 'name', 'email'])->chunkById(self::LOTE, function (Collection $lote) use ($comunicado): void {
-            foreach ($lote as $usuario) {
-                Mail::to($usuario)->queue(new CorreoComunicado($comunicado->asunto, $comunicado->mensaje, 'comunicado:'.$comunicado->id.':'.$usuario->id));
-            }
-        });
+                $this->destinatarios($filtros)->select(['id', 'name', 'email'])->chunkById(self::LOTE, function (Collection $lote) use ($comunicado): void {
+                    foreach ($lote as $usuario) {
+                        Mail::to($usuario)->queue(new CorreoComunicado($comunicado->asunto, $comunicado->mensaje, 'comunicado:'.$comunicado->id.':'.$usuario->id));
+                    }
+                });
 
-        return $comunicado;
+                return $comunicado;
+            });
+        } catch (UniqueConstraintViolationException) {
+            throw ValidationException::withMessages([
+                'token' => 'Este comunicado ya se envió. Para mandarlo otra vez, revisa de nuevo los destinatarios.',
+            ]);
+        }
     }
 
     /**

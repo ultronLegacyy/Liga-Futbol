@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $mensaje
  * @property array{roles: list<string>, categoria_id: int|null, clubes: list<int>} $filtros
  * @property int $total_destinatarios
+ * @property string $token
  */
 class Comunicado extends Model
 {
@@ -22,7 +23,7 @@ class Comunicado extends Model
 
     protected $table = 'comunicados';
 
-    protected $fillable = ['enviado_por_usuario_id', 'asunto', 'mensaje', 'filtros', 'total_destinatarios'];
+    protected $fillable = ['enviado_por_usuario_id', 'asunto', 'mensaje', 'filtros', 'total_destinatarios', 'token'];
 
     /**
      * @return array<string, string>

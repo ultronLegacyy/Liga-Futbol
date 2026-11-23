@@ -14,10 +14,16 @@ use App\Models\Temporada;
 use App\Models\User;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Queue\Connectors\ConnectorInterface;
+use Illuminate\Queue\SyncQueue;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
+use RuntimeException;
+use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -135,6 +141,101 @@ class ComunicadoTest extends TestCase
             ->assertSessionHasErrors(['roles.0' => 'Uno de los roles elegidos no existe.', 'clubes.0' => 'Uno de los clubes elegidos no existe.']);
     }
 
+    // Obligatorio 1 de la revisión: un doble clic o «Atrás» y reenviar no manda el comunicado dos veces
+    public function test_un_segundo_envio_de_la_misma_revision_se_rechaza(): void
+    {
+        Mail::fake();
+        $datos = $this->comunicado(['roles' => ['Delegado del Club'], 'categoria_id' => $this->libre->id]);
+        $mensaje = 'Este comunicado ya se envió. Para mandarlo otra vez, revisa de nuevo los destinatarios.';
+
+        $this->actingAs($this->secretario)->post(route('comunicados.store'), $datos)->assertSessionHasNoErrors();
+        $this->from(route('comunicados.create'))->post(route('comunicados.store'), $datos)
+            ->assertRedirect(route('comunicados.create'))->assertSessionHasErrors(['token' => $mensaje]);
+
+        $this->assertSame(1, Comunicado::query()->count());
+        Mail::assertQueuedCount(2);
+
+        // Una revisión nueva da otro token y sí permite mandarlo de nuevo
+        $this->post(route('comunicados.store'), ['token' => (string) Str::uuid()] + $datos)->assertSessionHasNoErrors();
+        $this->assertSame(2, Comunicado::query()->count());
+    }
+
+    // La revisión pone su token en el formulario de confirmación; sin token no se envía
+    public function test_el_envio_exige_el_token_de_la_revision(): void
+    {
+        Mail::fake();
+        $datos = $this->comunicado(['roles' => ['Delegado del Club']]);
+
+        $html = $this->actingAs($this->secretario)->post(route('comunicados.revisar'), $datos)->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('/name="token" value="[0-9a-f-]{36}"/', (string) $html);
+        $this->assertStringNotContainsString($datos['token'], (string) $html);
+
+        $this->post(route('comunicados.store'), array_diff_key($datos, ['token' => true]))
+            ->assertSessionHasErrors(['token' => 'Falta la confirmación del envío: revisa los destinatarios antes de enviar.']);
+        $this->post(route('comunicados.store'), ['token' => 'no-es-un-token'] + $datos)
+            ->assertSessionHasErrors(['token' => 'La confirmación del envío no es válida: revisa los destinatarios otra vez.']);
+
+        Mail::assertNothingQueued();
+        $this->assertSame(0, Comunicado::query()->count());
+    }
+
+    // Si la cola falla a la mitad, no queda el comunicado ni una parte de los correos, y se puede reenviar
+    public function test_si_falla_la_cola_no_queda_un_envio_a_medias(): void
+    {
+        // Una cola sync que falla al segundo trabajo; hereda de SyncQueue para respetar ShouldQueueAfterCommit
+        Queue::extend('caida', fn () => new class () implements ConnectorInterface {
+            public function connect(array $config): SyncQueue
+            {
+                return new class () extends SyncQueue {
+                    private int $encolados = 0;
+
+                    protected function executeJob($job, $data = '', $queue = null): int
+                    {
+                        if (++$this->encolados > 1) {
+                            throw new RuntimeException('Cola caída.');
+                        }
+
+                        return 0;
+                    }
+                };
+            }
+        });
+        config(['queue.connections.caida' => ['driver' => 'caida'], 'queue.default' => 'caida']);
+        $datos = $this->comunicado(['roles' => ['Delegado del Club']]);
+
+        $this->withoutExceptionHandling()->actingAs($this->secretario);
+        $this->assertThrows(fn () => $this->post(route('comunicados.store'), $datos), RuntimeException::class, 'Cola caída.');
+        $this->assertSame(0, Comunicado::query()->count());
+        $this->assertSame(0, AuditoriaLog::query()->where('tabla_afectada', 'comunicados')->count());
+
+        config(['queue.default' => 'sync']);
+        Mail::fake();
+        $this->post(route('comunicados.store'), $datos)->assertRedirect(route('comunicados.create'));
+        Mail::assertQueuedCount(3);
+    }
+
+    // Recomendado 2: authorize() también niega, en español, aunque la ruta llegue sin el middleware del permiso
+    public function test_la_form_request_niega_sin_el_middleware_del_permiso(): void
+    {
+        $this->withoutMiddleware(PermissionMiddleware::class)
+            ->actingAs($this->usuario('delegado.sin.permiso@liga.test', 'Delegado del Club'))
+            ->post(route('comunicados.revisar'), $this->comunicado(['roles' => ['Delegado del Club']]))
+            ->assertForbidden();
+    }
+
+    // Recomendado 3 y 4: una categoría en arreglo se rechaza (no amplía el grupo) y un club repetido avisa una sola vez
+    public function test_una_categoria_en_arreglo_se_rechaza_y_el_club_repetido_avisa_una_vez(): void
+    {
+        $this->actingAs($this->secretario)->post(route('comunicados.revisar'), $this->comunicado(['roles' => ['Delegado del Club'], 'categoria_id' => [$this->libre->id]]))
+            ->assertSessionHasErrors(['categoria_id' => 'La categoría elegida no es válida.']);
+
+        $html = (string) $this->from(route('comunicados.create'))->followingRedirects()
+            ->post(route('comunicados.revisar'), $this->comunicado(['roles' => ['Delegado del Club'], 'categoria_id' => [$this->libre->id], 'clubes' => [$this->clubes['Uno']->id, $this->clubes['Uno']->id]]))
+            ->assertOk()->getContent();
+        $this->assertSame(1, substr_count($html, 'Un club está repetido.'));
+        $this->assertStringContainsString('La categoría elegida no es válida.', $html);
+    }
+
     // Envío en lotes: un grupo más grande que un lote (200) llega completo
     public function test_un_grupo_mayor_que_un_lote_se_envia_completo(): void
     {
@@ -215,7 +316,8 @@ class ComunicadoTest extends TestCase
      */
     private function comunicado(array $grupo): array
     {
-        return ['asunto' => 'Asamblea extraordinaria', 'mensaje' => "Se convoca a asamblea.\nAsistan puntuales."] + $grupo;
+        // El token es el que da la revisión; cada llamada trae uno nuevo, como una revisión nueva
+        return ['asunto' => 'Asamblea extraordinaria', 'mensaje' => "Se convoca a asamblea.\nAsistan puntuales.", 'token' => (string) Str::uuid()] + $grupo;
     }
 
     private function usuario(string $correo, string $rol, ?Club $club = null, string $estatus = 'activo'): User

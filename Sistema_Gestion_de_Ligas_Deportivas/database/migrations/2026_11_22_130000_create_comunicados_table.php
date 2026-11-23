@@ -16,6 +16,8 @@ return new class () extends Migration {
             // Roles, categoría y clubes elegidos (decisión 5 de Daniel)
             $table->json('filtros');
             $table->unsignedInteger('total_destinatarios');
+            // Un solo envío por revisión: un doble clic o «Atrás» y reenviar chocan con este índice
+            $table->uuid('token')->unique();
             $table->timestamps();
         });
     }

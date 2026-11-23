@@ -3,12 +3,13 @@
 namespace App\Mail;
 
 use App\Services\RegistroCorreoService;
-use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-// HU-066 (RF-15.3): un comunicado para una persona del grupo; cada quien recibe el suyo, sin ver a los demás
-class CorreoComunicado extends CorreoDelSistema implements ShouldQueueAfterCommit
+// HU-066 (RF-15.3): un comunicado para una persona del grupo; cada quien recibe el suyo, sin ver a los demás.
+// Se encola dentro de la transacción que guarda el comunicado: si la cola falla, no queda un envío a medias
+class CorreoComunicado extends CorreoDelSistema implements ShouldQueue
 {
     public int $tries = 3;
 

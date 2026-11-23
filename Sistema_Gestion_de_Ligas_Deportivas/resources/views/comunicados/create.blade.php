@@ -9,7 +9,8 @@
     $asunto = $datos['asunto'] ?? old('asunto', '');
     $mensaje = $datos['mensaje'] ?? old('mensaje', '');
     $rolesElegidos = $datos['roles'] ?? (array) old('roles', []);
-    $categoriaElegida = (string) ($datos['categoria_id'] ?? old('categoria_id', ''));
+    $categoriaVieja = old('categoria_id', '');
+    $categoriaElegida = (string) ($datos['categoria_id'] ?? (is_scalar($categoriaVieja) ? $categoriaVieja : ''));
     $clubesElegidos = array_map('strval', array_filter($datos['clubes'] ?? (array) old('clubes', []), 'is_scalar'));
 @endphp
 
@@ -27,7 +28,8 @@
     @if ($errors->any())
         <div role="alert" class="rounded-lg border border-red-700 bg-red-950/40 p-4 text-sm text-red-200">
             <ul class="list-disc space-y-1 pl-5">
-                @foreach ($errors->all() as $error)
+                {{-- Un club repetido marca los dos elementos; el mensaje se muestra una vez --}}
+                @foreach (array_unique($errors->all()) as $error)
                     <li>{{ $error }}</li>
                 @endforeach
             </ul>
@@ -39,8 +41,10 @@
         <section class="rounded-xl border border-green-700 bg-gray-800 p-6 space-y-4" aria-labelledby="titulo-confirmar">
             <h3 id="titulo-confirmar" class="text-lg font-semibold text-white">El grupo tiene {{ $total }} {{ $total === 1 ? 'destinatario' : 'destinatarios' }}</h3>
             <p class="text-sm text-gray-300">Asunto: <span class="font-medium text-white">{{ $datos['asunto'] }}</span></p>
-            <form method="POST" action="{{ route('comunicados.store') }}">
+            {{-- El botón se desactiva al enviar; el token impide en el servidor un segundo envío --}}
+            <form method="POST" action="{{ route('comunicados.store') }}" onsubmit="this.querySelector('button[type=submit]').disabled = true">
                 @csrf
+                <input type="hidden" name="token" value="{{ $token }}">
                 <input type="hidden" name="asunto" value="{{ $datos['asunto'] }}">
                 {{-- textarea oculto: conserva los saltos de línea del mensaje --}}
                 <textarea name="mensaje" hidden>{{ $datos['mensaje'] }}</textarea>
