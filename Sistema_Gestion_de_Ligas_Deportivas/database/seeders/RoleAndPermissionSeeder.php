@@ -316,7 +316,7 @@ class RoleAndPermissionSeeder extends Seeder
         ];
         $this->sincronizar($rolesCreados['Capturista'], $permisosCapturista);
 
-        // Rol Arbitro en Campo: validacion en terreno, captura y firma de cedula digital (sin dictaminar sanciones)
+        // Rol Arbitro en Campo: validacion en terreno, captura y firma de cedula digital (sin acceso al modulo disciplinario)
         $permisosArbitroCampo = [
             'temporadas.ver',
             'convocatorias.ver',
@@ -329,7 +329,6 @@ class RoleAndPermissionSeeder extends Seeder
             'cedulas.ver',
             'cedulas.capturar',
             'cedulas.firmar',
-            'disciplina.ver',
         ];
         $this->sincronizar($rolesCreados['Árbitro en Campo'], $permisosArbitroCampo);
 

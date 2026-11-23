@@ -319,7 +319,7 @@ class ExpedienteDisciplinarioTest extends TestCase
 
         $expediente = ExpedienteDisciplinario::where('cedula_id', $this->cedula->id)->firstOrFail();
 
-        // El árbitro en campo cuenta con disciplina.ver pero NO con disciplina.expedientes
+        // El árbitro en campo no cuenta con acceso al módulo disciplinario
         $this->actingAs($this->arbitro)
             ->get(route('disciplina.expedientes.index'))
             ->assertForbidden();

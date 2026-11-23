@@ -6,6 +6,7 @@ use App\Mail\RecordatorioPago;
 use App\Models\CargoFinanciero;
 use App\Models\Club;
 use App\Models\User;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -72,19 +73,26 @@ class RecordatorioPagoService
         // La misma lista de cargos y etapas no vuelve a salir: cada par se avisa una sola vez
         $huella = sha1($pendientes->map(fn (array $pendiente): string => $pendiente['cargo']->id.':'.$pendiente['etapa'])->implode(','));
 
-        DB::transaction(function () use ($club, $pendientes, $delegados, $lineas, $huella): void {
-            $ahora = now();
-            DB::table('recordatorios_pago')->insert($pendientes->map(fn (array $pendiente): array => [
-                'cargo_id' => $pendiente['cargo']->id, 'etapa' => $pendiente['etapa'], 'created_at' => $ahora, 'updated_at' => $ahora,
-            ])->all());
+        // Marcas y correos en la misma transacción: con la cola `database` los trabajos se guardan con las marcas, y si
+        // falla el encolado se revierten juntos y el aviso sale en la siguiente corrida.
+        // shortcut: atómico solo con la cola `database` en la misma conexión; con Redis u otra cola, revisar este orden
+        try {
+            DB::transaction(function () use ($club, $pendientes, $delegados, $lineas, $huella): void {
+                $ahora = now();
+                DB::table('recordatorios_pago')->insert($pendientes->map(fn (array $pendiente): array => [
+                    'cargo_id' => $pendiente['cargo']->id, 'etapa' => $pendiente['etapa'], 'created_at' => $ahora, 'updated_at' => $ahora,
+                ])->all());
 
-            foreach ($delegados as $delegado) {
-                $mensaje = "Hola, {$delegado->name}:\n\nEste es un recordatorio de los adeudos del club {$club->nombre} con la liga:\n\n{$lineas}";
+                foreach ($delegados as $delegado) {
+                    $mensaje = "Hola, {$delegado->name}:\n\nEste es un recordatorio de los adeudos del club {$club->nombre} con la liga:\n\n{$lineas}";
 
-                // Se encola al confirmarse la transacción; si falla el registro de los avisos, no sale nada
-                DB::afterCommit(fn () => Mail::to($delegado)->queue(new RecordatorioPago('Recordatorio de pago: '.$club->nombre, $mensaje, 'recordatorio_pago:'.$huella.':'.$delegado->id)));
-            }
-        });
+                    Mail::to($delegado)->queue(new RecordatorioPago('Recordatorio de pago: '.$club->nombre, $mensaje, 'recordatorio_pago:'.$huella.':'.$delegado->id));
+                }
+            }, 3); // Reintenta si dos corridas a la vez chocan en un interbloqueo (1213)
+        } catch (UniqueConstraintViolationException) {
+            // Otra corrida a la vez ya marcó estos cargos y manda su aviso; se sigue con el siguiente club
+            return 0;
+        }
 
         return $delegados->count();
     }

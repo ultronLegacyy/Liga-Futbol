@@ -12,10 +12,15 @@ use App\Models\User;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Queue\Connectors\ConnectorInterface;
+use Illuminate\Queue\NullQueue;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
+use RuntimeException;
 use Tests\TestCase;
 
 // HU-065 (SCRUM-75, RF-15.2): recordatorios de pago a los delegados de los clubes con adeudos vencidos o próximos a vencer
@@ -124,6 +129,53 @@ class RecordatorioPagoTest extends TestCase
         $this->artisan('sgld:recordatorios-pago')->expectsOutput('Recordatorios de pago encolados: 1.')->assertSuccessful();
 
         Mail::assertQueued(RecordatorioPago::class, fn (RecordatorioPago $aviso): bool => $aviso->hasTo('nuevo@liga.test') && str_contains($aviso->mensaje, 'venció el 01/11/2026'));
+    }
+
+    // Si falla el encolado, las marcas se revierten y el aviso sale en la siguiente corrida
+    public function test_si_falla_la_cola_el_aviso_no_se_pierde(): void
+    {
+        Queue::extend('caida', fn () => new class () implements ConnectorInterface {
+            public function connect(array $config): NullQueue
+            {
+                return new class () extends NullQueue {
+                    public function push($job, $data = '', $queue = null): never
+                    {
+                        throw new RuntimeException('Cola caída.');
+                    }
+                };
+            }
+        });
+        config(['queue.connections.caida' => ['driver' => 'caida'], 'queue.default' => 'caida']);
+
+        $this->assertThrows(fn () => $this->artisan('sgld:recordatorios-pago')->run(), RuntimeException::class, 'Cola caída.');
+        $this->assertSame(0, DB::table('recordatorios_pago')->count());
+
+        config(['queue.default' => 'sync']);
+        Mail::fake();
+        $this->artisan('sgld:recordatorios-pago')->expectsOutput('Recordatorios de pago encolados: 2.')->assertSuccessful();
+        $this->assertSame(3, DB::table('recordatorios_pago')->count());
+    }
+
+    // Dos corridas a la vez: la que choca con las marcas de la otra se salta ese club, sin error, y sigue con los demás
+    public function test_dos_corridas_a_la_vez_no_terminan_con_error(): void
+    {
+        Mail::fake();
+        $this->delegado('nuevo@liga.test', $this->sinDelegado);
+
+        // La otra corrida marca un cargo del deudor justo después de que esta leyó las marcas
+        $marcado = false;
+        DB::listen(function (QueryExecuted $consulta) use (&$marcado): void {
+            if (! $marcado && str_starts_with($consulta->sql, 'select') && str_contains($consulta->sql, 'recordatorios_pago')) {
+                $marcado = true;
+                DB::table('recordatorios_pago')->insert(['cargo_id' => $this->cargos['vencido']->id, 'etapa' => 'vencido', 'created_at' => now(), 'updated_at' => now()]);
+            }
+        });
+
+        $this->artisan('sgld:recordatorios-pago')->expectsOutput('Recordatorios de pago encolados: 1.')->assertSuccessful();
+
+        Mail::assertQueuedCount(1);
+        Mail::assertQueued(RecordatorioPago::class, fn (RecordatorioPago $aviso): bool => $aviso->hasTo('nuevo@liga.test'));
+        $this->assertSame([[$this->cargos['vencido']->id, 'vencido'], [$this->cargos['sinDelegado']->id, 'vencido']], $this->avisados());
     }
 
     // HU-067: cada recordatorio queda en el registro de correos

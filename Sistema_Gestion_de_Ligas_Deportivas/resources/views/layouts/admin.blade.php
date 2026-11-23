@@ -104,6 +104,11 @@
                     Expedientes disciplinarios
                 </a>
             @endcan
+            @can('verBoletin', App\Models\Sancion::class)
+                <a href="{{ route('disciplina.boletin.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-lg {{ request()->routeIs('disciplina.boletin.*') ? 'bg-green-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white' }}">
+                    Boletín de castigados
+                </a>
+            @endcan
             @can('verReporte', App\Models\CargoFinanciero::class)
                 <a href="{{ route('reportes.financiero') }}" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-lg {{ request()->routeIs('reportes.financiero*') ? 'bg-green-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white' }}">
                     Reporte financiero
