@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Expediente disciplinario generado a partir de las incidencias de la cédula arbitral (HU-044 / RF-10.1).
@@ -181,5 +182,35 @@ class ExpedienteDisciplinario extends Model
             'expediente_id',
             'equipo_id'
         )->withPivot(['tipo_involucrado', 'descripcion_participacion'])->withTimestamps();
+    }
+
+    /**
+     * Audiencias formales celebradas para este expediente (HU-045 / RF-10.2).
+     *
+     * @return HasMany<AudienciaDisciplinaria, $this>
+     */
+    public function audiencias(): HasMany
+    {
+        return $this->hasMany(AudienciaDisciplinaria::class, 'expediente_id')->orderBy('fecha_audiencia');
+    }
+
+    /**
+     * Última audiencia celebrada.
+     *
+     * @return HasOne<AudienciaDisciplinaria, $this>
+     */
+    public function ultimaAudiencia(): HasOne
+    {
+        return $this->hasOne(AudienciaDisciplinaria::class, 'expediente_id')->latestOfMany('fecha_audiencia');
+    }
+
+    /**
+     * Sanciones dictaminadas derivadas de este expediente (HU-045, HU-046, HU-047).
+     *
+     * @return HasMany<Sancion, $this>
+     */
+    public function sanciones(): HasMany
+    {
+        return $this->hasMany(Sancion::class, 'expediente_id')->orderByDesc('id');
     }
 }

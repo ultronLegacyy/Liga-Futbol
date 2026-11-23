@@ -126,4 +126,14 @@ class Persona extends Model
     {
         return $this->hasMany(CargoFinanciero::class);
     }
+
+    /**
+     * Sanciones disciplinarias aplicadas a la persona (HU-045, HU-046, HU-047).
+     *
+     * @return HasMany<Sancion, $this>
+     */
+    public function sanciones(): HasMany
+    {
+        return $this->hasMany(Sancion::class, 'persona_id');
+    }
 }

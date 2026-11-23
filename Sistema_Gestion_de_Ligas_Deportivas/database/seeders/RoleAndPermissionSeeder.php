@@ -139,6 +139,12 @@ class RoleAndPermissionSeeder extends Seeder
             // Modulo Bitacora de Auditoria Inmutable
             'auditoria.ver',
 
+            // Modulo Registro de Correos (HU-067): solo el Administrador General, que recibe todo el catalogo
+            'correos.ver',
+
+            // Modulo Comunicados (HU-066): Secretario y Administrador General
+            'comunicados.enviar',
+
             // Modulo Arbitraje y Padron de Colegios
             'arbitros.ver',
             'arbitros.crear',
@@ -240,6 +246,8 @@ class RoleAndPermissionSeeder extends Seeder
             'asambleas.convocar',
             'asambleas.asistencia',
             'asambleas.acuerdos.registrar',
+            // Comunicados por correo a grupos de usuarios (HU-066, decisión 6 de Daniel)
+            'comunicados.enviar',
         ];
         $this->sincronizar($rolesCreados['Secretario'], $permisosSecretario);
 
@@ -308,7 +316,7 @@ class RoleAndPermissionSeeder extends Seeder
         ];
         $this->sincronizar($rolesCreados['Capturista'], $permisosCapturista);
 
-        // Rol Arbitro en Campo: validacion en terreno, captura y firma de cedula digital (sin dictaminar sanciones)
+        // Rol Arbitro en Campo: validacion en terreno, captura y firma de cedula digital (sin acceso al modulo disciplinario)
         $permisosArbitroCampo = [
             'temporadas.ver',
             'convocatorias.ver',
@@ -321,7 +329,6 @@ class RoleAndPermissionSeeder extends Seeder
             'cedulas.ver',
             'cedulas.capturar',
             'cedulas.firmar',
-            'disciplina.ver',
         ];
         $this->sincronizar($rolesCreados['Árbitro en Campo'], $permisosArbitroCampo);
 
