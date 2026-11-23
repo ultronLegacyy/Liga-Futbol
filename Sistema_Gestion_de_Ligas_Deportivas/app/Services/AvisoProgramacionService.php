@@ -85,11 +85,8 @@ class AvisoProgramacionService
      */
     private function delegados(SupportCollection $clubes): Collection
     {
-        // whereHas en lugar de User::role(): si el rol no está sembrado devuelve vacío y no tumba la publicación.
         // Una cuenta desactivada no recibe avisos
-        return User::query()
-            ->whereHas('roles', fn ($consulta) => $consulta->where('name', 'Delegado del Club'))
-            ->whereIn('club_id', $clubes)->where('estatus', 'activo')->orderBy('id')->get();
+        return User::query()->delegadosActivos($clubes)->orderBy('id')->get();
     }
 
     private function datosDelPartido(Partido $partido): string
