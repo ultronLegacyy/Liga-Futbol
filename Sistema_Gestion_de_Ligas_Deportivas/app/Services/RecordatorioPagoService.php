@@ -88,7 +88,7 @@ class RecordatorioPagoService
 
                     Mail::to($delegado)->queue(new RecordatorioPago('Recordatorio de pago: '.$club->nombre, $mensaje, 'recordatorio_pago:'.$huella.':'.$delegado->id));
                 }
-            });
+            }, 3); // Reintenta si dos corridas a la vez chocan en un interbloqueo (1213)
         } catch (UniqueConstraintViolationException) {
             // Otra corrida a la vez ya marcó estos cargos y manda su aviso; se sigue con el siguiente club
             return 0;
