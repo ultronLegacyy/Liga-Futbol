@@ -69,7 +69,7 @@
             </ul>
         </div>
     @else
-        <p class="text-sm text-gray-300">Vista previa con los {{ $revision['clasifican'] }} primeros lugares de la tabla final. Nada se guarda hasta confirmar.</p>
+        <p class="text-sm text-gray-300">Vista previa con los {{ $revision['clasifican'] }} primeros lugares de la tabla final, calculada con la versión {{ $revision['regla']?->version }} de las reglas. Al confirmar se recalcula la tabla con las reglas vigentes; nada se guarda hasta entonces.</p>
 
         <x-table caption="Cruces propuestos">
             <thead class="bg-gray-900 text-xs uppercase text-gray-400">
@@ -84,9 +84,9 @@
                 @foreach ($revision['cruces'] as $cruce)
                     <tr>
                         <td class="px-4 py-3 text-white">{{ $cruce['orden'] }}</td>
-                        <td class="px-4 py-3"><span class="text-white">{{ $cruce['local']->equipo?->nombre }}</span> ({{ $cruce['local']->posicion }}°)</td>
+                        <td class="px-4 py-3"><span class="text-white">{{ $cruce['local']['nombre'] }}</span> ({{ $cruce['local']['posicion'] }}°)</td>
                         <td class="px-4 py-3 text-gray-400">vs</td>
-                        <td class="px-4 py-3"><span class="text-white">{{ $cruce['visitante']->equipo?->nombre }}</span> ({{ $cruce['visitante']->posicion }}°)</td>
+                        <td class="px-4 py-3"><span class="text-white">{{ $cruce['visitante']['nombre'] }}</span> ({{ $cruce['visitante']['posicion'] }}°)</td>
                     </tr>
                 @endforeach
             </tbody>
