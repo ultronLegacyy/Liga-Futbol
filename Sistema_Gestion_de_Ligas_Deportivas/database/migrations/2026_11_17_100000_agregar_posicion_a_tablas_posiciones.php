@@ -19,8 +19,10 @@ return new class () extends Migration {
     public function down(): void
     {
         Schema::table('tablas_posiciones', function (Blueprint $table) {
-            // La llave foránea de grupo_id usa el índice único; se recrea uno simple antes de quitarlo
-            $table->index('grupo_id');
+            // La llave foránea de grupo_id usa el índice único; se crea uno simple antes de quitarlo (si no quedó de una bajada anterior)
+            if (! Schema::hasIndex('tablas_posiciones', ['grupo_id'])) {
+                $table->index('grupo_id');
+            }
             $table->dropUnique(['grupo_id', 'equipo_id']);
             $table->dropColumn(['posicion', 'regla_version']);
         });

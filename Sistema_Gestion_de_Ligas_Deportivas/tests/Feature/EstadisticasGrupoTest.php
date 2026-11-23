@@ -4,12 +4,16 @@ namespace Tests\Feature;
 
 use App\Models\CedulaArbitral;
 use App\Models\Equipo;
+use App\Models\ExpedienteDisciplinario;
 use App\Models\EventoPartido;
 use App\Models\Jugador;
+use App\Models\Partido;
 use App\Models\Persona;
+use App\Models\Sancion;
 use App\Models\TablaPosicionJornada;
 use App\Models\User;
 use App\Services\EstadisticasGrupoService;
+use App\Services\GestionEstadoPartidoService;
 use App\Services\ValidacionResultadoService;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -80,22 +84,92 @@ class EstadisticasGrupoTest extends TestCase
         );
     }
 
-    // CA1: las sanciones del Tribunal de Penas (HU-045) se muestran si su expediente es de un partido del grupo
-    public function test_sanciones_de_partidos_del_grupo(): void
+    // CA1 con las reglas del boletín (#95; decisión de Daniel, 23/11): Tribunal y Administrador ven todas, el Delegado
+    // las validadas de su club, el Jugador las suyas validadas y los demás no ven la sección
+    public function test_las_sanciones_siguen_las_reglas_del_boletin(): void
     {
         [$grupo, $e] = $this->grupoConEquipos();
         [$otroGrupo, $o] = $this->grupoConEquipos();
         $ana = $this->jugador($e['A'], 'Ana', 'Ruiz');
+        $beto = $this->jugador($e['B'], 'Beto', 'Soto');
         $otro = $this->jugador($o['A'], 'Otro', 'Jugador');
+        $tribunal = $this->usuario('Tribunal de Penas');
 
-        $this->sancion($this->resultado($grupo, 1, $e['A'], 1, 0, $e['B']), $ana, 'Juego brusco grave', 2);
-        $this->sancion($this->resultado($otroGrupo, 1, $o['A'], 1, 0, $o['B']), $otro, 'De otro grupo', 1);
+        $partido = $this->resultado($grupo, 1, $e['A'], 1, 0, $e['B']);
+        $validadaAna = $this->sancion($partido, $ana, 'Juego brusco grave', validadaPor: $tribunal);
+        $sinValidarBeto = $this->sancion($partido, $beto, 'Protesta reiterada');
+        $alEquipo = $this->sancion($partido, null, 'Invasión de la porra', validadaPor: $tribunal, equipo: $e['B']);
+        $this->sancion($this->resultado($otroGrupo, 1, $o['A'], 1, 0, $o['B']), $otro, 'De otro grupo', validadaPor: $tribunal);
 
-        $sanciones = $this->estadisticas->sanciones($grupo);
+        $ids = fn (User $usuario): array => $this->estadisticas->sanciones($grupo, $usuario)->pluck('id')->sort()->values()->all();
+        $todas = collect([$validadaAna->id, $sinValidarBeto->id, $alEquipo->id])->sort()->values()->all();
 
-        $this->assertCount(1, $sanciones);
-        $this->assertSame('Juego brusco grave', $sanciones->first()->descripcion_sancion);
-        $this->assertSame('Vigente', $sanciones->first()->estado);
+        $this->assertSame($todas, $ids($tribunal));
+        $this->assertSame($todas, $ids($this->usuario('Administrador General')));
+
+        $delegadoDeA = $this->usuario('Delegado del Club');
+        $delegadoDeA->forceFill(['club_id' => $e['A']->club_id])->save();
+        $this->assertSame([$validadaAna->id], $ids($delegadoDeA));
+
+        $delegadoDeB = $this->usuario('Delegado del Club');
+        $delegadoDeB->forceFill(['club_id' => $e['B']->club_id])->save();
+        $this->assertSame([$alEquipo->id], $ids($delegadoDeB), 'Ve la sanción validada a su equipo, no la de Beto sin validar');
+
+        $cuentaDeBeto = $this->usuario('Jugador');
+        $cuentaDeBeto->forceFill(['persona_id' => $beto->persona_id])->save();
+        $this->assertSame([], $ids($cuentaDeBeto), 'La suya todavía no está validada');
+
+        // Los demás roles con acceso al grupo no ven la sección
+        $this->actingAs($this->usuario('Secretario'))
+            ->get(route('grupos.estadisticas', $grupo))
+            ->assertOk()
+            ->assertDontSee('titulo-sanciones', false)
+            ->assertDontSee('Juego brusco grave');
+        $this->actingAs($tribunal)
+            ->get(route('grupos.estadisticas', $grupo))
+            ->assertSeeInOrder(['Sanciones', 'Invasión de la porra'])
+            ->assertSee('Sin validar');
+    }
+
+    // Decisión de Daniel (23/11): la doble amarilla en un partido es una roja y la expulsión cuenta una vez
+    public function test_la_doble_amarilla_cuenta_como_roja(): void
+    {
+        [$grupo, $e] = $this->grupoConEquipos();
+        $ana = $this->jugador($e['A'], 'Ana', 'Ruiz');
+        $beto = $this->jugador($e['B'], 'Beto', 'Soto');
+
+        $cedula = $this->resultado($grupo, 1, $e['A'], 0, 0, $e['B'], validar: false);
+        $this->evento($cedula, $ana, 'Amarilla');
+        $this->evento($cedula, $ana, 'Amarilla');
+        $this->evento($cedula, $beto, 'Amarilla');
+        $this->evento($cedula, $beto, 'Amarilla');
+        $this->evento($cedula, $beto, 'Roja');
+        $this->validar($cedula);
+
+        $this->assertSame(
+            [[$ana->id, 1, 1], [$beto->id, 1, 1]],
+            $this->estadisticas->tarjetas($grupo)->map(fn (array $fila) => [$fila['jugador']->id, $fila['amarillas'], $fila['rojas']])->sortBy(0)->values()->all()
+        );
+    }
+
+    // Recomendado: los goles y tarjetas de otro grupo no se mezclan
+    public function test_no_mezcla_goles_ni_tarjetas_de_otro_grupo(): void
+    {
+        [$grupo, $e] = $this->grupoConEquipos(['A', 'B']);
+        [$otro, $o] = $this->grupoConEquipos(['C', 'D']);
+        $ana = $this->jugador($e['A'], 'Ana', 'Ruiz');
+        $ajeno = $this->jugador($o['C'], 'Ajeno', 'Pérez');
+
+        $propia = $this->resultado($grupo, 1, $e['A'], 1, 0, $e['B'], validar: false);
+        $this->evento($propia, $ana, 'Gol');
+        $this->validar($propia);
+        $ajena = $this->resultado($otro, 1, $o['C'], 2, 0, $o['D'], validar: false);
+        $this->evento($ajena, $ajeno, 'Gol');
+        $this->evento($ajena, $ajeno, 'Amarilla');
+        $this->validar($ajena);
+
+        $this->assertSame([$ana->id], $this->estadisticas->goleadores($grupo)->map(fn (array $fila) => $fila['jugador']->id)->all());
+        $this->assertTrue($this->estadisticas->tarjetas($grupo)->isEmpty());
     }
 
     // CA2: la copia de la tabla se guarda al cerrar la jornada (todos sus partidos oficiales) y no cambia después
@@ -105,12 +179,13 @@ class EstadisticasGrupoTest extends TestCase
 
         $pendiente = $this->resultado($grupo, 1, $e['C'], 2, 2, $e['D'], validar: false);
         $this->resultado($grupo, 1, $e['A'], 1, 0, $e['B']);
+        // C y D empatan en todo: comparten el 2.º lugar (decisión de Daniel, 23/11)
         $this->assertSame(0, TablaPosicionJornada::query()->where('grupo_id', $grupo->id)->count());
 
         $this->validar($pendiente);
         $jornada1 = $pendiente->partido->jornada;
         $this->assertSame(
-            ['A' => [1, 1, 3], 'C' => [2, 1, 1], 'D' => [3, 1, 1], 'B' => [4, 1, 0]],
+            ['A' => [1, 1, 3], 'C' => [2, 1, 1], 'D' => [2, 1, 1], 'B' => [4, 1, 0]],
             $this->copia($jornada1->id)
         );
 
@@ -121,7 +196,7 @@ class EstadisticasGrupoTest extends TestCase
         $this->validar($segundo);
 
         // La copia de la jornada 1 sigue igual y se agrega la de la jornada 2
-        $this->assertSame(['A' => [1, 1, 3], 'C' => [2, 1, 1], 'D' => [3, 1, 1], 'B' => [4, 1, 0]], $this->copia($jornada1->id));
+        $this->assertSame(['A' => [1, 1, 3], 'C' => [2, 1, 1], 'D' => [2, 1, 1], 'B' => [4, 1, 0]], $this->copia($jornada1->id));
         $this->assertSame(
             // B y A empatan a 3 puntos; B va arriba por diferencia de goles (+2 contra -2)
             ['D' => [1, 2, 4], 'B' => [2, 2, 3], 'A' => [3, 2, 3], 'C' => [4, 2, 1]],
@@ -154,7 +229,50 @@ class EstadisticasGrupoTest extends TestCase
 
         $jugado = $this->resultado($grupo, 1, $e['A'], 2, 0, $e['B']);
 
-        $this->assertSame(['A' => [1, 1, 3], 'C' => [2, 0, 0], 'D' => [3, 0, 0], 'B' => [4, 1, 0]], $this->copia($jugado->partido->jornada_id));
+        $this->assertSame(['A' => [1, 1, 3], 'C' => [2, 0, 0], 'D' => [2, 0, 0], 'B' => [4, 1, 0]], $this->copia($jugado->partido->jornada_id));
+    }
+
+    // Revisión, obligatorio 2: cancelar el último partido pendiente cierra la jornada y guarda su copia
+    public function test_cancelar_el_ultimo_pendiente_guarda_la_copia(): void
+    {
+        [$grupo, $e] = $this->grupoConEquipos();
+        $pendiente = $this->resultado($grupo, 1, $e['C'], 0, 0, $e['D'], validar: false);
+        $pendiente->delete();
+        $jugado = $this->resultado($grupo, 1, $e['A'], 2, 0, $e['B']);
+        $this->assertSame(0, TablaPosicionJornada::query()->where('jornada_id', $jugado->partido->jornada_id)->count());
+
+        app(GestionEstadoPartidoService::class)->cambiarEstado($pendiente->partido->refresh(), Partido::ESTADO_CANCELADO, 'Se cancela por falta de cancha disponible', $this->validador());
+
+        $this->assertSame(['A' => [1, 1, 3], 'C' => [2, 0, 0], 'D' => [2, 0, 0], 'B' => [4, 1, 0]], $this->copia($jugado->partido->jornada_id));
+    }
+
+    // Decisión de Daniel (23/11): una jornada toda cancelada no se copia y no frena a las siguientes
+    public function test_una_jornada_toda_cancelada_no_bloquea_las_siguientes(): void
+    {
+        [$grupo, $e] = $this->grupoConEquipos(['A', 'B']);
+        $cancelado = $this->resultado($grupo, 1, $e['A'], 0, 0, $e['B'], validar: false);
+        $cancelado->partido->forceFill(['estado' => Partido::ESTADO_CANCELADO])->save();
+        $cancelado->delete();
+
+        $jornada2 = $this->resultado($grupo, 2, $e['B'], 1, 0, $e['A']);
+
+        $this->assertSame(0, TablaPosicionJornada::query()->where('jornada_id', $cancelado->partido->jornada_id)->count());
+        $this->assertSame(['B' => [1, 1, 3], 'A' => [2, 1, 0]], $this->copia($jornada2->partido->jornada_id));
+    }
+
+    // Revisión, obligatorio 1: la copia bloquea primero la fila del grupo, para no perderse si dos validaciones cierran la jornada a la vez
+    public function test_la_copia_bloquea_el_grupo_antes_de_contar(): void
+    {
+        [$grupo] = $this->grupoConEquipos(['A', 'B']);
+        $consultas = [];
+        DB::listen(function ($consulta) use (&$consultas): void {
+            $consultas[] = strtolower($consulta->sql);
+        });
+
+        $this->estadisticas->conservarHistoricos($grupo);
+
+        $this->assertStringContainsString('for update', $consultas[0] ?? '');
+        $this->assertStringContainsString('from `grupos`', $consultas[0] ?? '');
     }
 
     // CA3 (RF-09.4): la pantalla distingue el dato oficial del indicador calculado y muestra la tabla por jornada
@@ -212,17 +330,32 @@ class EstadisticasGrupoTest extends TestCase
         app(ValidacionResultadoService::class)->validar($cedula, $this->validador());
     }
 
-    private function sancion(CedulaArbitral $cedula, Jugador $jugador, string $descripcion, int $partidos): void
+    private function sancion(CedulaArbitral $cedula, ?Jugador $jugador, string $descripcion, ?User $validadaPor = null, ?Equipo $equipo = null): Sancion
     {
         $articulo = DB::table('catalogo_articulos')->insertGetId(['codigo' => 'ART-'.uniqid(), 'descripcion' => 'Artículo de prueba', 'created_at' => now(), 'updated_at' => now()]);
-        $expediente = DB::table('expedientes_disciplinarios')->insertGetId(['cedula_id' => $cedula->id, 'partido_id' => $cedula->partido_id, 'articulo_id' => $articulo, 'created_at' => now(), 'updated_at' => now()]);
-        DB::table('sanciones')->insert([
-            'expediente_id' => $expediente,
-            'persona_id' => $jugador->persona_id,
+        $expediente = ExpedienteDisciplinario::create([
+            'folio' => 'EXP-'.uniqid(),
+            'cedula_id' => $cedula->id,
+            'partido_id' => $cedula->partido_id,
+            'articulo_id' => $articulo,
+            'titulo' => 'Expediente de prueba',
+            'origen' => 'cedula_arbitral',
+            'estado' => ExpedienteDisciplinario::ESTADO_ABIERTO,
+            'fecha_apertura' => now(),
+        ]);
+
+        return Sancion::create([
+            'expediente_id' => $expediente->id,
+            'persona_id' => $jugador?->persona_id,
+            'equipo_id' => $equipo?->id ?? $jugador?->equipo_id,
+            'tipo_sancion' => Sancion::TIPO_PARTIDOS,
             'descripcion_sancion' => $descripcion,
-            'partidos_suspendidos' => $partidos,
-            'created_at' => now(),
-            'updated_at' => now(),
+            'partidos_suspendidos' => 2,
+            'partidos_cumplidos' => 0,
+            'estado' => Sancion::ESTADO_VIGENTE,
+            'publicada_en_boletin' => false,
+            'validado_por_usuario_id' => $validadaPor?->id,
+            'fecha_validacion' => $validadaPor === null ? null : now(),
         ]);
     }
 

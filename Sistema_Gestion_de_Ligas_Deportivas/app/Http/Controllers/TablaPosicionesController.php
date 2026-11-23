@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Grupo;
-use App\Models\ReglaTemporada;
 use App\Services\TablaPosicionesService;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
@@ -21,15 +20,11 @@ class TablaPosicionesController extends Controller
 
         $grupo->load('categoria:id,nombre', 'temporada:id,nombre,estado');
         $tabla = $this->tablas->tabla($grupo);
-        $version = $tabla->first()?->regla_version;
 
         return view('tablas.show', [
             'grupo' => $grupo,
             'tabla' => $tabla,
-            'regla' => $version === null ? null : ReglaTemporada::query()
-                ->where('temporada_id', $grupo->temporada_id)
-                ->where('version', $version)
-                ->first(),
+            'regla' => $this->tablas->reglaDeLaTabla($grupo, $tabla->first()?->regla_version),
         ]);
     }
 }

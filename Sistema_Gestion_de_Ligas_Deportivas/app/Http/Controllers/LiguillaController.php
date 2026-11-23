@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Grupo;
+use App\Models\LlaveLiguilla;
 use App\Models\User;
 use App\Services\LiguillaService;
 use Illuminate\Http\RedirectResponse;
@@ -12,8 +13,8 @@ use Illuminate\View\View;
 
 /**
  * HU-055 (RF-11.1): clasificación a la liguilla y llaves de un grupo.
- * Consultar pide el permiso del grupo; generar, el de modificar la temporada (Presidente y Administrador General),
- * que además rechaza una temporada cerrada. El rol exacto está pendiente de confirmar con la Liga.
+ * Consultar pide el permiso del grupo; generar, LlaveLiguillaPolicy (Presidente y Administrador General, D-043),
+ * que además rechaza una temporada cerrada.
  */
 class LiguillaController extends Controller
 {
@@ -27,21 +28,18 @@ class LiguillaController extends Controller
 
         $grupo->load('categoria:id,nombre', 'temporada');
         $llaves = $this->liguilla->llaves($grupo);
-        $temporada = $grupo->temporada;
 
         return view('liguilla.show', [
             'grupo' => $grupo,
             'llaves' => $llaves,
             'revision' => $llaves->isEmpty() ? $this->liguilla->revisar($grupo) : null,
-            'puedeGenerar' => $temporada !== null && ($request->user()?->can('update', $temporada) ?? false),
+            'puedeGenerar' => $request->user()?->can('create', [LlaveLiguilla::class, $grupo]) ?? false,
         ]);
     }
 
     public function store(Request $request, Grupo $grupo): RedirectResponse
     {
-        $temporada = $grupo->temporada;
-        abort_if($temporada === null, 404);
-        Gate::authorize('update', $temporada);
+        Gate::authorize('create', [LlaveLiguilla::class, $grupo]);
 
         /** @var User $usuario */
         $usuario = $request->user();

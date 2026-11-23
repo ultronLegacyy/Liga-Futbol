@@ -27,3 +27,10 @@ Schedule::command('respaldo:depurar')->dailyAt('04:00')->timezone($zona)
 // Criterio 4: prueba de restauración mensual, el día 1
 Schedule::command('respaldo:probar')->monthlyOn(1, '05:00')->timezone($zona)
     ->withoutOverlapping()->appendOutputTo($bitacora);
+
+// HU-065: recordatorios de pago, diario a las 09:00 hora de México (decisión 4 de Daniel). Salen por la cola de abajo
+Schedule::command('sgld:recordatorios-pago')->dailyAt('09:00')->timezone($zona)->withoutOverlapping(10);
+
+// HU-064: la cola de correos (decisión 2 de Daniel). Cada minuto manda lo pendiente y termina; sin dos a la vez.
+// El candado caduca a los 10 minutos para que un proceso muerto no detenga la cola un día entero
+Schedule::command('queue:work --stop-when-empty --max-time=50')->everyMinute()->withoutOverlapping(10);
