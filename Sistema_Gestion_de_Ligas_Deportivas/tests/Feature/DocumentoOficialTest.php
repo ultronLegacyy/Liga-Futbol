@@ -121,12 +121,13 @@ class DocumentoOficialTest extends TestCase
             '>1<',
             trim($local->persona->nombre.' '.$local->persona->apellidos).' (C)',
             'Tarjeta amarilla',
-            "27'",
+            e("27'"),
             'Invasión de cancha',
             'Partido sin novedades graves.',
         ] as $texto) {
             $this->assertStringContainsString($texto, $html);
         }
+        $this->assertNotEmpty($local->persona->curp);
         $this->assertStringNotContainsString((string) $local->persona->curp, $html);
     }
 
@@ -138,7 +139,7 @@ class DocumentoOficialTest extends TestCase
         $respuesta->assertOk()->assertDownload('cedula-oficial-partido-'.$partido->id.'.pdf');
         $this->assertStringStartsWith('%PDF', (string) $respuesta->getContent());
 
-        $this->actingAs($this->usuario('Programador'))->get(route('documentos.cedula', $partido))->assertOk();
+        $this->actingAs($this->usuario('Programador de Partidos'))->get(route('documentos.cedula', $partido))->assertOk();
         $this->actingAs($this->usuario('Delegado del Club'))->get(route('documentos.cedula', $partido))->assertForbidden();
 
         $abierto = $this->partidoConArbitro();
@@ -156,6 +157,9 @@ class DocumentoOficialTest extends TestCase
         $partido = $this->partidoConArbitro();
         $jugador = Jugador::query()->where('equipo_id', $partido->equipo_local_id)->with('persona')->orderBy('id')->firstOrFail();
 
+        // La persona completa se lee aparte: la constancia carga solo nombre y apellidos
+        $persona = $jugador->persona()->firstOrFail();
+
         $html = view('documentos.constancia', [
             'jugador' => app(DocumentoOficialService::class)->constancia($jugador),
             'folio' => 'CON-00001-20261124', 'generado' => '24/11/2026 12:00',
@@ -165,8 +169,9 @@ class DocumentoOficialTest extends TestCase
         $this->assertStringContainsString(trim($jugador->persona->nombre.' '.$jugador->persona->apellidos), $html);
         $this->assertStringContainsString($partido->local->nombre, $html);
         $this->assertStringContainsString('Activo', $html);
-        $this->assertStringNotContainsString((string) $jugador->persona->curp, $html);
-        $this->assertStringNotContainsString($jugador->persona->fecha_nacimiento->format('d/m/Y'), $html);
+        $this->assertNotEmpty($persona->curp);
+        $this->assertStringNotContainsString((string) $persona->curp, $html);
+        $this->assertStringNotContainsString($persona->fecha_nacimiento->format('d/m/Y'), $html);
 
         $ruta = route('documentos.constancia', $jugador);
         $respuesta = $this->actingAs($this->tesorero)->get($ruta);
