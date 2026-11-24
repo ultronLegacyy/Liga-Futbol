@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ComunicadoAsamblea;
 use App\Models\Jugador;
 use App\Models\Sancion;
+use App\Services\PortalResultadosService;
 use App\Services\ProgramacionPublicaService;
 use App\Services\VigenciaSancionService;
 use Illuminate\Http\Request;
@@ -17,6 +18,7 @@ class PortalController extends Controller
     public function __construct(
         private readonly ProgramacionPublicaService $programacion,
         private readonly VigenciaSancionService $vigencia,
+        private readonly PortalResultadosService $resultados,
     ) {
     }
 
@@ -66,6 +68,24 @@ class PortalController extends Controller
                 ->publicadosEnPortal()
                 ->limit(10)
                 ->get(['id', 'titulo', 'contenido', 'publicado_en']),
+        ]);
+    }
+
+    // HU-077: resultados oficiales, tabla de posiciones y estadísticas de un grupo, sin cuenta (RF-12.3, IU-01)
+    public function resultados(Request $request): View
+    {
+        $grupos = $this->resultados->grupos();
+        $solicitado = $request->integer('grupo');
+
+        // Un grupo inexistente o sin resultados muestra el primero disponible, sin error
+        $grupo = $grupos->firstWhere('id', $solicitado) ?? $grupos->first();
+
+        return view('portal.resultados', [
+            'grupos' => $grupos,
+            'grupo' => $grupo,
+            'tabla' => $grupo !== null ? $this->resultados->tabla($grupo) : collect(),
+            'partidos' => $grupo !== null ? $this->resultados->resultados($grupo) : collect(),
+            'estadisticas' => $grupo !== null ? $this->resultados->estadisticas($grupo) : ['goleo' => collect(), 'tarjetas' => collect()],
         ]);
     }
 }
