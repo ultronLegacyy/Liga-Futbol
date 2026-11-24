@@ -350,6 +350,7 @@
             </a>
             <nav class="navegacion" aria-label="Portal público">
                 <a href="{{ route('portal.programacion') }}" @if (request()->routeIs('portal.programacion')) aria-current="page" @endif>Programación</a>
+                <a href="{{ route('portal.castigados') }}" @if (request()->routeIs('portal.castigados')) aria-current="page" @endif>Castigados</a>
                 @guest
                     <a class="cuenta" href="{{ route('inicio') }}">Iniciar sesión</a>
                 @else
@@ -389,7 +390,10 @@
     <footer class="pie">
         <div class="contenedor">
             <p>Información pública de la liga. Para cualquier aclaración, comunícate con la Secretaría de la liga.</p>
-            <a href="{{ route('portal.programacion') }}">Programación</a>
+            <nav class="chips" aria-label="Pie del portal">
+                <a href="{{ route('portal.programacion') }}">Programación</a>
+                <a href="{{ route('portal.castigados') }}">Castigados</a>
+            </nav>
         </div>
     </footer>
 </body>

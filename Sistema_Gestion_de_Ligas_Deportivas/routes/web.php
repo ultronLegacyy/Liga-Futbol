@@ -47,6 +47,9 @@ Route::get('/', function () {
 Route::get('/programacion', [PortalController::class, 'programacion'])
     ->middleware('throttle:300,1')
     ->name('portal.programacion');
+Route::get('/castigados', [PortalController::class, 'castigados'])
+    ->middleware('throttle:300,1')
+    ->name('portal.castigados');
 
 // Recuperación de contraseña por correo (HU-003). Cada envío tiene su propio contador de intentos por IP
 Route::middleware(['guest'])->group(function () {
