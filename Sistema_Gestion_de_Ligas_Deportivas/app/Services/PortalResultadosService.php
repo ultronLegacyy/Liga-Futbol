@@ -90,7 +90,7 @@ class PortalResultadosService
 
             return [
                 'nombre' => $persona !== null ? trim($persona->nombre.' '.$persona->apellidos) : 'Jugador',
-                'equipo' => $primero->jugador?->equipo?->nombre ?? 'Sin equipo',
+                'equipo' => $primero->jugador->equipo->nombre ?? 'Sin equipo',
                 'goles' => $suyos->where('tipo', 'Gol')->where('autogol', false)->count(),
                 'amarillas' => $suyos->where('tipo', 'Amarilla')->count(),
                 'rojas' => $suyos->where('tipo', 'Roja')->count(),
