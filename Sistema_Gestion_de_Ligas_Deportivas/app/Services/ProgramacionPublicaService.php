@@ -134,6 +134,40 @@ class ProgramacionPublicaService
                 ->orWhereColumn('hora_anterior', '!=', 'hora_nueva'));
     }
 
+    /**
+     * Buscador del portal (HU-063, RF-12.4): partidos de jornadas publicadas por fecha, categoría o nombre de equipo.
+     * Solo lo publicado es visible; los filtros vacíos no restringen.
+     *
+     * @return Collection<int, Partido>
+     */
+    public function buscar(?CarbonImmutable $fecha, ?int $categoriaId, ?string $equipo, int $limite = 60): Collection
+    {
+        $equipo = $equipo !== null ? trim($equipo) : null;
+        $patron = $equipo !== null && $equipo !== '' ? '%'.addcslashes($equipo, '%_\\').'%' : null;
+
+        return $this->publicados()
+            ->when($fecha !== null, fn (Builder $consulta) => $consulta->whereDate('fecha_partido', $fecha?->toDateString()))
+            ->when($categoriaId !== null, fn (Builder $consulta) => $consulta
+                ->whereHas('jornada.grupo', fn (Builder $grupo) => $grupo->where('categoria_id', $categoriaId)))
+            ->when($patron !== null, fn (Builder $consulta) => $consulta->where(fn (Builder $nombres) => $nombres
+                ->whereHas('local', fn (Builder $local) => $local->where('nombre', 'like', $patron))
+                ->orWhereHas('visitante', fn (Builder $visitante) => $visitante->where('nombre', 'like', $patron))))
+            ->with([
+                'local:id,nombre',
+                'visitante:id,nombre',
+                'cancha:id,nombre',
+                'jornada:id,grupo_id,numero_jornada',
+                'jornada.grupo:id,categoria_id,nombre',
+                'jornada.grupo.categoria:id,nombre,rama',
+                'cedula' => fn ($cedula) => $cedula->oficiales()->select('id', 'partido_id', 'goles_local', 'goles_visitante', 'estado', 'validada_en'),
+            ])
+            ->orderBy('fecha_partido')
+            ->orderBy('hora_partido')
+            ->orderBy('id')
+            ->limit($limite)
+            ->get();
+    }
+
     /** @return Builder<Partido> */
     private function publicados(): Builder
     {

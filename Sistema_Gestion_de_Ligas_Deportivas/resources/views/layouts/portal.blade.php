@@ -352,6 +352,7 @@
                 <a href="{{ route('portal.programacion') }}" @if (request()->routeIs('portal.programacion')) aria-current="page" @endif>Programación</a>
                 <a href="{{ route('portal.resultados') }}" @if (request()->routeIs('portal.resultados')) aria-current="page" @endif>Resultados</a>
                 <a href="{{ route('portal.castigados') }}" @if (request()->routeIs('portal.castigados')) aria-current="page" @endif>Castigados</a>
+                <a href="{{ route('portal.buscar') }}" @if (request()->routeIs('portal.buscar')) aria-current="page" @endif>Buscar</a>
                 @guest
                     <a class="cuenta" href="{{ route('inicio') }}">Iniciar sesión</a>
                 @else

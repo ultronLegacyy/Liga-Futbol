@@ -50,6 +50,9 @@ Route::get('/programacion', [PortalController::class, 'programacion'])
 Route::get('/resultados-y-tablas', [PortalController::class, 'resultados'])
     ->middleware('throttle:300,1')
     ->name('portal.resultados');
+Route::get('/buscar', [PortalController::class, 'buscar'])
+    ->middleware('throttle:120,1')
+    ->name('portal.buscar');
 Route::get('/castigados', [PortalController::class, 'castigados'])
     ->middleware('throttle:300,1')
     ->name('portal.castigados');
