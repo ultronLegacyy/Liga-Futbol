@@ -71,11 +71,12 @@ class PanelInicioTest extends TestCase
         }
     }
 
-    public function test_el_arbitro_empieza_en_mis_partidos_y_los_demas_en_el_inicio(): void
+    // S7-T04: el árbitro empieza en «Mis partidos»; los demás conservan el módulo de HU-071 a HU-073
+    public function test_el_arbitro_empieza_en_mis_partidos(): void
     {
         $this->assertSame(route('cedulas.mis-partidos'), $this->usuario('Árbitro en Campo')->rutaInicio());
-        $this->assertSame(route('panel.inicio'), $this->usuario('Comisión Arbitral')->rutaInicio());
-        $this->assertSame(route('admin.dashboard'), $this->usuario('Administrador General')->rutaInicio());
+        $this->assertSame(route('arbitros.index'), $this->usuario('Comisión Arbitral')->rutaInicio());
+        $this->assertSame(route('cargos.index'), $this->usuario('Tesorero')->rutaInicio());
     }
 
     public function test_el_marco_tiene_menu_inferior_saltar_contenido_y_saludo(): void

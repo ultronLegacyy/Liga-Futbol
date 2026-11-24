@@ -226,7 +226,7 @@ class SessionAndAuthFlowTest extends TestCase
         $respuesta->assertRedirect(route('login'));
     }
 
-    public function test_usuario_con_rol_tesorero_es_redirigido_al_inicio_del_panel_sin_error_403(): void
+    public function test_usuario_con_rol_tesorero_es_redirigido_al_modulo_de_cargos_sin_error_403(): void
     {
         $this->seed(RoleAndPermissionSeeder::class);
 
@@ -245,13 +245,13 @@ class SessionAndAuthFlowTest extends TestCase
         ]);
 
         $this->assertAuthenticatedAs($tesorero);
-        $respuesta->assertRedirect(route('panel.inicio'));
+        $respuesta->assertRedirect(route('cargos.index'));
 
         $vista = $this->actingAs($tesorero)->get(route('cargos.index'));
         $vista->assertStatus(200);
     }
 
-    public function test_delegado_del_club_sin_club_es_redirigido_al_inicio_del_panel_con_200(): void
+    public function test_delegado_del_club_sin_club_es_redirigido_a_temporadas_index_con_200(): void
     {
         $this->seed(RoleAndPermissionSeeder::class);
 
@@ -271,7 +271,7 @@ class SessionAndAuthFlowTest extends TestCase
         ]);
 
         $this->assertAuthenticatedAs($delegadoSinClub);
-        $respuesta->assertRedirect(route('panel.inicio'));
+        $respuesta->assertRedirect(route('temporadas.index'));
 
         // Verificamos que temporadas.index cargue exitosamente con 200 para el Delegado
         $vista = $this->actingAs($delegadoSinClub)->get(route('temporadas.index'));
@@ -282,7 +282,7 @@ class SessionAndAuthFlowTest extends TestCase
         $intentoCrear->assertStatus(403);
     }
 
-    public function test_delegado_del_club_con_club_es_redirigido_al_inicio_del_panel_con_200(): void
+    public function test_delegado_del_club_con_club_es_redirigido_a_jugadores_create_con_200(): void
     {
         $this->seed(RoleAndPermissionSeeder::class);
 
@@ -304,7 +304,7 @@ class SessionAndAuthFlowTest extends TestCase
         ]);
 
         $this->assertAuthenticatedAs($delegadoConClub);
-        $respuesta->assertRedirect(route('panel.inicio'));
+        $respuesta->assertRedirect(route('jugadores.create'));
 
         $vista = $this->actingAs($delegadoConClub)->get(route('jugadores.create'));
         $vista->assertStatus(200);
@@ -332,7 +332,7 @@ class SessionAndAuthFlowTest extends TestCase
 
         $this->assertAuthenticatedAs($tesorero);
         // Debe ignorar /admin/dashboard y redirigir a cargos.index
-        $respuesta->assertRedirect(route('panel.inicio'));
+        $respuesta->assertRedirect(route('cargos.index'));
 
         $vista = $this->actingAs($tesorero)->get(route('cargos.index'));
         $vista->assertStatus(200);
@@ -403,7 +403,7 @@ class SessionAndAuthFlowTest extends TestCase
             'Capturista' => ['Capturista', 'temporadas.index', false],
             'Tribunal de Penas' => ['Tribunal de Penas', 'temporadas.index', false],
             'Comisión Arbitral' => ['Comisión Arbitral', 'arbitros.index', false],
-            'Árbitro en Campo' => ['Árbitro en Campo', 'arbitros.index', false],
+            'Árbitro en Campo' => ['Árbitro en Campo', 'cedulas.mis-partidos', false],
             'Presidente del Club' => ['Presidente del Club', 'temporadas.index', true],
             'Delegado del Club (con club)' => ['Delegado del Club', 'jugadores.create', true],
             'Jugador' => ['Jugador', 'jugadores.vincular.form', false],

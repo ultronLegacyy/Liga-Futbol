@@ -119,7 +119,7 @@ class ForcePasswordChangeTest extends TestCase
             'password_confirmation' => 'ContrasenaValida123!',
         ]);
 
-        $response->assertRedirect(route('panel.inicio'));
+        $response->assertRedirect(route('cargos.index'));
         $this->assertDatabaseHas('usuarios', [
             'id' => $tesorero->id,
             'requires_password_change' => 0,
@@ -133,7 +133,7 @@ class ForcePasswordChangeTest extends TestCase
         $vista->assertDontSee('Roles y permisos');
     }
 
-    public function test_delegado_sin_club_tras_cambio_obligatorio_aterriza_en_el_inicio_del_panel_con_200(): void
+    public function test_delegado_sin_club_tras_cambio_obligatorio_aterriza_en_temporadas_index_con_200(): void
     {
         $this->seed(RoleAndPermissionSeeder::class);
 
@@ -152,7 +152,7 @@ class ForcePasswordChangeTest extends TestCase
             'password_confirmation' => 'ContrasenaValida123!',
         ]);
 
-        $response->assertRedirect(route('panel.inicio'));
+        $response->assertRedirect(route('temporadas.index'));
         $this->assertDatabaseHas('usuarios', [
             'id' => $delegado->id,
             'requires_password_change' => 0,
@@ -166,7 +166,7 @@ class ForcePasswordChangeTest extends TestCase
         $intento->assertStatus(403);
     }
 
-    public function test_delegado_con_club_tras_cambio_obligatorio_aterriza_en_el_inicio_del_panel_con_200(): void
+    public function test_delegado_con_club_tras_cambio_obligatorio_aterriza_en_jugadores_create_con_200(): void
     {
         $this->seed(RoleAndPermissionSeeder::class);
 
@@ -187,7 +187,7 @@ class ForcePasswordChangeTest extends TestCase
             'password_confirmation' => 'ContrasenaValida123!',
         ]);
 
-        $response->assertRedirect(route('panel.inicio'));
+        $response->assertRedirect(route('jugadores.create'));
         $this->assertDatabaseHas('usuarios', [
             'id' => $delegado->id,
             'requires_password_change' => 0,
@@ -243,7 +243,7 @@ class ForcePasswordChangeTest extends TestCase
             'Capturista' => ['Capturista', 'temporadas.index', false],
             'Tribunal de Penas' => ['Tribunal de Penas', 'temporadas.index', false],
             'Comisión Arbitral' => ['Comisión Arbitral', 'arbitros.index', false],
-            'Árbitro en Campo' => ['Árbitro en Campo', 'arbitros.index', false],
+            'Árbitro en Campo' => ['Árbitro en Campo', 'cedulas.mis-partidos', false],
             'Presidente del Club' => ['Presidente del Club', 'temporadas.index', true],
             'Delegado del Club (con club)' => ['Delegado del Club', 'jugadores.create', true],
             'Jugador' => ['Jugador', 'jugadores.vincular.form', false],
