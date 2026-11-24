@@ -74,6 +74,10 @@
     @else
         @if ($cedula->estaCerrada())
             <x-alert type="info" message="La cédula está cerrada: solo se consulta." />
+            {{-- HU-069: cédula oficial en PDF para imprimir o enviar --}}
+            @can('descargarOficial', [App\Models\CedulaArbitral::class, $partido])
+                <p class="mb-6"><a href="{{ route('documentos.cedula', $partido) }}" class="inline-flex min-h-11 items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-500">Descargar cédula oficial (PDF)</a></p>
+            @endcan
         @elseif (! $estadoPermitido)
             <x-alert type="info" message="El partido no está confirmado ni en juego: la cédula solo se consulta." />
         @endif
