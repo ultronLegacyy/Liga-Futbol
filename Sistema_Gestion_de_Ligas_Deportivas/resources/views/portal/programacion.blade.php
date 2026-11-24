@@ -97,7 +97,10 @@
     <p class="periodo">
         Semana del {{ $lunes->locale('es')->translatedFormat('j \d\e F') }} al {{ $domingo->locale('es')->translatedFormat('j \d\e F \d\e Y') }}
     </p>
-    @php($totalPartidos = $dias->sum(fn ($partidos) => $partidos->count()))
+    {{-- Bloque @php (no en línea): Blade empata un @php( en línea con el siguiente @endphp --}}
+    @php
+        $totalPartidos = $dias->sum(fn ($partidos) => $partidos->count());
+    @endphp
     <p class="resumen">{{ $totalPartidos === 1 ? '1 partido publicado' : $totalPartidos.' partidos publicados' }} · fecha, hora, cancha y equipos.</p>
 
     <nav aria-label="Cambiar de semana">
