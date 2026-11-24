@@ -30,6 +30,7 @@ use App\Http\Controllers\RecuperacionContrasenaController;
 use App\Http\Controllers\RegistroCorreoController;
 use App\Http\Controllers\ReporteFinancieroController;
 use App\Http\Controllers\ReglaTemporadaController;
+use App\Http\Controllers\ResultadoController;
 use App\Http\Controllers\RolPermisoController;
 use App\Http\Controllers\SancionController;
 use App\Http\Controllers\TarjetonDigitalController;
@@ -242,6 +243,14 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/disciplina/expedientes/{expediente}/articulos/{articulo}', [ExpedienteDisciplinarioController::class, 'desasociarArticulo'])
             ->whereNumber(['expediente', 'articulo'])
             ->name('disciplina.expedientes.articulos.destroy');
+
+        // Validación oficial de resultados: sin validar no cuentan para la tabla (HU-040, RF-08.4).
+        // Autoriza CedulaArbitralPolicy::validarResultados, que responde el 403 en español
+        Route::get('/resultados', [ResultadoController::class, 'index'])
+            ->name('resultados.index');
+        Route::post('/resultados/{cedula}/validar', [ResultadoController::class, 'validar'])
+            ->whereNumber('cedula')
+            ->name('resultados.validar');
 
         // Audiencias disciplinarias (HU-045 / RF-10.2)
         Route::post('/disciplina/expedientes/{expediente}/audiencias', [AudienciaDisciplinariaController::class, 'store'])
