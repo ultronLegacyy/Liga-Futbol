@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ComunicadoAsamblea;
 use App\Models\Jugador;
 use App\Models\Sancion;
 use App\Services\ProgramacionPublicaService;
@@ -37,7 +38,7 @@ class PortalController extends Controller
         ]);
     }
 
-    // HU-078: boletín público de castigados. Solo sanciones validadas por la Comisión, publicadas en el boletín
+    // HU-078: boletín público de castigados y comunicados oficiales. Solo sanciones validadas por la Comisión, publicadas en el boletín
     // y aún vigentes (RNF-44, HU-046); de cada persona solo se muestran nombre y equipo (RNF-31)
     public function castigados(): View
     {
@@ -60,6 +61,11 @@ class PortalController extends Controller
             'porEquipo' => $porEquipo,
             'total' => $boletin->count(),
             'hoy' => Carbon::today(Sancion::ZONA_HORARIA),
+            // PA-15: comunicados de asamblea publicados de forma expresa; sin datos de quien los registró
+            'comunicados' => ComunicadoAsamblea::query()
+                ->publicadosEnPortal()
+                ->limit(10)
+                ->get(['id', 'titulo', 'contenido', 'publicado_en']),
         ]);
     }
 }

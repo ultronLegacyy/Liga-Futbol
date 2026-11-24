@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AcuerdoAsamblea;
 use App\Models\Asamblea;
+use App\Models\ComunicadoAsamblea;
 use App\Models\Temporada;
 use App\Models\User;
 use App\Http\Requests\AutorizarAcuerdoAsambleaRequest;
@@ -13,6 +14,7 @@ use App\Http\Requests\StoreAsambleaRequest;
 use App\Http\Requests\StoreComunicadoAsambleaRequest;
 use App\Services\AsambleaService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -151,5 +153,20 @@ class AsambleaController extends Controller
 
         return redirect()->route('asambleas.show', $asamblea)
             ->with('success', 'Comunicado registrado.');
+    }
+
+    // Publicar o retirar un comunicado del portal público (HU-078, PA-15)
+    public function publicarComunicado(Request $request, Asamblea $asamblea, ComunicadoAsamblea $comunicado): RedirectResponse
+    {
+        abort_unless((int) $comunicado->asamblea_id === (int) $asamblea->getKey(), 404);
+        Gate::authorize('publicarComunicado', $asamblea);
+        $usuario = $request->user();
+        abort_unless($usuario instanceof User, 401);
+
+        $publicar = $request->boolean('publicar');
+        $this->asambleas->publicarComunicadoEnPortal($comunicado, $publicar, $usuario);
+
+        return redirect()->route('asambleas.show', $asamblea)
+            ->with('success', $publicar ? 'Comunicado publicado en el portal.' : 'Comunicado retirado del portal.');
     }
 }

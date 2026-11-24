@@ -288,6 +288,8 @@ Route::middleware(['auth'])->group(function () {
             ->name('asambleas.acuerdos.autorizar');
         Route::post('/asambleas/{asamblea}/comunicados', [AsambleaController::class, 'guardarComunicado'])
             ->name('asambleas.comunicados.store');
+        Route::put('/asambleas/{asamblea}/comunicados/{comunicado}/portal', [AsambleaController::class, 'publicarComunicado'])
+            ->name('asambleas.comunicados.portal');
 
         // Adeudos por club y temporada: quién está al corriente (HU-051, RF-13.2)
         Route::get('/adeudos', [AdeudoClubController::class, 'index'])

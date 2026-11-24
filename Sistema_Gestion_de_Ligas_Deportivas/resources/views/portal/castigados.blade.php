@@ -1,8 +1,8 @@
 @extends('layouts.portal')
 
-@section('title', 'Boletín de castigados')
+@section('title', 'Boletín de castigados y comunicados')
 
-@section('descripcion', 'Boletín oficial de castigados de la Liga Municipal de Fútbol: quién no puede jugar y hasta cuándo.')
+@section('descripcion', 'Boletín oficial de castigados de la Liga Municipal de Fútbol: quién no puede jugar y hasta cuándo, y los comunicados oficiales.')
 
 @section('estilos')
     .periodo { margin: 1rem 0 0; font-size: 1.0625rem; font-weight: 600; }
@@ -49,6 +49,12 @@
     .castigo dl { display: grid; grid-template-columns: auto 1fr; gap: .25rem .875rem; margin: .75rem 0 0; font-size: .9375rem; }
     .castigo dt { color: var(--texto-secundario); }
     .castigo dd { margin: 0; }
+
+    .comunicados { display: grid; gap: 1rem; margin: 0; padding: 0; list-style: none; }
+    .comunicado { padding: 1.25rem 1.25rem 1.25rem 1.5rem; border-left: 6px solid var(--acento); }
+    .comunicado h3 { margin: 0; font-size: 1.1875rem; line-height: 1.3; }
+    .comunicado time { display: block; margin-bottom: .25rem; color: var(--texto-secundario); font-size: .8125rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+    .comunicado p { margin: .5rem 0 0; white-space: pre-line; }
 
     .nota { margin: 1.5rem 0 0; color: var(--texto-secundario); font-size: .9375rem; }
 
@@ -125,6 +131,25 @@
             <p>Todos los jugadores pueden participar, salvo lo que indique la Comisión Disciplinaria.</p>
         </div>
     @endforelse
+
+    <section aria-labelledby="comunicados-titulo">
+        <h2 class="display seccion-titulo equipo-titulo" id="comunicados-titulo"><span>Comunicados oficiales</span></h2>
+        @if ($comunicados->isEmpty())
+            <div class="vacio" role="status"><p>No hay comunicados publicados.</p></div>
+        @else
+            <ul class="comunicados">
+                @foreach ($comunicados as $comunicado)
+                    <li class="comunicado tarjeta">
+                        <article>
+                            <time datetime="{{ $comunicado->publicado_en?->toDateString() }}">{{ $comunicado->publicado_en?->locale('es')->translatedFormat('j \d\e F \d\e Y') }}</time>
+                            <h3>{{ $comunicado->titulo }}</h3>
+                            <p>{{ $comunicado->contenido }}</p>
+                        </article>
+                    </li>
+                @endforeach
+            </ul>
+        @endif
+    </section>
 
     <p class="nota">El boletín lo publica la Comisión Disciplinaria. Una sanción se retira sola cuando se cumple. Para aclaraciones, acude a la Secretaría de la liga.</p>
 @endsection

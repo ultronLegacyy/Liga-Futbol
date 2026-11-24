@@ -23,6 +23,10 @@
         </div>
     </div>
 
+    @error('comunicado')
+        <div role="alert" class="mb-6 rounded-lg border border-red-700 bg-red-950/80 p-4 text-red-200">{{ $message }}</div>
+    @enderror
+
     @if (session('success'))
         <div role="status" class="mb-6 rounded-lg border border-emerald-700 bg-emerald-950 p-4 text-emerald-200">{{ session('success') }}</div>
     @endif
@@ -164,6 +168,24 @@
                 <h3 class="font-semibold text-white">{{ $comunicado->titulo }}</h3>
                 <p class="mt-1 text-xs text-gray-400">{{ $comunicado->created_at?->format('d/m/Y H:i') }} · {{ $comunicado->registradoPor?->name }}</p>
                 <p class="mt-2 whitespace-pre-line text-sm text-gray-100">{{ $comunicado->contenido }}</p>
+                {{-- HU-078 (PA-15): solo los comunicados publicados de forma expresa se ven en el portal público --}}
+                <div class="mt-3 flex flex-wrap items-center gap-3">
+                    @if ($comunicado->publicado_en_portal)
+                        <span class="rounded-full border border-sky-500/40 bg-sky-500/15 px-2 py-1 text-xs font-semibold text-sky-200">Publicado en el portal · {{ $comunicado->publicado_en?->format('d/m/Y H:i') }}</span>
+                    @else
+                        <span class="rounded-full border border-gray-600 px-2 py-1 text-xs text-gray-300">Solo interno</span>
+                    @endif
+                    @can('publicarComunicado', $asamblea)
+                        <form method="POST" action="{{ route('asambleas.comunicados.portal', [$asamblea, $comunicado]) }}">
+                            @csrf
+                            @method('PUT')
+                            <input type="hidden" name="publicar" value="{{ $comunicado->publicado_en_portal ? '0' : '1' }}">
+                            <button type="submit" class="min-h-11 rounded-lg border border-sky-500/50 px-3 py-2 text-xs font-bold text-sky-200 hover:bg-sky-500/10">
+                                {{ $comunicado->publicado_en_portal ? 'Retirar del portal' : 'Publicar en el portal' }}
+                            </button>
+                        </form>
+                    @endcan
+                </div>
             </article>
         @empty
             <p class="text-sm text-gray-300">No hay comunicados registrados.</p>

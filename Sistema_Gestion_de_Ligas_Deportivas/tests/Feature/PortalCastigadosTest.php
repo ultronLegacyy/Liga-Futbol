@@ -2,7 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\Asamblea;
+use App\Models\AuditoriaLog;
 use App\Models\CatalogoArticulo;
+use App\Models\ComunicadoAsamblea;
 use App\Models\ExpedienteDisciplinario;
 use App\Models\Jugador;
 use App\Models\Partido;
@@ -11,6 +14,7 @@ use App\Models\User;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Hash;
 use Tests\Concerns\CreaPartidoConCedula;
 use Tests\TestCase;
 
@@ -162,6 +166,89 @@ class PortalCastigadosTest extends TestCase
         $this->get(route('portal.castigados'))->assertStatus(429);
     }
 
+    // PA-15: los comunicados de asamblea solo se ven en el portal cuando el Secretario o el Presidente los publican
+    public function test_solo_los_comunicados_publicados_aparecen_en_el_portal(): void
+    {
+        $secretario = $this->usuarioConRol('Secretario');
+        $publicado = $this->comunicado('Cambio de sede de la final');
+        $interno = $this->comunicado('Asunto interno de la mesa');
+
+        $this->get(route('portal.castigados'))->assertOk()
+            ->assertSee('No hay comunicados publicados.')
+            ->assertDontSee('Cambio de sede de la final');
+
+        $this->actingAs($secretario)
+            ->put(route('asambleas.comunicados.portal', [$publicado->asamblea_id, $publicado]), ['publicar' => '1'])
+            ->assertRedirect(route('asambleas.show', $publicado->asamblea_id))
+            ->assertSessionHas('success', 'Comunicado publicado en el portal.');
+
+        $publicado->refresh();
+        $this->assertTrue($publicado->publicado_en_portal);
+        $this->assertSame($secretario->id, $publicado->publicado_por_usuario_id);
+        $this->assertNotNull($publicado->publicado_en);
+        $this->assertTrue(AuditoriaLog::query()
+            ->where('tabla_afectada', 'comunicados_asamblea')
+            ->where('registro_id', $publicado->id)
+            ->exists());
+
+        auth()->logout();
+        $html = $this->get(route('portal.castigados'))->assertOk()
+            ->assertSeeInOrder(['Comunicados oficiales', '24 de noviembre de 2026', 'Cambio de sede de la final', 'Contenido del comunicado'])
+            ->assertDontSee('Asunto interno de la mesa')
+            ->getContent();
+        $this->assertStringNotContainsString($secretario->email, $html);
+        $this->assertStringNotContainsString($secretario->name, $html);
+        $this->assertNotNull($interno->fresh());
+    }
+
+    public function test_se_retira_un_comunicado_y_no_se_publica_dos_veces(): void
+    {
+        $presidente = $this->usuarioConRol('Presidente');
+        $comunicado = $this->comunicado('Aviso retirado');
+        $ruta = route('asambleas.comunicados.portal', [$comunicado->asamblea_id, $comunicado]);
+
+        $this->actingAs($presidente)->put($ruta, ['publicar' => '1'])->assertSessionHasNoErrors();
+        $this->actingAs($presidente)->put($ruta, ['publicar' => '1'])
+            ->assertSessionHasErrors(['comunicado' => 'Este comunicado ya está publicado en el portal.']);
+        $this->actingAs($presidente)->put($ruta, ['publicar' => '0'])
+            ->assertSessionHas('success', 'Comunicado retirado del portal.');
+
+        $comunicado->refresh();
+        $this->assertFalse($comunicado->publicado_en_portal);
+        $this->assertNull($comunicado->publicado_por_usuario_id);
+
+        auth()->logout();
+        $this->get(route('portal.castigados'))->assertOk()->assertDontSee('Aviso retirado');
+    }
+
+    public function test_solo_el_secretario_o_el_presidente_publican_comunicados(): void
+    {
+        $comunicado = $this->comunicado('Aviso protegido');
+        $ruta = route('asambleas.comunicados.portal', [$comunicado->asamblea_id, $comunicado]);
+
+        foreach (['Tesorero', 'Delegado del Club', 'Capturista'] as $rol) {
+            $this->actingAs($this->usuarioConRol($rol))->put($ruta, ['publicar' => '1'])->assertForbidden();
+        }
+
+        $this->assertFalse($comunicado->fresh()->publicado_en_portal);
+
+        // La asignación masiva no publica un comunicado
+        $otro = ComunicadoAsamblea::query()->create([
+            'asamblea_id' => $comunicado->asamblea_id,
+            'titulo' => 'Masivo',
+            'contenido' => 'x',
+            'registrado_por_usuario_id' => $this->tribunal->id,
+            'publicado_en_portal' => true,
+        ]);
+        $this->assertFalse($otro->fresh()->publicado_en_portal);
+
+        // El comunicado debe pertenecer a la asamblea de la ruta
+        $otraAsamblea = $this->asamblea();
+        $this->actingAs($this->usuarioConRol('Secretario'))
+            ->put(route('asambleas.comunicados.portal', [$otraAsamblea, $comunicado]), ['publicar' => '1'])
+            ->assertNotFound();
+    }
+
     private function jugador(int $indice): Jugador
     {
         return Jugador::query()
@@ -194,5 +281,41 @@ class PortalCastigadosTest extends TestCase
             'autorizado_por_cargo' => 'Tribunal de Penas',
             'fecha_publicacion' => now(),
         ], $cambios));
+    }
+
+    private function asamblea(): Asamblea
+    {
+        return Asamblea::query()->create([
+            'tipo' => 'Ordinaria',
+            'fecha' => '2026-11-20',
+            'hora' => '18:00',
+            'lugar' => 'Sala de juntas',
+            'orden_del_dia' => 'Asuntos generales',
+            'estado' => Asamblea::ESTADO_CELEBRADA,
+        ]);
+    }
+
+    private function comunicado(string $titulo): ComunicadoAsamblea
+    {
+        return ComunicadoAsamblea::query()->create([
+            'asamblea_id' => $this->asamblea()->id,
+            'titulo' => $titulo,
+            'contenido' => 'Contenido del comunicado',
+            'registrado_por_usuario_id' => $this->tribunal->id,
+        ]);
+    }
+
+    private function usuarioConRol(string $rol): User
+    {
+        $usuario = User::query()->create([
+            'name' => $rol.' '.str()->random(5),
+            'email' => str()->uuid().'@liga.test',
+            'password' => Hash::make('secreto123'),
+            'rol' => 'Consultor',
+            'estatus' => 'activo',
+        ]);
+        $usuario->assignRole($rol);
+
+        return $usuario;
     }
 }
