@@ -5,94 +5,110 @@
 @section('descripcion', 'Programación semanal de partidos de la Liga Municipal de Fútbol: fecha, hora, cancha y equipos.')
 
 @section('estilos')
-    h1 { font-size: 1.5rem; line-height: 1.25; margin: .5rem 0 .25rem; }
-    h2 { font-size: 1.125rem; margin: 0 0 .75rem; }
-    .periodo { color: var(--texto-secundario); margin: 0 0 1rem; }
-
-    .semanas {
-        display: flex;
-        flex-wrap: wrap;
-        gap: .5rem;
-        margin: 0 0 1.5rem;
-        padding: 0;
-        list-style: none;
-    }
-
-    .semanas a {
-        display: inline-flex;
-        align-items: center;
-        min-height: 44px;
-        padding: 0 1rem;
-        border: 1px solid var(--borde);
-        border-radius: .5rem;
-        background: var(--tarjeta);
-        text-decoration: none;
-    }
+    .periodo { margin: 1rem 0 0; font-size: 1.0625rem; font-weight: 600; }
+    .resumen { margin: .25rem 0 1.25rem; opacity: .85; }
+    .semanas { margin-top: 1.25rem; }
 
     .dia { margin: 0 0 1.5rem; }
+    .dia h2 { color: var(--texto); }
+    .dia h2 time { display: inline-block; padding-bottom: .375rem; border-bottom: 4px solid var(--acento); }
 
     .partidos {
         display: grid;
-        gap: .75rem;
+        gap: 1rem;
         margin: 0;
         padding: 0;
         list-style: none;
     }
 
-    .partido {
-        padding: 1rem;
-        border: 1px solid var(--borde);
-        border-radius: .75rem;
-        background: var(--tarjeta);
-        overflow-wrap: anywhere;
+    .partido { overflow-wrap: anywhere; }
+    .partido p { margin: 0; }
+
+    .cara {
+        display: grid;
+        grid-template-columns: 3.75rem minmax(0, 1fr) 3.75rem;
+        align-items: center;
+        gap: .5rem;
+        padding: 1.125rem 1rem;
+        background: linear-gradient(180deg, var(--suave), #f7f9fc);
+        text-align: center;
     }
 
-    .partido p { margin: 0; }
-    .partido .hora { font-weight: 700; font-size: 1.125rem; }
-    .partido .equipos { margin: .25rem 0 .5rem; font-size: 1.0625rem; font-weight: 600; }
-    .partido .vs { color: var(--texto-secundario); font-weight: 400; }
+    .escudo {
+        display: grid;
+        place-items: center;
+        width: 3.5rem;
+        height: 4rem;
+        margin: 0 auto;
+        clip-path: polygon(50% 0, 100% 14%, 100% 55%, 50% 100%, 0 55%, 0 14%);
+        color: #fff;
+        font-family: var(--display);
+        font-weight: 900;
+        font-style: italic;
+        font-size: 1.375rem;
+    }
 
-    .partido dl { display: grid; grid-template-columns: auto 1fr; gap: .125rem .75rem; margin: 0; font-size: .9375rem; }
-    .partido dt { color: var(--texto-secundario); }
-    .partido dd { margin: 0; }
+    .hora { font-family: var(--display); font-weight: 900; font-style: italic; font-size: 2rem; line-height: 1; }
+    .hora .sin-hora { display: block; font-family: system-ui, sans-serif; font-style: normal; font-size: .9375rem; font-weight: 700; }
 
     .estado {
         display: inline-block;
-        margin-left: .5rem;
-        padding: .125rem .5rem;
-        border-radius: 999px;
-        border: 1px solid currentColor;
-        font-size: .8125rem;
-        font-weight: 600;
+        margin-top: .375rem;
+        padding: .25rem .625rem;
+        border-radius: .5rem;
+        font-family: system-ui, sans-serif;
+        font-style: normal;
+        font-size: .75rem;
+        font-weight: 800;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        line-height: 1.2;
         vertical-align: middle;
-        color: #f5c86b;
+        background: #fff1d6;
+        color: #7a4300;
     }
 
-    .estado-cancelado, .estado-suspendido { color: #ffb4a8; }
-    .estado-finalizado, .estado-en-juego { color: #8bd6a9; }
+    .estado-cancelado, .estado-suspendido { background: #fde4e2; color: #a3140b; }
+    .estado-finalizado { background: var(--texto); color: #fff; }
+    .estado-en-juego { background: #d9251b; color: #fff; }
 
-    .aviso {
-        margin: 0 0 1.5rem;
-        padding: 1rem;
-        border: 1px solid #f5c86b;
-        border-radius: .75rem;
-        background: var(--tarjeta);
-    }
+    .cuerpo { padding: 1rem 1.125rem 1.125rem; }
+    .antes { display: block; margin-bottom: .375rem; color: var(--texto-secundario); font-size: .9375rem; }
+    .partido .equipos { margin: 0 0 .75rem; font-size: 1.125rem; font-weight: 800; line-height: 1.3; }
+    .partido .vs { color: var(--texto-secundario); font-weight: 500; }
 
-    .aviso p { margin: 0 0 .5rem; }
-    .aviso ul { margin: 0; padding-left: 1.25rem; }
-    .aviso li + li { margin-top: .25rem; }
-    .antes { display: block; margin-top: .25rem; color: var(--texto-secundario); font-size: .9375rem; }
+    .partido dl { display: grid; grid-template-columns: auto 1fr; gap: .25rem .875rem; margin: 0; font-size: .9375rem; }
+    .partido dt { color: var(--texto-secundario); }
+    .partido dd { margin: 0; }
 
-    .vacio {
-        padding: 1.25rem;
-        border: 1px dashed var(--borde);
-        border-radius: .75rem;
-    }
-
-    @media (min-width: 48rem) {
+    @media (min-width: 40rem) {
         .partidos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
+
+    @media (min-width: 64rem) {
+        .partidos { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+@endsection
+
+@section('hero')
+    <p class="etiqueta-hero"><span class="punto" aria-hidden="true"></span>Programación oficial</p>
+    <h1 class="display">Programación de partidos</h1>
+    <span class="linea" aria-hidden="true"></span>
+    <p class="periodo">
+        Semana del {{ $lunes->locale('es')->translatedFormat('j \d\e F') }} al {{ $domingo->locale('es')->translatedFormat('j \d\e F \d\e Y') }}
+    </p>
+    @php($totalPartidos = $dias->sum(fn ($partidos) => $partidos->count()))
+    <p class="resumen">{{ $totalPartidos === 1 ? '1 partido publicado' : $totalPartidos.' partidos publicados' }} · fecha, hora, cancha y equipos.</p>
+
+    <nav aria-label="Cambiar de semana">
+        <ul class="chips semanas">
+            <li><a href="{{ route('portal.programacion', ['semana' => $lunes->subWeek()->toDateString()]) }}">← Semana anterior</a></li>
+            @unless ($esSemanaActual)
+                <li><a href="{{ route('portal.programacion') }}">Semana actual</a></li>
+            @endunless
+            <li><a href="{{ route('portal.programacion', ['semana' => $lunes->addWeek()->toDateString()]) }}">Semana siguiente →</a></li>
+        </ul>
+    </nav>
 @endsection
 
 @section('content')
@@ -105,22 +121,14 @@
             'cancelado' => 'Cancelado',
             'reprogramado' => 'Reprogramado',
         ];
+        // Escudo genérico: iniciales del equipo y un color estable calculado de su nombre (sin imágenes externas)
+        $escudo = static function (?string $nombre): array {
+            $palabras = preg_split('/\s+/u', trim((string) $nombre), -1, PREG_SPLIT_NO_EMPTY) ?: ['?'];
+            $iniciales = mb_strtoupper(mb_substr($palabras[0], 0, 1).(isset($palabras[1]) ? mb_substr($palabras[1], 0, 1) : mb_substr($palabras[0], 1, 1)));
+
+            return [$iniciales, crc32((string) $nombre) % 360];
+        };
     @endphp
-
-    <h1>Programación de partidos</h1>
-    <p class="periodo">
-        Semana del {{ $lunes->locale('es')->translatedFormat('j \d\e F') }} al {{ $domingo->locale('es')->translatedFormat('j \d\e F \d\e Y') }}
-    </p>
-
-    <nav aria-label="Cambiar de semana">
-        <ul class="semanas">
-            <li><a href="{{ route('portal.programacion', ['semana' => $lunes->subWeek()->toDateString()]) }}">← Semana anterior</a></li>
-            @unless ($esSemanaActual)
-                <li><a href="{{ route('portal.programacion') }}">Semana actual</a></li>
-            @endunless
-            <li><a href="{{ route('portal.programacion', ['semana' => $lunes->addWeek()->toDateString()]) }}">Semana siguiente →</a></li>
-        </ul>
-    </nav>
 
     {{-- Respuesta 52 del PO: una jornada que vuelve a revisión no desaparece sin avisar --}}
     @if ($jornadasEnActualizacion->isNotEmpty())
@@ -155,42 +163,50 @@
     @forelse ($dias as $dia => $partidos)
         @php($diaFecha = \Carbon\CarbonImmutable::parse($dia))
         <section class="dia" aria-labelledby="dia-{{ $dia }}">
-            <h2 id="dia-{{ $dia }}"><time datetime="{{ $dia }}">{{ $fecha($diaFecha, 'l j \d\e F') }}</time></h2>
+            <h2 class="display seccion-titulo" id="dia-{{ $dia }}"><time datetime="{{ $dia }}">{{ $fecha($diaFecha, 'l j \d\e F') }}</time></h2>
             <ol class="partidos">
                 @foreach ($partidos as $partido)
                     @php($categoria = $partido->jornada?->grupo?->categoria)
-                    <li class="partido">
+                    <li class="partido tarjeta">
                         <article aria-label="{{ $partido->local?->nombre }} contra {{ $partido->visitante?->nombre }}">
-                            <p class="hora">
-                                @if ($partido->hora_partido)
-                                    <time datetime="{{ $dia }}T{{ substr($partido->hora_partido, 0, 5) }}">{{ substr($partido->hora_partido, 0, 5) }} h</time>
-                                @else
-                                    Hora por confirmar
+                            @php([$inicialesLocal, $tonoLocal] = $escudo($partido->local?->nombre))
+                            @php([$inicialesVisitante, $tonoVisitante] = $escudo($partido->visitante?->nombre))
+                            <div class="cara">
+                                <span class="escudo" style="background: hsl({{ $tonoLocal }} 62% 30%)" aria-hidden="true">{{ $inicialesLocal }}</span>
+                                <p class="hora">
+                                    @if ($partido->hora_partido)
+                                        <time datetime="{{ $dia }}T{{ substr($partido->hora_partido, 0, 5) }}">{{ substr($partido->hora_partido, 0, 5) }} h</time>
+                                    @else
+                                        <span class="sin-hora">Hora por confirmar</span>
+                                    @endif
+                                    @isset($etiquetas[$partido->estado])
+                                        <br><span class="estado estado-{{ str_replace(' ', '-', $partido->estado) }}">{{ $etiquetas[$partido->estado] }}</span>
+                                    @endisset
+                                </p>
+                                <span class="escudo" style="background: hsl({{ $tonoVisitante }} 62% 30%)" aria-hidden="true">{{ $inicialesVisitante }}</span>
+                            </div>
+                            <div class="cuerpo">
+                                {{-- Respuesta 53 del PO: la fecha anterior del partido reprogramado --}}
+                                @php($anterior = $partido->reprogramaciones->first())
+                                @if ($anterior?->fecha_anterior)
+                                    <span class="antes">Antes: {{ $anterior->fecha_anterior->format('d/m/Y') }}@if ($anterior->hora_anterior), {{ substr((string) $anterior->hora_anterior, 0, 5) }} h @endif</span>
                                 @endif
-                                @isset($etiquetas[$partido->estado])
-                                    <span class="estado estado-{{ str_replace(' ', '-', $partido->estado) }}">{{ $etiquetas[$partido->estado] }}</span>
-                                @endisset
-                            </p>
-                            {{-- Respuesta 53 del PO: la fecha anterior del partido reprogramado --}}
-                            @php($anterior = $partido->reprogramaciones->first())
-                            @if ($anterior?->fecha_anterior)
-                                <span class="antes">Antes: {{ $anterior->fecha_anterior->format('d/m/Y') }}@if ($anterior->hora_anterior), {{ substr((string) $anterior->hora_anterior, 0, 5) }} h @endif</span>
-                            @endif
-                            <p class="equipos">
-                                {{ $partido->local?->nombre ?? 'Por definir' }}
-                                <span class="vs">vs.</span>
-                                {{ $partido->visitante?->nombre ?? 'Por definir' }}
-                            </p>
-                            <dl>
-                                <dt>Cancha</dt>
-                                <dd>{{ $partido->cancha?->nombre ?? 'Por confirmar' }}@if ($partido->cancha?->direccion_ubicacion) · {{ $partido->cancha->direccion_ubicacion }}@endif</dd>
-                                @if ($categoria)
-                                    <dt>Categoría</dt>
-                                    <dd>{{ $categoria->nombre }} ({{ $categoria->rama }})@if ($partido->jornada?->grupo?->nombre) · {{ $partido->jornada->grupo->nombre }}@endif</dd>
-                                @endif
-                                <dt>Jornada</dt>
-                                <dd>{{ $partido->jornada?->numero_jornada }}</dd>
-                            </dl>
+                                <p class="equipos">
+                                    {{ $partido->local?->nombre ?? 'Por definir' }}
+                                    <span class="vs">vs.</span>
+                                    {{ $partido->visitante?->nombre ?? 'Por definir' }}
+                                </p>
+                                <dl>
+                                    <dt>Cancha</dt>
+                                    <dd>{{ $partido->cancha?->nombre ?? 'Por confirmar' }}@if ($partido->cancha?->direccion_ubicacion) · {{ $partido->cancha->direccion_ubicacion }}@endif</dd>
+                                    @if ($categoria)
+                                        <dt>Categoría</dt>
+                                        <dd>{{ $categoria->nombre }} ({{ $categoria->rama }})@if ($partido->jornada?->grupo?->nombre) · {{ $partido->jornada->grupo->nombre }}@endif</dd>
+                                    @endif
+                                    <dt>Jornada</dt>
+                                    <dd>{{ $partido->jornada?->numero_jornada }}</dd>
+                                </dl>
+                            </div>
                         </article>
                     </li>
                 @endforeach

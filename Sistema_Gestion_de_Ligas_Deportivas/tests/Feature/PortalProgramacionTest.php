@@ -185,6 +185,22 @@ class PortalProgramacionTest extends TestCase
         $this->assertStringNotContainsString('noindex', $html);
     }
 
+    // HAB-S7 (SCRUM-236): el diseño nuevo no carga hojas de estilo, fuentes, imágenes ni scripts externos (RNF-04)
+    // y respeta prefers-reduced-motion (RNF-13)
+    public function test_el_diseno_del_portal_no_carga_recursos_externos(): void
+    {
+        $this->partido(Jornada::ESTADO_PUBLICADA, '2026-11-21', '10:00:00', 'Águilas', 'Halcones');
+
+        $html = $this->get(route('portal.programacion'))->assertOk()->getContent();
+
+        $this->assertDoesNotMatchRegularExpression('/<link\b/i', $html);
+        $this->assertDoesNotMatchRegularExpression('/\bsrc=/i', $html);
+        $this->assertDoesNotMatchRegularExpression('/@import|url\(\s*[\'"]?https?:/i', $html);
+        $this->assertStringContainsString('prefers-reduced-motion: no-preference', $html);
+        $this->assertStringContainsString('1 partido publicado', $html);
+        $this->assertLessThan(40 * 1024, strlen($html));
+    }
+
     public function test_una_persona_con_sesion_tambien_la_consulta_y_el_login_la_enlaza(): void
     {
         $this->seed(RoleAndPermissionSeeder::class);
