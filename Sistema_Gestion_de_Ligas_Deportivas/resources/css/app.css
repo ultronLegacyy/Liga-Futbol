@@ -2,8 +2,60 @@
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
+@source '../../app/Support/*.php';
 
+/*
+ * HAB-S7 · S7-T01 (SCRUM-234): base visual del nuevo diseño, compilada con Vite en lugar del CDN.
+ * Paleta «Azul eléctrico» aprobada por el Product Owner (21/11/2026). La escala gray se redefine en tonos
+ * azul marino para que las 71 vistas del panel tomen el nuevo color sin reescribirlas; cada módulo se migra
+ * después a los componentes (S7-T06). Todos los pares de texto y fondo usados conservan contraste ≥ 4.5:1.
+ */
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, ui-sans-serif, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+    --font-display: 'Barlow Condensed', 'Roboto Condensed', 'Arial Narrow', 'Helvetica Neue Condensed', Impact, sans-serif;
+
+    --color-gray-50: #f3f6fc;
+    --color-gray-100: #e6ecf7;
+    --color-gray-200: #cdd8ec;
+    --color-gray-300: #b3c1dd;
+    --color-gray-400: #8b9cc2;
+    --color-gray-500: #64779f;
+    --color-gray-600: #435683;
+    --color-gray-700: #2b3c68;
+    --color-gray-750: #21305a;
+    --color-gray-800: #18264c;
+    --color-gray-900: #0d1736;
+    --color-gray-950: #070e24;
+
+    --color-marino-950: #040b22;
+    --color-marino-900: #071a4f;
+    --color-marino-800: #082a86;
+    --color-electrico: #1f5eff;
+    --color-electrico-claro: #4d7fff;
+    --color-celeste: #7cc6ff;
+    --color-foco: #ffb020;
+}
+
+@layer base {
+    :focus-visible {
+        outline: 3px solid var(--color-foco);
+        outline-offset: 2px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
+}
+
+@utility display {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-style: italic;
+    font-stretch: condensed;
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    line-height: 0.92;
 }

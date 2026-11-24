@@ -25,6 +25,7 @@ use App\Http\Controllers\JugadorController;
 use App\Http\Controllers\PagoController;
 use App\Http\Controllers\PartidoController;
 use App\Http\Controllers\PersonaController;
+use App\Http\Controllers\PanelController;
 use App\Http\Controllers\PortalController;
 use App\Http\Controllers\RecuperacionContrasenaController;
 use App\Http\Controllers\RegistroCorreoController;
@@ -78,6 +79,9 @@ Route::middleware(['auth'])->group(function () {
 
     // 2. Rutas del sistema PROTEGIDAS por el bloqueo temporal
     Route::middleware([ForcePasswordChange::class])->group(function () {
+
+        // HAB-S7 (S7-T02): inicio del panel por rol, con las tarjetas de lo que cada rol puede hacer (IU-02)
+        Route::get('/panel', [PanelController::class, 'inicio'])->name('panel.inicio');
 
         // Rutas de temporadas deportivas y reglas (Merge de develop)
         Route::resource('temporadas', TemporadaController::class);
