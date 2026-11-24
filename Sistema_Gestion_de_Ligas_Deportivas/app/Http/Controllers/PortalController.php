@@ -52,7 +52,7 @@ class PortalController extends Controller
             ->mapWithKeys(fn (Jugador $jugador): array => [$jugador->persona_id => $jugador->equipo?->nombre]);
 
         $porEquipo = $boletin
-            ->groupBy(fn (Sancion $sancion): string => $sancion->equipo?->nombre
+            ->groupBy(fn (Sancion $sancion): string => $sancion->equipo->nombre
                 ?? ($sancion->persona_id !== null ? $equiposPorPersona->get($sancion->persona_id) : null)
                 ?? 'Sin equipo')
             ->sortKeys();

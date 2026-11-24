@@ -5,8 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 // HU-078 (PA-15): un comunicado de asamblea solo se ve en el portal público cuando se publica de forma expresa
-return new class extends Migration
-{
+return new class () extends Migration {
     public function up(): void
     {
         Schema::table('comunicados_asamblea', function (Blueprint $table): void {
