@@ -33,6 +33,7 @@ use App\Http\Controllers\ReglaTemporadaController;
 use App\Http\Controllers\ResultadoController;
 use App\Http\Controllers\RolPermisoController;
 use App\Http\Controllers\SancionController;
+use App\Http\Controllers\TablaPosicionesController;
 use App\Http\Controllers\TarjetonDigitalController;
 use App\Http\Controllers\TemporadaController;
 use App\Http\Controllers\UserController;
@@ -133,6 +134,11 @@ Route::middleware(['auth'])->group(function () {
             ->name('jornadas.publicar');
         Route::get('/jornadas/{jornada}/conflictos', [JornadaController::class, 'conflictos'])
             ->name('jornadas.conflictos');
+
+        // Tabla de posiciones calculada con los resultados oficiales (HU-041, RF-09.1)
+        Route::get('/grupos/{grupo}/tabla', [TablaPosicionesController::class, 'show'])
+            ->whereNumber('grupo')
+            ->name('grupos.tabla');
 
         // Generación automática de rol regular y enfrentamientos (HU-032, RF-07.1)
         Route::get('/grupos/{grupo}/generar-rol', [GeneradorEnfrentamientosController::class, 'configurar'])
