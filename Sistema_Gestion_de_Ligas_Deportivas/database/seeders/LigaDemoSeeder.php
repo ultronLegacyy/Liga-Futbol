@@ -308,7 +308,7 @@ class LigaDemoSeeder extends Seeder
 
         $articulo = CatalogoArticulo::query()->firstOrCreate(
             ['codigo' => 'ART-DEMO-12'],
-            ['descripcion' => 'Juego brusco grave', 'castigo_base_partidos' => 2, 'es_grave' => false],
+            ['descripcion' => 'Juego brusco grave', 'castigo_base_partidos' => 2],
         );
 
         foreach ($rojas as $indice => ['jugador' => $jugador, 'partido' => $partido]) {
