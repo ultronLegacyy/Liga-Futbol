@@ -107,6 +107,39 @@
     @endif
 @endsection
 
+@section('hero-tarjetas')
+    {{-- Tarjetas de cristal del prototipo, con datos reales de la semana --}}
+    @php
+        $partidosSemana = $dias->flatten(1);
+        $enJuego = $partidosSemana->firstWhere('estado', 'en juego');
+        $proximo = $partidosSemana->first(fn ($p) => ! in_array($p->estado, ['finalizado', 'cancelado', 'en juego'], true));
+    @endphp
+    @if ($enJuego)
+        <div class="vidrio vidrio-1">
+            <span class="punto" aria-hidden="true"></span>
+            <p><b>En juego</b><span>{{ $enJuego->local?->nombre }} vs. {{ $enJuego->visitante?->nombre }}</span></p>
+        </div>
+    @endif
+    @if ($proximo)
+        <div class="vidrio {{ $enJuego ? 'vidrio-2' : 'vidrio-1' }}">
+            <span class="icono" aria-hidden="true">{{ $proximo->hora_partido ? substr($proximo->hora_partido, 0, 2) : '—' }}</span>
+            <p><b>Próximo: {{ \Illuminate\Support\Carbon::parse($proximo->fecha_partido)->locale('es')->translatedFormat('D') }} {{ $proximo->hora_partido ? substr($proximo->hora_partido, 0, 5) : '' }}</b><span>{{ $proximo->cancha?->nombre ?? 'Cancha por confirmar' }}</span></p>
+        </div>
+    @endif
+@endsection
+
+@section('hero-cifras')
+    @php
+        $partidosSemana = $dias->flatten(1);
+    @endphp
+    <dl class="cifras">
+        <div><dd>{{ $partidosSemana->count() }}</dd><dt>Partidos</dt></div>
+        <div><dd>{{ $dias->count() }}</dd><dt>Días de juego</dt></div>
+        <div><dd>{{ $partidosSemana->pluck('cancha_id')->filter()->unique()->count() }}</dd><dt>Canchas</dt></div>
+        <div><dd>{{ $partidosSemana->pluck('jornada.grupo.categoria_id')->filter()->unique()->count() }}</dd><dt>Categorías</dt></div>
+    </dl>
+@endsection
+
 @section('hero')
     <p class="etiqueta-hero"><span class="punto" aria-hidden="true"></span>Programación oficial</p>
     <h1 class="display">Programación de partidos</h1>
