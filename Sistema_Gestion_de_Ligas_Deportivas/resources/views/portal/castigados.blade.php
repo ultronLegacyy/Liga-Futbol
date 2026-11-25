@@ -5,8 +5,8 @@
 @section('descripcion', 'Boletín oficial de castigados de la Liga Municipal de Fútbol: quién no puede jugar y hasta cuándo, y los comunicados oficiales.')
 
 @section('estilos')
-    .periodo { margin: 1rem 0 0; font-size: 1.0625rem; font-weight: 600; }
-    .resumen { margin: .25rem 0 0; opacity: .85; }
+    .periodo { margin: 0; font-size: 1.0625rem; font-weight: 600; color: var(--blanco) !important; }
+    .resumen { margin: .25rem 0 0; }
 
     .equipo-titulo { color: var(--texto); }
     .equipo-titulo span { display: inline-block; padding-bottom: .375rem; border-bottom: 4px solid var(--acento); }
@@ -32,14 +32,14 @@
         place-content: center;
         gap: .25rem;
         padding: 1rem .5rem;
-        background: linear-gradient(160deg, #d9251b, #8f0f08);
+        background: #c4121b;
         color: #fff;
         text-align: center;
     }
 
-    .cuenta-castigo.temporal { background: linear-gradient(160deg, #1f5eff, #082a86); }
+    .cuenta-castigo.temporal { background: var(--navy); }
 
-    .cuenta-castigo b { font-family: var(--display); font-weight: 900; font-style: italic; font-size: 2.75rem; line-height: .9; }
+    .cuenta-castigo b { font-family: var(--display); font-weight: 800; font-size: 2.75rem; line-height: .9; }
     .cuenta-castigo small { font-size: .75rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; line-height: 1.2; }
 
     .castigo .cuerpo { padding: 1rem 1.125rem; }
@@ -51,7 +51,7 @@
     .castigo dd { margin: 0; }
 
     .comunicados { display: grid; gap: 1rem; margin: 0; padding: 0; list-style: none; }
-    .comunicado { padding: 1.25rem 1.25rem 1.25rem 1.5rem; border-left: 6px solid var(--acento); }
+    .comunicado { padding: 1.25rem 1.5rem; border-left: 6px solid var(--lima); }
     .comunicado h3 { margin: 0; font-size: 1.1875rem; line-height: 1.3; }
     .comunicado time { display: block; margin-bottom: .25rem; color: var(--texto-secundario); font-size: .8125rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
     .comunicado p { margin: .5rem 0 0; white-space: pre-line; }

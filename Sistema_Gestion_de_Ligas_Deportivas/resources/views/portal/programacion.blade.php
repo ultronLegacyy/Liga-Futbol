@@ -5,8 +5,8 @@
 @section('descripcion', 'Programación semanal de partidos de la Liga Municipal de Fútbol: fecha, hora, cancha y equipos.')
 
 @section('estilos')
-    .periodo { margin: 1rem 0 0; font-size: 1.0625rem; font-weight: 600; }
-    .resumen { margin: .25rem 0 1.25rem; opacity: .85; }
+    .periodo { margin: 0; font-size: 1.0625rem; font-weight: 600; color: var(--blanco) !important; }
+    .resumen { margin: .25rem 0 1.25rem; }
     .semanas { margin-top: 1.25rem; }
 
     .dia { margin: 0 0 1.5rem; }
@@ -30,7 +30,7 @@
         align-items: center;
         gap: .5rem;
         padding: 1.125rem 1rem;
-        background: linear-gradient(180deg, var(--suave), #f7f9fc);
+        background: var(--suave);
         text-align: center;
     }
 
@@ -38,17 +38,16 @@
         display: grid;
         place-items: center;
         width: 3.5rem;
-        height: 4rem;
+        height: 3.5rem;
         margin: 0 auto;
-        clip-path: polygon(50% 0, 100% 14%, 100% 55%, 50% 100%, 0 55%, 0 14%);
+        border-radius: 50%;
         color: #fff;
         font-family: var(--display);
-        font-weight: 900;
-        font-style: italic;
-        font-size: 1.375rem;
+        font-weight: 800;
+        font-size: 1.125rem;
     }
 
-    .hora { font-family: var(--display); font-weight: 900; font-style: italic; font-size: 2rem; line-height: 1; }
+    .hora { font-family: var(--display); font-weight: 800; font-size: 2rem; line-height: 1; }
     .hora .sin-hora { display: block; font-family: system-ui, sans-serif; font-style: normal; font-size: .9375rem; font-weight: 700; }
 
     .estado {
@@ -70,7 +69,7 @@
 
     .estado-cancelado, .estado-suspendido { background: #fde4e2; color: #a3140b; }
     .estado-finalizado { background: var(--texto); color: #fff; }
-    .estado-en-juego { background: #d9251b; color: #fff; }
+    .estado-en-juego { background: var(--lima); color: var(--tinta); }
 
     .cuerpo { padding: 1rem 1.125rem 1.125rem; }
     .antes { display: block; margin-bottom: .375rem; color: var(--texto-secundario); font-size: .9375rem; }

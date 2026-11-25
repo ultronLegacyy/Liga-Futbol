@@ -4,28 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="@yield('descripcion', 'Portal público de la Liga Municipal de Fútbol.')">
-    <meta name="theme-color" content="#082a86">
+    <meta name="theme-color" content="#0b1a5c">
     <title>@yield('title', 'Portal') | Liga Municipal de Fútbol</title>
     {{--
-        Portal público (IU-01, RNF-04, RNF-10, RNF-13), con el diseño deportivo aprobado en HAB-S7 (SCRUM-236):
-        CSS en línea y sin JavaScript ni recursos externos, para cargar rápido en un celular con 4G;
-        contraste de al menos 4.5:1, objetivos táctiles de 44 px y animaciones solo si el sistema las permite.
+        Portal público (IU-01, RNF-04, RNF-10, RNF-13) con el diseño limpio aprobado por el Product Owner
+        (25/11/2026) y su paleta: Ink #0B0F14, Navy #0B1A5C, Royal #2F5BFF (principal), Lime #D4F53C (acento)
+        y blanco. CSS en línea, sin JavaScript ni recursos externos; contraste ≥ 4.5:1, objetivos de 44 px y
+        una sola animación con transform, solo si el sistema la permite.
     --}}
     <style>
         :root {
-            --fondo: #f2f4f8;
-            --tarjeta: #ffffff;
-            --suave: #e8edf6;
-            --borde: #d9e0eb;
-            --texto: #0d1220;
-            --texto-secundario: #4a5468;
-            --marino: #082a86;
-            --electrico: #1656e6;
-            --acento: #1f5eff;
-            --celeste: #7cc6ff;
-            --oscuro: #071a4f;
-            --foco: #ffb020;
-            --display: "Barlow Condensed", "Roboto Condensed", "Arial Narrow", "Helvetica Neue Condensed", Impact, sans-serif;
+            --tinta: #0b0f14;
+            --navy: #0b1a5c;
+            --royal: #2f5bff;
+            --royal-oscuro: #1f44d6;
+            --lima: #d4f53c;
+            --blanco: #ffffff;
+
+            --fondo: #f3f5fb;
+            --tarjeta: var(--blanco);
+            --suave: #eef1fb;
+            --borde: #e1e6f2;
+            --texto: var(--tinta);
+            --texto-secundario: #4b5568;
+            --marino: var(--navy);
+            --electrico: var(--royal);
+            --acento: var(--royal-oscuro);
+            --celeste: var(--lima);
+            --oscuro: var(--navy);
+            --foco: #ff9f1c;
+            --sombra: 0 12px 32px -14px rgba(11, 26, 92, .22);
+            --display: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
         }
 
         *, *::before, *::after { box-sizing: border-box; }
@@ -37,13 +46,13 @@
             color: var(--texto);
             font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
             font-size: 1rem;
-            line-height: 1.5;
+            line-height: 1.55;
             -webkit-font-smoothing: antialiased;
         }
 
         a { color: var(--acento); }
 
-        a:focus-visible, button:focus-visible, summary:focus-visible {
+        a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visible, select:focus-visible {
             outline: 3px solid var(--foco);
             outline-offset: 2px;
         }
@@ -53,8 +62,8 @@
             left: -9999px;
             top: 0;
             padding: .75rem 1rem;
-            background: var(--foco);
-            color: #101512;
+            background: var(--lima);
+            color: var(--tinta);
             font-weight: 700;
             z-index: 10;
         }
@@ -67,48 +76,32 @@
             padding: 1rem;
         }
 
-        /* Tipografía de exhibición: condensada, gruesa e inclinada */
+        /* Títulos: letra gruesa y redonda, sin cursiva, con interletrado cerrado */
         .display {
             font-family: var(--display);
-            font-weight: 900;
-            font-style: italic;
-            font-stretch: condensed;
-            text-transform: uppercase;
-            letter-spacing: -.01em;
-            line-height: .92;
+            font-weight: 800;
+            letter-spacing: -.03em;
+            line-height: 1.05;
         }
 
-        /* Encabezado y portada (hero) en azul eléctrico */
-        .portada {
-            position: relative;
-            overflow: hidden;
-            color: #fff;
-            background: linear-gradient(155deg, var(--marino), var(--electrico) 62%, var(--marino));
+        /* Cabecera blanca fija, como en la referencia */
+        .cabecera {
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            background: rgba(255, 255, 255, .92);
+            border-bottom: 1px solid var(--borde);
+            backdrop-filter: blur(10px);
         }
-
-        .portada::before {
-            content: "";
-            position: absolute;
-            right: -14%;
-            bottom: -45%;
-            width: 75%;
-            height: 80%;
-            border-radius: 4rem 0 0 0;
-            background: linear-gradient(170deg, rgba(255, 255, 255, .2), rgba(255, 255, 255, .03));
-            transform: rotate(-16deg);
-            pointer-events: none;
-        }
-
-        .portada a { color: #fff; }
 
         .barra {
-            position: relative;
-            z-index: 2;
             display: flex;
             flex-wrap: wrap;
             align-items: center;
             justify-content: space-between;
             gap: .5rem 1rem;
+            padding-top: .625rem;
+            padding-bottom: .625rem;
         }
 
         .marca {
@@ -116,13 +109,13 @@
             align-items: center;
             gap: .625rem;
             min-height: 44px;
-            color: #fff;
+            color: var(--tinta);
             text-decoration: none;
         }
 
-        .marca svg { width: 2.125rem; height: 2.125rem; flex: none; }
-        .marca b { display: block; font-size: 1.625rem; }
-        .marca small { display: block; font-size: .6875rem; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; opacity: .85; }
+        .marca svg { width: 2.25rem; height: 2.25rem; flex: none; }
+        .marca b { display: block; font-size: 1.125rem; }
+        .marca small { display: block; font-size: .75rem; font-weight: 600; color: var(--texto-secundario); }
 
         .navegacion { display: flex; flex-wrap: wrap; gap: .25rem; }
 
@@ -132,35 +125,42 @@
             min-height: 44px;
             padding: 0 .875rem;
             border-radius: 999px;
+            color: var(--tinta);
             font-size: .9375rem;
             font-weight: 600;
             text-decoration: none;
         }
 
-        .navegacion a:hover { background: rgba(255, 255, 255, .14); }
-
-        .navegacion a[aria-current="page"] {
-            background: rgba(255, 255, 255, .16);
-            box-shadow: inset 0 -3px 0 var(--celeste);
-        }
+        .navegacion a:hover { background: var(--suave); }
+        .navegacion a[aria-current="page"] { background: var(--suave); color: var(--royal-oscuro); }
 
         .navegacion .cuenta {
-            background: var(--celeste);
-            color: var(--oscuro);
-            font-weight: 800;
+            background: var(--royal);
+            color: var(--blanco);
+            font-weight: 700;
         }
 
-        .navegacion .cuenta:hover { background: #fff; }
+        .navegacion .cuenta:hover { background: var(--royal-oscuro); }
+
+        /* Portada: tarjeta Navy redondeada sobre el fondo claro */
+        .portada {
+            position: relative;
+            overflow: hidden;
+            margin-top: 1rem;
+            border-radius: 2rem;
+            background: radial-gradient(circle at 85% 20%, rgba(47, 91, 255, .55), transparent 55%), var(--navy);
+            color: var(--blanco);
+            box-shadow: var(--sombra);
+        }
+
+        .portada a { color: var(--blanco); }
 
         .hero {
-            position: relative;
-            z-index: 1;
             display: grid;
             grid-template-columns: minmax(0, 1fr);
             gap: 1.5rem;
             align-items: center;
-            padding-top: 1.5rem;
-            padding-bottom: 2rem;
+            padding: 1.75rem 1.25rem 2rem;
         }
 
         .etiqueta-hero {
@@ -168,94 +168,60 @@
             align-items: center;
             gap: .5rem;
             margin: 0 0 1rem;
-            padding: .375rem .875rem .375rem .625rem;
-            border-radius: 999px;
-            background: rgba(255, 255, 255, .14);
             font-size: .75rem;
-            font-weight: 800;
-            letter-spacing: .16em;
+            font-weight: 700;
+            letter-spacing: .2em;
             text-transform: uppercase;
+            color: #c9d3ff;
         }
 
         .punto {
-            width: .5625rem;
-            height: .5625rem;
+            width: .625rem;
+            height: .625rem;
             border-radius: 50%;
-            background: #ff5a4f;
+            background: var(--lima);
         }
 
         .hero h1 {
             margin: 0;
-            font-size: clamp(2.25rem, 10vw, 6.5rem);
-            overflow-wrap: normal;
-            hyphens: manual;
+            font-size: clamp(2.125rem, 9vw, 4.25rem);
             text-wrap: balance;
         }
 
-        .hero h1 em { font-style: inherit; color: var(--celeste); }
+        .hero h1 em { font-style: normal; color: var(--lima); }
 
         .linea {
             display: block;
-            width: 12rem;
-            height: 4px;
-            margin: 1.25rem 0 1rem;
-            background: #fff;
-            clip-path: polygon(0 0, 100% 0, 96% 100%, 0 100%);
+            width: 3.5rem;
+            height: .375rem;
+            margin: 1.125rem 0 1rem;
+            border-radius: 999px;
+            background: var(--lima);
         }
 
-        .hero-texto p { margin: 0; max-width: 34rem; font-size: 1.0625rem; opacity: .92; }
+        .hero-texto p { margin: 0; max-width: 34rem; font-size: 1.0625rem; color: #dfe5ff; }
 
+        /* Ilustración plana: anillos concéntricos y un balón de líneas, sin imágenes */
         .arte {
             position: relative;
-            height: 9.5rem;
+            display: none;
+            place-items: center;
+            height: 11rem;
             pointer-events: none;
         }
 
-        /* Sombra fija del balón, sin filtros */
-        .arte::after {
-            content: "";
-            position: absolute;
-            left: 22%;
-            bottom: 0;
-            width: 8rem;
-            height: 1.25rem;
-            border-radius: 50%;
-            background: radial-gradient(rgba(0, 0, 0, .32), transparent 70%);
-        }
+        .anillos { width: 11rem; height: 11rem; }
 
-        .estelas {
-            position: absolute;
-            inset: 25% -20% 20% 10%;
-            transform: rotate(-9deg) skewX(-14deg);
-            background:
-                repeating-linear-gradient(180deg, transparent 0 9px, rgba(124, 198, 255, .75) 9px 14px, transparent 14px 22px, rgba(255, 255, 255, .55) 22px 25px, transparent 25px 34px, rgba(255, 90, 79, .6) 34px 38px, transparent 38px 47px);
-            -webkit-mask-image: linear-gradient(90deg, transparent, #000 40%, #000 85%, transparent);
-            mask-image: linear-gradient(90deg, transparent, #000 40%, #000 85%, transparent);
-        }
-
-        .balon {
-            position: absolute;
-            left: 18%;
-            top: 0;
-            width: 9rem;
-            height: 9rem;
-            will-change: transform;
-        }
-
-        /*
-         * RNF-04: solo se anima transform (lo mueve la tarjeta gráfica, sin repintar). Sin blur, sin filtros
-         * animados y sin girar el SVG, que mantenían ocupado el hilo principal y subían el TBT en Lighthouse.
-         */
         @media (prefers-reduced-motion: no-preference) {
-            .balon { animation: flotar 5s ease-in-out infinite; }
+            .anillos .balon-linea { animation: flotar 5s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
         }
 
-        @keyframes flotar { 50% { transform: translateY(-.875rem); } }
+        @keyframes flotar { 50% { transform: translateY(-6px); } }
 
         /* Componentes compartidos del portal */
         .seccion-titulo {
-            margin: 2rem 0 .875rem;
-            font-size: 2rem;
+            margin: 2.25rem 0 1rem;
+            font-size: 1.75rem;
         }
 
         .chips {
@@ -273,56 +239,57 @@
             gap: .375rem;
             min-height: 44px;
             padding: 0 1.125rem;
-            border: 2px solid currentColor;
+            border: 1.5px solid rgba(255, 255, 255, .55);
             border-radius: 999px;
-            font-size: .875rem;
-            font-weight: 800;
-            letter-spacing: .06em;
-            text-transform: uppercase;
+            font-size: .9375rem;
+            font-weight: 700;
             text-decoration: none;
         }
 
-        .chips a:hover { background: #fff; color: var(--marino); border-color: #fff; }
+        .chips a:hover, .chips a[aria-current="page"] { background: var(--lima); color: var(--tinta); border-color: var(--lima); }
 
         .tarjeta {
             border: 1px solid var(--borde);
-            border-radius: 1.25rem;
+            border-radius: 1.5rem;
             background: var(--tarjeta);
+            box-shadow: var(--sombra);
             overflow: hidden;
         }
 
         .aviso {
             margin: 1.5rem 0;
-            padding: 1rem 1.25rem;
-            border: 1px solid #f0c36a;
-            border-left: 6px solid #d98b00;
-            border-radius: 1rem;
-            background: #fff8e8;
+            padding: 1.125rem 1.25rem;
+            border-radius: 1.25rem;
+            background: #fbffe6;
+            border: 1px solid #e3f29a;
         }
 
-        .aviso p { margin: 0 0 .5rem; }
+        .aviso p { margin: 0 0 .5rem; font-weight: 600; }
         .aviso ul { margin: 0; padding-left: 1.25rem; }
         .aviso li + li { margin-top: .25rem; }
 
         .vacio {
             margin: 1.5rem 0;
             padding: 1.5rem;
-            border: 2px dashed var(--borde);
-            border-radius: 1.25rem;
+            border-radius: 1.5rem;
             background: var(--tarjeta);
+            box-shadow: var(--sombra);
+            text-align: center;
         }
 
         .vacio p { margin: 0 0 .5rem; }
-        .vacio p:last-child { margin: 0; }
+        .vacio p:first-child { font-weight: 700; }
+        .vacio p:last-child { margin: 0; color: var(--texto-secundario); }
 
         .pie {
             margin-top: 3rem;
-            background: var(--oscuro);
-            color: #dbe4f5;
-            font-size: .875rem;
+            background: var(--navy);
+            color: #dfe5ff;
+            font-size: .9375rem;
         }
 
-        .pie a { color: #fff; }
+        .pie a { color: var(--blanco); }
+        .pie .chips a { border-color: rgba(255, 255, 255, .4); }
 
         .pie .contenedor {
             display: flex;
@@ -330,19 +297,20 @@
             align-items: center;
             justify-content: space-between;
             gap: 1rem;
-            padding-top: 2rem;
-            padding-bottom: 2rem;
+            padding-top: 2.25rem;
+            padding-bottom: 2.25rem;
         }
 
         .pie p { margin: 0; max-width: 36rem; }
 
         @media (min-width: 48rem) {
             .contenedor { padding: 1.25rem 2rem; }
-            .hero h1 { font-size: clamp(2.5rem, 5.6vw, 5.75rem); }
-            .hero { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); padding-top: 2.5rem; padding-bottom: 3.5rem; }
-            .arte { height: 18rem; }
-            .balon { width: 15rem; height: 15rem; left: 22%; top: 1rem; }
-            .seccion-titulo { font-size: 2.5rem; }
+            .barra { padding-top: .75rem; padding-bottom: .75rem; }
+            .portada { margin-top: 1.5rem; }
+            .hero { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); padding: 3rem 3rem 3.25rem; }
+            .arte { display: grid; height: 15rem; }
+            .anillos { width: 15rem; height: 15rem; }
+            .seccion-titulo { font-size: 2.125rem; }
         }
 
         @yield('estilos')
@@ -351,10 +319,10 @@
 <body>
     <a class="saltar" href="#contenido">Saltar al contenido</a>
 
-    <header class="portada">
+    <header class="cabecera">
         <div class="contenedor barra">
             <a class="marca" href="{{ route('portal.programacion') }}">
-                <svg viewBox="0 0 40 40" aria-hidden="true" focusable="false"><path d="M4 28 22 6h14L18 28Z" fill="#fff"/><path d="M14 34 24 22h12L26 34Z" fill="#7cc6ff"/></svg>
+                <svg viewBox="0 0 40 40" aria-hidden="true" focusable="false"><circle cx="20" cy="20" r="18" fill="none" stroke="#0b1a5c" stroke-width="3"/><circle cx="20" cy="20" r="11" fill="none" stroke="#2f5bff" stroke-width="3"/><circle cx="20" cy="20" r="4.5" fill="#d4f53c" stroke="#0b1a5c" stroke-width="2"/></svg>
                 <span><b class="display">Liga Municipal</b><small>de Fútbol · Morelia</small></span>
             </a>
             <nav class="navegacion" aria-label="Portal público">
@@ -368,30 +336,29 @@
                 @endguest
             </nav>
         </div>
-
-        <div class="contenedor hero">
-            <div class="hero-texto">
-                @yield('hero')
-            </div>
-            <div class="arte" aria-hidden="true">
-                <div class="estelas"></div>
-                <svg class="balon" viewBox="0 0 200 200" focusable="false">
-                    <defs>
-                        <radialGradient id="luz" cx="34%" cy="28%" r="80%"><stop offset="0" stop-color="#fff"/><stop offset=".55" stop-color="#eef1f5"/><stop offset="1" stop-color="#a7afb9"/></radialGradient>
-                        <radialGradient id="sombra" cx="34%" cy="28%" r="78%"><stop offset=".45" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".5"/></radialGradient>
-                        <clipPath id="esfera"><circle cx="100" cy="100" r="96"/></clipPath>
-                    </defs>
-                    <circle cx="100" cy="100" r="96" fill="url(#luz)"/>
-                    <g clip-path="url(#esfera)"><g class="gajos">
-                        <path fill="#1b1f26" d="M100,70 129,91 118,124 82,124 71,91ZM100,34 73,15 84,-17 116,-17 127,15ZM163,80 173,48 206,48 216,80 189,99ZM139,153 172,153 182,185 155,204 129,185ZM61,153 71,185 45,204 18,185 28,153ZM37,80 11,99 -16,80 -6,48 27,48Z"/>
-                        <path fill="none" stroke="#2a2f37" stroke-width="2.4" d="M100,70 L100,34M129,91 L163,80M118,124 L139,153M82,124 L61,153M71,91 L37,80M127,15 L141,43 L173,48M114,80 L141,43M189,99 L167,122 L172,153M123,108 L167,122M129,185 L100,170 L71,185M100,124 L100,170M28,153 L33,122 L11,99M77,108 L33,122M27,48 L59,43 L73,15M86,80 L59,43"/>
-                    </g></g>
-                    <circle cx="100" cy="100" r="96" fill="url(#sombra)"/>
-                    <ellipse cx="70" cy="58" rx="30" ry="18" fill="#fff" opacity=".55" transform="rotate(-30 70 58)"/>
-                </svg>
-            </div>
-        </div>
     </header>
+
+    <div class="contenedor">
+        <section class="portada" aria-label="Portada">
+            <div class="hero">
+                <div class="hero-texto">
+                    @yield('hero')
+                </div>
+                <div class="arte" aria-hidden="true">
+                    <svg class="anillos" viewBox="0 0 200 200" focusable="false">
+                        <circle cx="100" cy="100" r="96" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.18)" stroke-width="2"/>
+                        <circle cx="100" cy="100" r="70" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="2"/>
+                        <circle cx="100" cy="100" r="46" fill="#d4f53c"/>
+                        <g class="balon-linea" fill="none" stroke="#0b1a5c" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round">
+                            <circle cx="100" cy="100" r="30"/>
+                            <path d="M100 86l13 9.5-5 15.5H92l-5-15.5Z" fill="#0b1a5c"/>
+                            <path d="M100 86V70M113 95.5l15-5M108 111l9 13M92 111l-9 13M87 95.5l-15-5"/>
+                        </g>
+                    </svg>
+                </div>
+            </div>
+        </section>
+    </div>
 
     <main id="contenido" class="contenedor" tabindex="-1">
         @yield('content')
