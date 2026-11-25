@@ -68,18 +68,20 @@ class PortalResultadosService
     }
 
     /**
-     * Goleo y tarjetas por jugador con los eventos de las cédulas oficiales del grupo. Los autogoles no suman.
+     * Goleo y tarjetas por jugador con los eventos de las cédulas oficiales del grupo, o de toda la liga si no se
+     * indica grupo (portada del portal). Los autogoles no suman.
      *
      * @return array{goleo: ColeccionBase<int, array{nombre: string, equipo: string, total: int}>, tarjetas: ColeccionBase<int, array{nombre: string, equipo: string, amarillas: int, rojas: int}>}
      */
-    public function estadisticas(Grupo $grupo, int $limite = 10): array
+    public function estadisticas(?Grupo $grupo, int $limite = 10): array
     {
         $eventos = EventoPartido::query()
             ->whereNotNull('jugador_id')
             ->whereIn('tipo', ['Gol', 'Amarilla', 'Roja'])
             ->whereHas('cedula', fn ($cedula) => $cedula
                 ->oficiales()
-                ->whereHas('partido.jornada', fn ($jornada) => $jornada->where('grupo_id', $grupo->getKey())))
+                ->when($grupo !== null, fn ($oficial) => $oficial
+                    ->whereHas('partido.jornada', fn ($jornada) => $jornada->where('grupo_id', $grupo?->getKey()))))
             ->with('jugador:id,persona_id,equipo_id', 'jugador.persona:id,nombre,apellidos', 'jugador.equipo:id,nombre')
             ->get(['id', 'cedula_id', 'jugador_id', 'tipo', 'autogol']);
 
@@ -111,5 +113,22 @@ class PortalResultadosService
                 ->map(fn (array $fila): array => ['nombre' => $fila['nombre'], 'equipo' => $fila['equipo'], 'amarillas' => $fila['amarillas'], 'rojas' => $fila['rojas']])
                 ->values(),
         ];
+    }
+
+    /**
+     * Últimos resultados oficiales de toda la liga, para la cinta de la portada.
+     *
+     * @return Collection<int, Partido>
+     */
+    public function recientes(int $limite = 6): Collection
+    {
+        return Partido::query()
+            ->whereHas('cedula', fn ($cedula) => $cedula->oficiales())
+            ->with(['local:id,nombre', 'visitante:id,nombre', 'cedula:id,partido_id,goles_local,goles_visitante'])
+            ->orderByDesc('fecha_partido')
+            ->orderByDesc('hora_partido')
+            ->orderByDesc('id')
+            ->limit($limite)
+            ->get();
     }
 }

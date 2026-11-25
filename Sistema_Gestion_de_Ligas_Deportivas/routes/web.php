@@ -47,6 +47,9 @@ Route::get('/', function () {
 Route::get('/programacion', [PortalController::class, 'programacion'])
     ->middleware('throttle:300,1')
     ->name('portal.programacion');
+Route::get('/portal', [PortalController::class, 'inicio'])
+    ->middleware('throttle:300,1')
+    ->name('portal.inicio');
 Route::get('/resultados-y-tablas', [PortalController::class, 'resultados'])
     ->middleware('throttle:300,1')
     ->name('portal.resultados');

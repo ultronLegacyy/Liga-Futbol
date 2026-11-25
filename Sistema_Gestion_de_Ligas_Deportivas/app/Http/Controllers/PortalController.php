@@ -2,8 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Cancha;
 use App\Models\Categoria;
+use App\Models\CedulaArbitral;
 use App\Models\ComunicadoAsamblea;
+use App\Models\Equipo;
+use App\Models\Grupo;
 use App\Models\Jornada;
 use App\Models\Jugador;
 use App\Models\Sancion;
@@ -26,6 +30,56 @@ class PortalController extends Controller
     }
 
     // HU-062: programación semanal de partidos; ?semana=AAAA-MM-DD elige la semana (una fecha no válida muestra la actual)
+    /**
+     * Portada del portal (HAB-S7, S7-T03): el prototipo deportivo aprobado por el Product Owner con datos reales.
+     * Partidos de la semana (o de la siguiente con partidos), resultados oficiales recientes, tablas por grupo,
+     * goleo de la liga y número de castigados. Solo lectura y solo lo publicado (RF-12.3, RF-12.4).
+     */
+    public function inicio(): View
+    {
+        $lunes = $this->programacion->inicioDeSemana();
+        $dias = $this->programacion->semana($lunes);
+        if ($dias->isEmpty()) {
+            $siguiente = $this->programacion->siguienteSemanaConPartidos($lunes);
+            if ($siguiente !== null) {
+                $lunes = $siguiente;
+                $dias = $this->programacion->semana($lunes);
+            }
+        }
+
+        $partidos = $dias->flatten(1)->values();
+        $marcadores = CedulaArbitral::query()
+            ->oficiales()
+            ->whereIn('partido_id', $partidos->pluck('id'))
+            ->get(['id', 'partido_id', 'goles_local', 'goles_visitante'])
+            ->keyBy('partido_id');
+
+        $grupos = $this->resultados->grupos()->take(4)->values();
+
+        return view('portal.inicio', [
+            'lunes' => $lunes,
+            'partidos' => $partidos,
+            'marcadores' => $marcadores,
+            'categorias' => $partidos
+                ->map(fn ($partido) => $partido->jornada?->grupo?->categoria)
+                ->filter()
+                ->unique('id')
+                ->sortBy('nombre')
+                ->values(),
+            'grupos' => $grupos,
+            'tablas' => $grupos->mapWithKeys(fn (Grupo $grupo): array => [$grupo->id => $this->resultados->tabla($grupo)->take(5)]),
+            'recientes' => $this->resultados->recientes(),
+            'goleo' => $this->resultados->estadisticas(null, 6)['goleo'],
+            'castigados' => $this->vigencia->obtenerBoletinCastigados()->count(),
+            'cifras' => [
+                'equipos' => Equipo::query()->count(),
+                'categorias' => Categoria::query()->count(),
+                'jugados' => CedulaArbitral::query()->oficiales()->count(),
+                'canchas' => Cancha::query()->count(),
+            ],
+        ]);
+    }
+
     public function programacion(Request $request): View
     {
         $semana = $request->query('semana');

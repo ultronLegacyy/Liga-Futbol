@@ -429,26 +429,31 @@
         .vacio p:last-child { margin: 0; color: var(--texto-secundario); }
 
         .pie {
-            margin-top: 3rem;
-            background: var(--navy);
-            color: #dfe5ff;
+            margin-top: 4rem;
+            background: #081b52;
+            color: #dbe4f5;
             font-size: .9375rem;
         }
 
         .pie a { color: var(--blanco); }
-        .pie .chips a { border-color: rgba(255, 255, 255, .4); }
 
-        .pie .contenedor {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: space-between;
-            gap: 1rem;
-            padding-top: 2.25rem;
-            padding-bottom: 2.25rem;
+        .pie-rejilla {
+            display: grid;
+            gap: 2rem;
+            padding-top: 3rem;
+            padding-bottom: 2rem;
         }
 
-        .pie p { margin: 0; max-width: 36rem; }
+        .pie-rejilla p { max-width: 22rem; margin: 1rem 0 0; font-size: .875rem; opacity: .75; }
+        .pie-rejilla nav { display: grid; align-content: start; gap: .25rem; }
+        .pie-rejilla nav a { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; opacity: .88; }
+        .pie-rejilla nav a:hover { opacity: 1; color: var(--lima); }
+        .pie-rejilla h2 { margin: 0 0 .5rem; font-size: .75rem; letter-spacing: .18em; text-transform: uppercase; opacity: .6; }
+        .pie-final { padding-top: 1.25rem; padding-bottom: 1.75rem; border-top: 1px solid rgba(255, 255, 255, .12); font-size: .75rem; opacity: .7; }
+
+        @media (min-width: 48rem) {
+            .pie-rejilla { grid-template-columns: 1.6fr 1fr 1fr; }
+        }
 
         @media (min-width: 48rem) {
             .contenedor { padding: 1.25rem 2rem; }
@@ -469,11 +474,12 @@
 
     <header class="cabecera">
         <div class="contenedor barra">
-            <a class="marca" href="{{ route('portal.programacion') }}">
+            <a class="marca" href="{{ route('portal.inicio') }}">
                 <svg viewBox="0 0 40 40" aria-hidden="true" focusable="false"><path d="M4 28 22 6h14L18 28Z" fill="#fff"/><path d="M14 34 24 22h12L26 34Z" fill="#7cc6ff"/></svg>
                 <span><b class="display">SGLD</b><small>Liga Morelia</small></span>
             </a>
             <nav class="navegacion" aria-label="Portal público">
+                <a href="{{ route('portal.inicio') }}" @if (request()->routeIs('portal.inicio')) aria-current="page" @endif>Inicio</a>
                 <a href="{{ route('portal.programacion') }}" @if (request()->routeIs('portal.programacion')) aria-current="page" @endif>Programación</a>
                 <a href="{{ route('portal.resultados') }}" @if (request()->routeIs('portal.resultados')) aria-current="page" @endif>Resultados</a>
                 <a href="{{ route('portal.castigados') }}" @if (request()->routeIs('portal.castigados')) aria-current="page" @endif>Castigados</a>
@@ -542,13 +548,29 @@
     </section>
 
     <footer class="pie">
-        <div class="contenedor">
-            <p>Información pública de la liga. Para cualquier aclaración, comunícate con la Secretaría de la liga.</p>
-            <nav class="chips" aria-label="Pie del portal">
+        <div class="contenedor pie-rejilla">
+            <div>
+                <a class="marca" href="{{ route('portal.inicio') }}">
+                    <svg viewBox="0 0 40 40" aria-hidden="true" focusable="false"><path d="M4 28 22 6h14L18 28Z" fill="#fff"/><path d="M14 34 24 22h12L26 34Z" fill="#7cc6ff"/></svg>
+                    <span><b class="display">SGLD</b><small>Liga Morelia</small></span>
+                </a>
+                <p>Liga Municipal de Fútbol Amateur de Morelia, Michoacán. Información pública; para aclaraciones, acude a la Secretaría de la liga.</p>
+            </div>
+            <nav aria-label="Consulta">
+                <h2>Consulta</h2>
                 <a href="{{ route('portal.programacion') }}">Programación</a>
                 <a href="{{ route('portal.resultados') }}">Resultados y tablas</a>
                 <a href="{{ route('portal.castigados') }}">Castigados</a>
             </nav>
+            <nav aria-label="Liga">
+                <h2>Liga</h2>
+                <a href="{{ route('portal.inicio') }}">Inicio</a>
+                <a href="{{ route('portal.buscar') }}">Buscar</a>
+                <a href="{{ route('inicio') }}">Ir al panel</a>
+            </nav>
+        </div>
+        <div class="contenedor pie-final">
+            <span>© {{ now()->year }} Liga Municipal de Fútbol Amateur de Morelia</span>
         </div>
     </footer>
 </body>
