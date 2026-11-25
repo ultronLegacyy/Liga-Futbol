@@ -6,47 +6,48 @@
 
 /*
  * HAB-S7 · S7-T01 (SCRUM-234): base visual del nuevo diseño, compilada con Vite en lugar del CDN.
- * Paleta «Azul eléctrico» aprobada por el Product Owner (21/11/2026). La escala gray se redefine en tonos
- * azul marino para que las 71 vistas del panel tomen el nuevo color sin reescribirlas; cada módulo se migra
+ * Paleta aprobada por el Product Owner (25/11/2026): Ink #0B0F14, Navy #0B1A5C, Royal #2F5BFF,
+ * Lime #D4F53C y blanco. electrico = Royal y celeste = Lime (acento). La escala gray se redefine en tonos
+ * Ink y Navy para que las 71 vistas del panel tomen el nuevo color sin reescribirlas; cada módulo se migra
  * después a los componentes (S7-T06). Todos los pares de texto y fondo usados conservan contraste ≥ 4.5:1.
  */
 @theme {
     --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, ui-sans-serif, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
     --font-display: 'Barlow Condensed', 'Roboto Condensed', 'Arial Narrow', 'Helvetica Neue Condensed', Impact, sans-serif;
 
-    --color-gray-50: #f3f6fc;
-    --color-gray-100: #e6ecf7;
-    --color-gray-200: #cdd8ec;
-    --color-gray-300: #b3c1dd;
-    --color-gray-400: #8b9cc2;
-    --color-gray-500: #64779f;
-    --color-gray-600: #435683;
-    --color-gray-700: #2b3c68;
-    --color-gray-750: #21305a;
-    --color-gray-800: #18264c;
-    --color-gray-900: #0d1736;
-    --color-gray-950: #070e24;
+    --color-gray-50: #f6f7fc;
+    --color-gray-100: #eceff8;
+    --color-gray-200: #d7ddef;
+    --color-gray-300: #b9c2df;
+    --color-gray-400: #9aa4c6;
+    --color-gray-500: #828db4;
+    --color-gray-600: #3a4675;
+    --color-gray-700: #24305c;
+    --color-gray-750: #1b2550;
+    --color-gray-800: #121a3a;
+    --color-gray-900: #0b1124;
+    --color-gray-950: #06080f;
 
     /* S7-T06: el verde era el color de acción del panel (botones, enlaces y foco). Se remapea al azul eléctrico
        para que las 91 vistas usen la nueva paleta sin reescribirse; el emerald sigue siendo el color de éxito. */
-    --color-green-50: #eef3ff;
-    --color-green-100: #dbe6ff;
-    --color-green-200: #bccfff;
-    --color-green-300: #8fb0ff;
-    --color-green-400: #6b9bff;
-    --color-green-500: #3d74ff;
-    --color-green-600: #1f5eff;
-    --color-green-700: #1849d1;
-    --color-green-800: #143ba6;
-    --color-green-900: #112f7f;
-    --color-green-950: #0b1d4f;
+    --color-green-50: #eef2ff;
+    --color-green-100: #dde5ff;
+    --color-green-200: #c0cfff;
+    --color-green-300: #a9b9ff;
+    --color-green-400: #7d97ff;
+    --color-green-500: #4f74ff;
+    --color-green-600: #2f5bff;
+    --color-green-700: #1f44d6;
+    --color-green-800: #1936a8;
+    --color-green-900: #152c80;
+    --color-green-950: #0b1a5c;
 
-    --color-marino-950: #040b22;
-    --color-marino-900: #071a4f;
-    --color-marino-800: #082a86;
-    --color-electrico: #1f5eff;
-    --color-electrico-claro: #4d7fff;
-    --color-celeste: #7cc6ff;
+    --color-marino-950: #070f3a;
+    --color-marino-900: #0b1a5c;
+    --color-marino-800: #12257a;
+    --color-electrico: #2f5bff;
+    --color-electrico-claro: #5a7cff;
+    --color-celeste: #d4f53c;
     --color-foco: #ffb020;
 }
 
