@@ -89,6 +89,24 @@
     }
 @endsection
 
+@section('cinta')
+    {{-- Cinta animada con los partidos de la semana (decorativa: el detalle accesible está en las tarjetas) --}}
+    @php
+        $cinta = $dias->flatten(1)->take(12);
+    @endphp
+    @if ($cinta->isNotEmpty())
+        <div class="cinta" aria-hidden="true">
+            <ul>
+                @foreach ([1, 2] as $copia)
+                    @foreach ($cinta as $partido)
+                        <li><small>{{ $partido->hora_partido ? substr($partido->hora_partido, 0, 5) : 'Por confirmar' }}</small>{{ $partido->local?->nombre ?? 'Por definir' }} vs. {{ $partido->visitante?->nombre ?? 'Por definir' }}</li>
+                    @endforeach
+                @endforeach
+            </ul>
+        </div>
+    @endif
+@endsection
+
 @section('hero')
     <p class="etiqueta-hero"><span class="punto" aria-hidden="true"></span>Programación oficial</p>
     <h1 class="display">Programación de partidos</h1>
@@ -104,11 +122,11 @@
 
     <nav aria-label="Cambiar de semana">
         <ul class="chips semanas">
-            <li><a href="{{ route('portal.programacion', ['semana' => $lunes->subWeek()->toDateString()]) }}">← Semana anterior</a></li>
+            <li><a href="{{ route('portal.programacion', ['semana' => $lunes->subWeek()->toDateString()]) }}"><span class="flecha flecha-atras" aria-hidden="true">←</span> Semana anterior</a></li>
             @unless ($esSemanaActual)
                 <li><a href="{{ route('portal.programacion') }}">Semana actual</a></li>
             @endunless
-            <li><a href="{{ route('portal.programacion', ['semana' => $lunes->addWeek()->toDateString()]) }}">Semana siguiente →</a></li>
+            <li><a href="{{ route('portal.programacion', ['semana' => $lunes->addWeek()->toDateString()]) }}">Semana siguiente <span class="flecha" aria-hidden="true">→</span></a></li>
         </ul>
     </nav>
 @endsection
