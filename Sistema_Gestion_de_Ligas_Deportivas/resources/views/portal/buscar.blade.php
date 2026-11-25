@@ -37,8 +37,8 @@
         padding: 0 1.5rem;
         border: 0;
         border-radius: 999px;
-        background: var(--celeste);
-        color: var(--oscuro);
+        background: var(--lima);
+        color: var(--tinta);
         font: inherit;
         font-weight: 800;
         letter-spacing: .06em;
@@ -46,7 +46,7 @@
         cursor: pointer;
     }
 
-    .buscador button:hover { background: #fff; }
+    .buscador button:hover { background: var(--blanco); }
     .buscador .limpiar { color: #fff; font-weight: 600; }
 
     .seccion-titulo span { display: inline-block; padding-bottom: .375rem; border-bottom: 4px solid var(--acento); }
@@ -56,7 +56,7 @@
     .fila { display: grid; gap: .25rem; padding: 1rem 1.125rem; overflow-wrap: anywhere; }
     .fila p { margin: 0; }
     .fila .principal { font-weight: 800; font-size: 1.0625rem; }
-    .fila .marcador { font-family: var(--display); font-weight: 900; font-style: italic; font-size: 1.375rem; color: var(--marino); }
+    .fila .marcador { font-family: var(--display); font-weight: 800; font-size: 1.375rem; color: var(--royal-oscuro); }
     .fila .secundario { color: var(--texto-secundario); font-size: .9375rem; }
 
     @media (min-width: 48rem) {
