@@ -36,7 +36,6 @@ class PermisosRolService
         'roles.ver', 'roles.crear', 'roles.editar', 'roles.eliminar', 'roles.asignar_permiso',
         'auditoria.ver',
         'disciplina.ver',
-        'resultados.validar',
     ];
 
     public function __construct(
@@ -62,6 +61,7 @@ class PermisosRolService
         'roles' => 'Roles y permisos',
         'auditoria' => 'Bitácora de auditoría',
         'correos' => 'Registro de correos',
+        'comunicados' => 'Comunicados',
         'arbitros' => 'Árbitros',
         'partidos' => 'Partidos',
         'cedulas' => 'Cédulas',

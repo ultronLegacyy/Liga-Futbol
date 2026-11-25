@@ -46,6 +46,11 @@
                     Mis partidos
                 </a>
             @endrole
+            @can('validarResultados', App\Models\CedulaArbitral::class)
+                <a href="{{ route('resultados.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-lg {{ request()->routeIs('resultados.*') ? 'bg-green-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white' }}">
+                    Resultados por validar
+                </a>
+            @endcan
             @can('viewAny', App\Models\Jugador::class)
                 <a href="{{ route('jugadores.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-lg {{ request()->routeIs('jugadores.index') ? 'bg-green-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white' }}">
                     Jugadores
@@ -117,6 +122,11 @@
             @can('correos.ver')
                 <a href="{{ route('correos.index') }}" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-lg {{ request()->routeIs('correos.*') ? 'bg-green-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white' }}">
                     Registro de correos
+                </a>
+            @endcan
+            @can('comunicados.enviar')
+                <a href="{{ route('comunicados.create') }}" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-lg {{ request()->routeIs('comunicados.*') ? 'bg-green-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white' }}">
+                    Comunicados
                 </a>
             @endcan
         </nav>
