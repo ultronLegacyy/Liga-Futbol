@@ -187,7 +187,8 @@
         .hero h1 {
             margin: 0;
             font-size: clamp(2.25rem, 10vw, 6.5rem);
-            overflow-wrap: anywhere;
+            overflow-wrap: normal;
+            hyphens: manual;
             text-wrap: balance;
         }
 
@@ -337,6 +338,7 @@
 
         @media (min-width: 48rem) {
             .contenedor { padding: 1.25rem 2rem; }
+            .hero h1 { font-size: clamp(2.5rem, 5.6vw, 5.75rem); }
             .hero { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); padding-top: 2.5rem; padding-bottom: 3.5rem; }
             .arte { height: 18rem; }
             .balon { width: 15rem; height: 15rem; left: 22%; top: 1rem; }
