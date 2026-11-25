@@ -103,7 +103,11 @@ class MiClubTest extends TestCase
             'password' => Hash::make('secreto123'),
             'rol' => 'Consultor',
             'estatus' => 'activo',
-        ], $datos));
+        ], array_diff_key($datos, ['persona_id' => true])));
+        // persona_id no se asigna en masa: se liga como lo hace la vinculación de cuenta
+        if (isset($datos['persona_id'])) {
+            $usuario->forceFill(['persona_id' => $datos['persona_id']])->save();
+        }
         $usuario->assignRole($rol);
 
         return $usuario;
