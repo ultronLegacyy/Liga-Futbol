@@ -210,6 +210,18 @@
             pointer-events: none;
         }
 
+        /* Sombra fija del balón, sin filtros */
+        .arte::after {
+            content: "";
+            position: absolute;
+            left: 22%;
+            bottom: 0;
+            width: 8rem;
+            height: 1.25rem;
+            border-radius: 50%;
+            background: radial-gradient(rgba(0, 0, 0, .32), transparent 70%);
+        }
+
         .estelas {
             position: absolute;
             inset: 25% -20% 20% 10%;
@@ -218,7 +230,6 @@
                 repeating-linear-gradient(180deg, transparent 0 9px, rgba(124, 198, 255, .75) 9px 14px, transparent 14px 22px, rgba(255, 255, 255, .55) 22px 25px, transparent 25px 34px, rgba(255, 90, 79, .6) 34px 38px, transparent 38px 47px);
             -webkit-mask-image: linear-gradient(90deg, transparent, #000 40%, #000 85%, transparent);
             mask-image: linear-gradient(90deg, transparent, #000 40%, #000 85%, transparent);
-            filter: blur(1px);
         }
 
         .balon {
@@ -227,22 +238,18 @@
             top: 0;
             width: 9rem;
             height: 9rem;
-            filter: drop-shadow(0 1.5rem 1.5rem rgba(0, 0, 0, .35));
+            will-change: transform;
         }
 
-        .balon .gajos { transform-origin: 100px 100px; }
-
+        /*
+         * RNF-04: solo se anima transform (lo mueve la tarjeta gráfica, sin repintar). Sin blur, sin filtros
+         * animados y sin girar el SVG, que mantenían ocupado el hilo principal y subían el TBT en Lighthouse.
+         */
         @media (prefers-reduced-motion: no-preference) {
             .balon { animation: flotar 5s ease-in-out infinite; }
-            .balon .gajos { animation: girar 16s linear infinite; }
-            .estelas { animation: correr 2.2s linear infinite; background-size: 100% 47px; }
-            .punto { animation: latido 1.6s infinite; }
         }
 
         @keyframes flotar { 50% { transform: translateY(-.875rem); } }
-        @keyframes girar { to { transform: rotate(360deg); } }
-        @keyframes correr { to { background-position: 0 47px; } }
-        @keyframes latido { 50% { box-shadow: 0 0 0 .5rem rgba(255, 90, 79, 0); } 0% { box-shadow: 0 0 0 0 rgba(255, 90, 79, .7); } }
 
         /* Componentes compartidos del portal */
         .seccion-titulo {
