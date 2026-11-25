@@ -277,7 +277,9 @@ class RoleAndPermissionSeeder extends Seeder
         $this->sincronizar($rolesCreados['Comision de la Rama Infantil'], $permisosComisionInfantil);
 
         // 5. Asignacion granular para los 5 roles Operativos Deportivos (HU-072 / SCRUM-15 / S2-T16)
-        // Rol Programador de Partidos: logistica de campos, bloqueos, programacion de jornadas y validacion de resultados
+        // Rol Programador de Partidos: logistica de campos, bloqueos y programacion de jornadas.
+        // HU-040: no valida resultados; solo el Administrador General (decision de Daniel, 23/11), para separar
+        // a quien arma las jornadas de quien da por oficiales los resultados
         $permisosProgramador = [
             'temporadas.ver',
             'convocatorias.ver',
@@ -296,7 +298,6 @@ class RoleAndPermissionSeeder extends Seeder
             'partidos.programar',
             'partidos.reprogramar',
             'cedulas.ver',
-            'resultados.validar',
         ];
         $this->sincronizar($rolesCreados['Programador de Partidos'], $permisosProgramador);
 
