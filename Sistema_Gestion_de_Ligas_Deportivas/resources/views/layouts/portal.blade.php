@@ -34,7 +34,7 @@
             --oscuro: var(--navy);
             --foco: #ff9f1c;
             --sombra: 0 12px 32px -14px rgba(11, 26, 92, .22);
-            --display: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            --display: "Barlow Condensed", "Roboto Condensed", "sans-serif-condensed", "Arial Narrow", "Helvetica Neue Condensed", Impact, sans-serif;
         }
 
         *, *::before, *::after { box-sizing: border-box; }
@@ -76,12 +76,15 @@
             padding: 1rem;
         }
 
-        /* Títulos: letra gruesa y redonda, sin cursiva, con interletrado cerrado */
+        /* Títulos deportivos: condensados, gruesos, inclinados y en mayúsculas (fuentes del sistema) */
         .display {
             font-family: var(--display);
-            font-weight: 800;
-            letter-spacing: -.03em;
-            line-height: 1.05;
+            font-weight: 900;
+            font-style: italic;
+            font-stretch: condensed;
+            text-transform: uppercase;
+            letter-spacing: -.005em;
+            line-height: .92;
         }
 
         /* Cabecera blanca fija, como en la referencia */
@@ -117,7 +120,10 @@
         .marca b { display: block; font-size: 1.125rem; }
         .marca small { display: block; font-size: .75rem; font-weight: 600; color: var(--texto-secundario); }
 
-        .navegacion { display: flex; flex-wrap: wrap; gap: .25rem; }
+        /* En el celular el menú es una sola fila que se desliza, para no amontonar la cabecera */
+        .navegacion { display: flex; gap: .25rem; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+        .navegacion::-webkit-scrollbar { display: none; }
+        .navegacion a { flex: none; }
 
         .navegacion a {
             display: inline-flex;
@@ -148,9 +154,23 @@
             overflow: hidden;
             margin-top: 1rem;
             border-radius: 2rem;
-            background: radial-gradient(circle at 85% 20%, rgba(47, 91, 255, .55), transparent 55%), var(--navy);
+            background: linear-gradient(150deg, var(--navy) 10%, var(--royal) 75%, #2149e6);
             color: var(--blanco);
             box-shadow: var(--sombra);
+        }
+
+        /* Rampa clara al fondo, como un graderío */
+        .portada::before {
+            content: "";
+            position: absolute;
+            right: -12%;
+            bottom: -40%;
+            width: 70%;
+            height: 75%;
+            border-radius: 4rem 0 0 0;
+            background: linear-gradient(170deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, .02));
+            transform: rotate(-14deg);
+            pointer-events: none;
         }
 
         .portada a { color: var(--blanco); }
@@ -182,50 +202,49 @@
             background: var(--lima);
         }
 
+        /* Primera línea en blanco y el resto en Lime, sin partir el texto del título */
         .hero h1 {
             margin: 0;
-            font-size: clamp(2.125rem, 9vw, 4.25rem);
+            color: var(--lima);
+            font-size: clamp(2rem, 9vw, 4.5rem);
+            overflow-wrap: normal;
             text-wrap: balance;
         }
 
-        .hero h1 em { font-style: normal; color: var(--lima); }
+        .hero h1::first-line { color: var(--blanco); }
 
         .linea {
             display: block;
-            width: 3.5rem;
-            height: .375rem;
-            margin: 1.125rem 0 1rem;
-            border-radius: 999px;
-            background: var(--lima);
+            width: 11rem;
+            height: 4px;
+            margin: 1.25rem 0 1rem;
+            background: linear-gradient(90deg, var(--blanco) 82%, transparent 82% 86%, var(--blanco) 86%);
+            clip-path: polygon(0 0, 100% 0, 96% 100%, 0 100%);
         }
 
-        .hero-texto p { margin: 0; max-width: 34rem; font-size: 1.0625rem; color: #dfe5ff; }
+        .hero-texto { position: relative; z-index: 1; }
+        .hero-texto p { margin: 0; max-width: 30rem; font-size: 1.0625rem; color: #e6ebff; }
 
-        /* Ilustración plana: anillos concéntricos y un balón de líneas, sin imágenes */
+        /* Ilustración: balón con camiseta sobre estelas de velocidad. SVG y CSS, sin imágenes ni filtros */
         .arte {
             position: relative;
             display: none;
-            place-items: center;
             height: 11rem;
             pointer-events: none;
         }
 
-        .anillos { position: relative; width: 11rem; height: 11rem; }
-        .anillos svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-        .orbita { position: absolute; inset: 0; }
-        .orbita::before {
-            content: "";
+        .estelas {
             position: absolute;
-            top: 2%;
-            left: 50%;
-            width: .875rem;
-            height: .875rem;
-            margin-left: -.4375rem;
-            border-radius: 50%;
-            background: var(--lima);
-            box-shadow: 0 0 0 .375rem rgba(212, 245, 60, .2);
+            inset: 28% -30% 18% -10%;
+            transform: rotate(-9deg) skewX(-14deg);
+            background: repeating-linear-gradient(180deg, transparent 0 10px, rgba(212, 245, 60, .8) 10px 14px, transparent 14px 24px, rgba(255, 255, 255, .5) 24px 26px, transparent 26px 36px, rgba(255, 255, 255, .25) 36px 42px, transparent 42px 52px);
+            -webkit-mask-image: linear-gradient(90deg, transparent, #000 35%, #000 80%, transparent);
+            mask-image: linear-gradient(90deg, transparent, #000 35%, #000 80%, transparent);
         }
-        .orbita.lenta::before { top: auto; bottom: 14%; left: 16%; width: .5rem; height: .5rem; background: #fff; box-shadow: none; }
+
+        .balon { position: absolute; left: 22%; top: 6%; width: 62%; aspect-ratio: 1; }
+        .camiseta { position: absolute; right: 4%; top: -4%; width: 34%; transform: rotate(14deg); }
+        .sombra-balon { position: absolute; left: 30%; bottom: 0; width: 46%; height: 1.25rem; border-radius: 50%; background: radial-gradient(rgba(0, 0, 0, .3), transparent 70%); }
 
         /* Cinta de partidos que corre (se pausa al pasar el cursor o con el foco) */
         .cinta {
@@ -248,9 +267,9 @@
          * la tarjeta gráfica sin repintar. Todo se apaga con prefers-reduced-motion (RNF-13).
          */
         @media (prefers-reduced-motion: no-preference) {
-            .anillos .balon-linea { animation: flotar 5s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-            .orbita { animation: girar 9s linear infinite; }
-            .orbita.lenta { animation-duration: 16s; animation-direction: reverse; }
+            .balon { animation: flotar 5s ease-in-out infinite; }
+            .camiseta { animation: flotar-camiseta 6s ease-in-out infinite; }
+            .estelas { animation: correr-estelas 2.4s linear infinite; }
             .cinta ul { animation: correr 38s linear infinite; }
             .cinta:hover ul, .cinta:focus-within ul { animation-play-state: paused; }
             .punto { position: relative; }
@@ -269,7 +288,9 @@
             }
         }
 
-        @keyframes flotar { 50% { transform: translateY(-6px); } }
+        @keyframes flotar { 50% { transform: translateY(-14px); } }
+        @keyframes flotar-camiseta { 50% { transform: rotate(9deg) translateY(-10px); } }
+        @keyframes correr-estelas { from { translate: -6% 0; } to { translate: 4% 0; } }
         @keyframes girar { to { transform: rotate(360deg); } }
         @keyframes correr { to { transform: translateX(-50%); } }
         @keyframes latido { from { transform: scale(1); opacity: .7; } to { transform: scale(3); opacity: 0; } }
@@ -398,9 +419,9 @@
             .contenedor { padding: 1.25rem 2rem; }
             .barra { padding-top: .75rem; padding-bottom: .75rem; }
             .portada { margin-top: 1.5rem; }
-            .hero { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); padding: 3rem 3rem 3.25rem; }
-            .arte { display: grid; height: 15rem; }
-            .anillos { width: 15rem; height: 15rem; }
+            .hero { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 2.5rem; padding: 3.5rem 3.5rem 3.75rem; }
+            .arte { display: block; height: 22rem; }
+            .hero h1 { font-size: clamp(3rem, 5.2vw, 5.25rem); }
             .seccion-titulo { font-size: 2.125rem; }
         }
 
@@ -435,20 +456,28 @@
                     @yield('hero')
                 </div>
                 <div class="arte" aria-hidden="true">
-                    <div class="anillos">
-                        <div class="orbita"></div>
-                        <div class="orbita lenta"></div>
-                        <svg viewBox="0 0 200 200" focusable="false">
-                            <circle cx="100" cy="100" r="96" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.18)" stroke-width="2"/>
-                            <circle cx="100" cy="100" r="70" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="2" stroke-dasharray="6 10"/>
-                            <circle cx="100" cy="100" r="46" fill="#d4f53c"/>
-                            <g class="balon-linea" fill="none" stroke="#0b1a5c" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round">
-                                <circle cx="100" cy="100" r="30"/>
-                                <path d="M100 86l13 9.5-5 15.5H92l-5-15.5Z" fill="#0b1a5c"/>
-                                <path d="M100 86V70M113 95.5l15-5M108 111l9 13M92 111l-9 13M87 95.5l-15-5"/>
-                            </g>
-                        </svg>
-                    </div>
+                    <div class="estelas"></div>
+                    <div class="sombra-balon"></div>
+                    <svg class="balon" viewBox="0 0 200 200" focusable="false">
+                        <defs>
+                            <radialGradient id="luz" cx="34%" cy="28%" r="80%"><stop offset="0" stop-color="#fff"/><stop offset=".55" stop-color="#eef1f5"/><stop offset="1" stop-color="#a7afb9"/></radialGradient>
+                            <radialGradient id="sombra" cx="34%" cy="28%" r="78%"><stop offset=".45" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".45"/></radialGradient>
+                            <clipPath id="esfera"><circle cx="100" cy="100" r="96"/></clipPath>
+                        </defs>
+                        <circle cx="100" cy="100" r="96" fill="url(#luz)"/>
+                        <g clip-path="url(#esfera)">
+                            <path fill="#0b0f14" d="M100,70 129,91 118,124 82,124 71,91ZM100,34 73,15 84,-17 116,-17 127,15ZM163,80 173,48 206,48 216,80 189,99ZM139,153 172,153 182,185 155,204 129,185ZM61,153 71,185 45,204 18,185 28,153ZM37,80 11,99 -16,80 -6,48 27,48Z"/>
+                            <path fill="none" stroke="#2a2f37" stroke-width="2.4" d="M100,70 L100,34M129,91 L163,80M118,124 L139,153M82,124 L61,153M71,91 L37,80M127,15 L141,43 L173,48M114,80 L141,43M189,99 L167,122 L172,153M123,108 L167,122M129,185 L100,170 L71,185M100,124 L100,170M28,153 L33,122 L11,99M77,108 L33,122M27,48 L59,43 L73,15M86,80 L59,43"/>
+                        </g>
+                        <circle cx="100" cy="100" r="96" fill="url(#sombra)"/>
+                        <ellipse cx="70" cy="58" rx="30" ry="18" fill="#fff" opacity=".55" transform="rotate(-30 70 58)"/>
+                    </svg>
+                    <svg class="camiseta" viewBox="0 0 200 200" focusable="false">
+                        <path d="M70 18 38 30 6 70l28 24 16-14v104h100V80l16 14 28-24-32-40-32-12q-30 28-60 0Z" fill="#d4f53c"/>
+                        <path d="M70 18q30 28 60 0l-8-3q-22 19-44 0Z" fill="#0b1a5c"/>
+                        <path d="M6 70l28 24 6-6-28-25ZM194 70l-28 24-6-6 28-25Z" fill="#0b1a5c"/>
+                        <text x="100" y="150" text-anchor="middle" font-family="Impact, 'Arial Narrow', sans-serif" font-style="italic" font-weight="900" font-size="64" fill="#0b1a5c">10</text>
+                    </svg>
                 </div>
             </div>
         </section>
