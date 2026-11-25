@@ -21,6 +21,7 @@
             {{ $partido->hora_partido ? '· '.substr((string) $partido->hora_partido, 0, 5) : '' }}
             · {{ $partido->cancha?->nombre ?? 'Sin cancha' }}
             @if ($partido->jornada?->grupo?->categoria) · {{ $partido->jornada->grupo->categoria->nombre }} @endif
+            · Árbitro: {{ $partido->arbitro?->persona ? $partido->arbitro->persona->nombre.' '.$partido->arbitro->persona->apellidos : 'Sin asignar' }}
         </p>
         <p class="text-sm text-gray-300 mt-3">Transcribe la cédula tal como viene en papel. Se aplican las mismas validaciones que en la captura del árbitro desde el celular; si un dato no es válido no se guarda nada y se indica qué corregir.</p>
     </div>
