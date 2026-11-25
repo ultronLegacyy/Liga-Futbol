@@ -5,9 +5,9 @@
 @section('descripcion', 'Resultados oficiales, tabla de posiciones, goleo y tarjetas de la Liga Municipal de Fútbol.')
 
 @section('estilos')
-    .periodo { margin: 1rem 0 0; font-size: 1.0625rem; font-weight: 600; }
+    .periodo { margin: 0; font-size: 1.0625rem; font-weight: 600; color: var(--blanco) !important; }
     .grupos { margin-top: 1.25rem; }
-    .grupos a[aria-current="page"] { background: #fff; color: var(--marino); border-color: #fff; }
+    
 
     .seccion-titulo span { display: inline-block; padding-bottom: .375rem; border-bottom: 4px solid var(--acento); }
 
@@ -18,10 +18,10 @@
     .posiciones th, .posiciones td { padding: .625rem .5rem; border-top: 1px solid var(--borde); text-align: right; white-space: nowrap; }
     .posiciones th { color: var(--texto-secundario); font-size: .75rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
     .posiciones th:nth-child(2), .posiciones td:nth-child(2) { text-align: left; white-space: normal; }
-    .posiciones .pos { font-family: var(--display); font-weight: 900; font-style: italic; font-size: 1.375rem; text-align: center; width: 2.75rem; }
-    .posiciones .pts { font-family: var(--display); font-weight: 900; font-size: 1.375rem; color: var(--marino); }
-    .posiciones tbody tr:first-child { background: #eaf1ff; }
-    .posiciones tbody tr:first-child .pos { color: var(--acento); }
+    .posiciones .pos { font-family: var(--display); font-weight: 800; font-size: 1.375rem; text-align: center; width: 2.75rem; }
+    .posiciones .pts { font-family: var(--display); font-weight: 800; font-size: 1.375rem; color: var(--royal-oscuro); }
+    .posiciones tbody tr:first-child { background: #f7fde0; }
+    .posiciones tbody tr:first-child .pos { color: var(--tinta); }
     .posiciones .equipo { font-weight: 700; }
     .solo-ancho { display: none; }
 
@@ -37,7 +37,7 @@
 
     .resultado .equipo { font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
     .resultado .visitante { text-align: right; }
-    .resultado .marcador { font-family: var(--display); font-weight: 900; font-style: italic; font-size: 2rem; line-height: 1; white-space: nowrap; text-align: center; }
+    .resultado .marcador { font-family: var(--display); font-weight: 800; font-size: 2rem; line-height: 1; white-space: nowrap; text-align: center; }
     .resultado .gana { color: var(--marino); }
     .resultado .datos { grid-column: 1 / -1; margin: 0; color: var(--texto-secundario); font-size: .875rem; }
 
@@ -45,10 +45,10 @@
     .lista { margin: 0; padding: 0; list-style: none; }
     .lista li { display: grid; grid-template-columns: 2rem minmax(0, 1fr) auto; align-items: center; gap: .75rem; padding: .75rem 1rem; border-top: 1px solid var(--borde); }
     .lista li:first-child { border-top: 0; }
-    .lista .n { font-family: var(--display); font-weight: 900; font-style: italic; font-size: 1.25rem; color: var(--texto-secundario); }
+    .lista .n { font-family: var(--display); font-weight: 800; font-size: 1.25rem; color: var(--texto-secundario); }
     .lista .quien b { display: block; }
     .lista .quien span { color: var(--texto-secundario); font-size: .875rem; }
-    .lista .total { font-family: var(--display); font-weight: 900; font-size: 1.625rem; }
+    .lista .total { font-family: var(--display); font-weight: 800; font-size: 1.625rem; }
     .lista h3 { margin: 0; padding: 1rem 1rem .5rem; font-size: 1rem; }
     .tarjeta-amarilla, .tarjeta-roja { display: inline-block; min-width: 1.75rem; padding: .125rem .375rem; border-radius: .25rem; font-weight: 800; text-align: center; }
     .tarjeta-amarilla { background: #ffd43b; color: #3d2f00; }
