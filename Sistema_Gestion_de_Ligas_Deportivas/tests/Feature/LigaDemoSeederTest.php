@@ -7,9 +7,11 @@ use App\Models\ComunicadoAsamblea;
 use App\Models\Sancion;
 use App\Models\TablaPosicion;
 use App\Models\Temporada;
+use App\Models\User;
 use Database\Seeders\LigaDemoSeeder;
 use Database\Seeders\PortalProgramacionDemoSeeder;
 use Database\Seeders\RoleAndPermissionSeeder;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
 
@@ -21,6 +23,13 @@ class LigaDemoSeederTest extends TestCase
     public function test_llena_resultados_tablas_goleo_castigados_y_comunicados_y_se_puede_repetir(): void
     {
         $this->seed(RoleAndPermissionSeeder::class);
+        // Usuarios de DatabaseSeeder que la demostración usa para validar y publicar
+        foreach (['admin', 'secretario', 'tribunal'] as $usuario) {
+            User::query()->firstOrCreate(
+                ['email' => $usuario.'@ligafutbol.com'],
+                ['name' => ucfirst($usuario), 'password' => Hash::make('secreto123'), 'estatus' => 'activo', 'rol' => 'Consultor'],
+            );
+        }
         $this->seed(PortalProgramacionDemoSeeder::class);
 
         $this->seed(LigaDemoSeeder::class);

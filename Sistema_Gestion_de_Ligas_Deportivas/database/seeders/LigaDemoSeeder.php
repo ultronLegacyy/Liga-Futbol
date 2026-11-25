@@ -349,6 +349,11 @@ class LigaDemoSeeder extends Seeder
     // PA-15: comunicados de una asamblea celebrada, publicados en el portal por la Secretaría
     private function comunicados(?User $secretario): void
     {
+        // Sin usuarios (base vacía) no hay quién registre el comunicado
+        if ($secretario === null) {
+            return;
+        }
+
         $asamblea = Asamblea::query()->create([
             'tipo' => 'Ordinaria',
             'fecha' => CarbonImmutable::parse(GestionJugadorService::hoy())->subDays(6)->toDateString(),
@@ -366,7 +371,7 @@ class LigaDemoSeeder extends Seeder
                 'asamblea_id' => $asamblea->id,
                 'titulo' => $titulo,
                 'contenido' => $contenido,
-                'registrado_por_usuario_id' => $secretario?->id,
+                'registrado_por_usuario_id' => $secretario->id,
             ])->forceFill(['publicado_en_portal' => true, 'publicado_en' => now()->subDays(5 - $orden)])->save();
         }
     }
