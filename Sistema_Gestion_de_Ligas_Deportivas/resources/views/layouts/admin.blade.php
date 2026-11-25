@@ -6,7 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     {{-- HU-022 (RNF-30): las pantallas internas tienen datos personales y no se indexan --}}
     <meta name="robots" content="noindex, nofollow, noarchive">
-    <meta name="theme-color" content="#0b1a5c">
+    <meta name="theme-color" content="#071a4f">
     <title>@yield('title', 'Sistema de Gestión de Ligas Deportivas')</title>
     {{--
         HAB-S7 (S7-T01): Tailwind compilado con Vite (npm run build o npm run dev). Mientras un equipo no compile
@@ -21,11 +21,11 @@
                 theme: {
                     extend: {
                         colors: {
-                            gray: { 50: '#f6f7fc', 100: '#eceff8', 200: '#d7ddef', 300: '#b9c2df', 400: '#9aa4c6', 500: '#828db4', 600: '#3a4675', 700: '#24305c', 750: '#1b2550', 800: '#121a3a', 900: '#0b1124', 950: '#06080f' },
-                            green: { 50: '#eef2ff', 100: '#dde5ff', 200: '#c0cfff', 300: '#a9b9ff', 400: '#7d97ff', 500: '#4f74ff', 600: '#2f5bff', 700: '#1f44d6', 800: '#1936a8', 900: '#152c80', 950: '#0b1a5c' },
-                            marino: { 950: '#070f3a', 900: '#0b1a5c', 800: '#12257a' },
-                            electrico: { DEFAULT: '#2f5bff', claro: '#5a7cff' },
-                            celeste: '#d4f53c',
+                            gray: { 50: '#f3f6fc', 100: '#e6ecf7', 200: '#cdd8ec', 300: '#b3c1dd', 400: '#8b9cc2', 500: '#64779f', 600: '#435683', 700: '#2b3c68', 750: '#21305a', 800: '#18264c', 900: '#0d1736', 950: '#070e24' },
+                            green: { 50: '#eef3ff', 100: '#dbe6ff', 200: '#bccfff', 300: '#8fb0ff', 400: '#6b9bff', 500: '#3d74ff', 600: '#1f5eff', 700: '#1849d1', 800: '#143ba6', 900: '#112f7f', 950: '#0b1d4f' },
+                            marino: { 950: '#040b22', 900: '#071a4f', 800: '#082a86' },
+                            electrico: { DEFAULT: '#1f5eff', claro: '#4d7fff' },
+                            celeste: '#7cc6ff',
                             foco: '#ffb020',
                         },
                     },
@@ -52,7 +52,7 @@
     {{-- Menú lateral por área (S7-T02). En el celular se abre desde el menú inferior --}}
     <aside id="menu-lateral" class="fixed inset-y-0 left-0 z-50 hidden w-72 flex-col overflow-y-auto bg-marino-900 text-white shadow-2xl md:sticky md:top-0 md:flex md:h-screen md:w-64 md:shadow-none" aria-label="Menú del panel">
         <div class="flex items-center gap-3 px-5 py-5">
-            <svg viewBox="0 0 40 40" class="h-9 w-9 flex-none" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="none" stroke="#fff" stroke-width="3"/><circle cx="20" cy="20" r="11" fill="none" stroke="#5a7cff" stroke-width="3"/><circle cx="20" cy="20" r="4.5" fill="#d4f53c"/></svg>
+            <svg viewBox="0 0 40 40" class="h-9 w-9 flex-none" aria-hidden="true"><path d="M4 28 22 6h14L18 28Z" fill="#fff"/><path d="M14 34 24 22h12L26 34Z" fill="#7cc6ff"/></svg>
             <div class="leading-none">
                 <span class="display block text-2xl">SGLD</span>
                 <span class="mt-1 block text-[11px] font-bold uppercase tracking-[.18em] text-celeste">Liga Fútbol</span>
@@ -104,7 +104,7 @@
         {{-- Barra superior con el título de la pantalla y el rol --}}
         <header class="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-gray-700/70 bg-gray-900/90 px-4 backdrop-blur sm:px-6">
             <div class="flex min-w-0 items-center gap-3">
-                <svg viewBox="0 0 40 40" class="h-7 w-7 flex-none md:hidden" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="none" stroke="#fff" stroke-width="3"/><circle cx="20" cy="20" r="11" fill="none" stroke="#5a7cff" stroke-width="3"/><circle cx="20" cy="20" r="4.5" fill="#d4f53c"/></svg>
+                <svg viewBox="0 0 40 40" class="h-7 w-7 flex-none md:hidden" aria-hidden="true"><path d="M4 28 22 6h14L18 28Z" fill="#fff"/><path d="M14 34 24 22h12L26 34Z" fill="#7cc6ff"/></svg>
                 <h1 class="truncate text-lg font-semibold text-white">@yield('header', 'Panel de Administración')</h1>
             </div>
             <div class="flex items-center gap-3">
