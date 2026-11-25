@@ -177,6 +177,17 @@ class TablaPosicionesService
         return $regla;
     }
 
+    // Versión vigente de las reglas con puntos, o null si la temporada todavía no las tiene
+    public function reglaVigenteOpcional(Grupo $grupo): ?ReglaTemporada
+    {
+        $regla = ReglaTemporada::query()
+            ->where('temporada_id', $grupo->temporada_id)
+            ->orderByDesc('version')
+            ->first();
+
+        return $regla !== null && $this->puntos($regla) !== null ? $regla : null;
+    }
+
     private function sinReglas(): ValidationException
     {
         return ValidationException::withMessages([

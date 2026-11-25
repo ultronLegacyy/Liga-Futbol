@@ -15,6 +15,7 @@ use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\ComunicadoController;
 use App\Http\Controllers\EquipoController;
+use App\Http\Controllers\EstadisticasGrupoController;
 use App\Http\Controllers\ExpedienteDisciplinarioController;
 use App\Http\Controllers\ForcePasswordChangeController;
 use App\Http\Controllers\GeneradorEnfrentamientosController;
@@ -139,6 +140,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/grupos/{grupo}/tabla', [TablaPosicionesController::class, 'show'])
             ->whereNumber('grupo')
             ->name('grupos.tabla');
+        // Goleo, tarjetas, sanciones y tabla histórica por jornada (HU-043, RF-09.3)
+        Route::get('/grupos/{grupo}/estadisticas', [EstadisticasGrupoController::class, 'show'])
+            ->whereNumber('grupo')
+            ->name('grupos.estadisticas');
 
         // Generación automática de rol regular y enfrentamientos (HU-032, RF-07.1)
         Route::get('/grupos/{grupo}/generar-rol', [GeneradorEnfrentamientosController::class, 'configurar'])
