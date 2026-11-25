@@ -11,9 +11,9 @@
     <style>
         @page { margin: 18mm 16mm 20mm; }
         body { font-family: DejaVu Sans, sans-serif; font-size: 10.5px; color: #111827; line-height: 1.4; }
-        .membrete { width: 100%; border-collapse: collapse; border-bottom: 3px solid #0b1a5c; margin-bottom: 14px; }
+        .membrete { width: 100%; border-collapse: collapse; border-bottom: 3px solid #082a86; margin-bottom: 14px; }
         .membrete td { padding: 0 0 8px; vertical-align: bottom; }
-        .liga { font-size: 15px; font-weight: bold; color: #0b1a5c; text-transform: uppercase; letter-spacing: .5px; }
+        .liga { font-size: 15px; font-weight: bold; color: #082a86; text-transform: uppercase; letter-spacing: .5px; }
         .liga small { display: block; font-size: 9px; color: #374151; font-weight: normal; text-transform: none; letter-spacing: 0; }
         .folio { text-align: right; font-size: 9px; color: #374151; }
         .folio b { display: block; font-size: 11px; color: #111827; }
@@ -37,7 +37,7 @@
         .firmas img { max-width: 180px; max-height: 70px; }
         .firmas .linea { border-top: 1px solid #111827; padding-top: 4px; margin-top: 4px; }
         .pie { position: fixed; bottom: -12mm; left: 0; right: 0; font-size: 8.5px; color: #4b5563; border-top: 1px solid #d1d5db; padding-top: 4px; }
-        .sello { margin-top: 22px; padding: 10px; border: 2px solid #0b1a5c; }
+        .sello { margin-top: 22px; padding: 10px; border: 2px solid #082a86; }
     </style>
 </head>
 <body>
