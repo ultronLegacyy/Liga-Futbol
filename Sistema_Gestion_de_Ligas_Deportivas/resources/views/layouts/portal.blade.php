@@ -4,21 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="@yield('descripcion', 'Portal público de la Liga Municipal de Fútbol.')">
-    <meta name="theme-color" content="#0b1a5c">
+    <meta name="theme-color" content="#082a86">
     <title>@yield('title', 'Portal') | Liga Municipal de Fútbol</title>
     {{--
-        Portal público (IU-01, RNF-04, RNF-10, RNF-13) con el diseño limpio aprobado por el Product Owner
-        (25/11/2026) y su paleta: Ink #0B0F14, Navy #0B1A5C, Royal #2F5BFF (principal), Lime #D4F53C (acento)
-        y blanco. CSS en línea, sin JavaScript ni recursos externos; contraste ≥ 4.5:1, objetivos de 44 px y
+        Portal público (IU-01, RNF-04, RNF-10, RNF-13) con el prototipo deportivo «Azul eléctrico» que aprobó
+        el Product Owner (25/11/2026): cabecera y portada azules a todo lo ancho, balón con camiseta, estelas,
+        tarjetas de cristal con datos reales y cifras de la semana. CSS en línea, sin JavaScript ni recursos externos; contraste ≥ 4.5:1, objetivos de 44 px y
         una sola animación con transform, solo si el sistema la permite.
     --}}
     <style>
         :root {
-            --tinta: #0b0f14;
-            --navy: #0b1a5c;
-            --royal: #2f5bff;
-            --royal-oscuro: #1f44d6;
-            --lima: #d4f53c;
+            /* Colores del prototipo aprobado «Azul eléctrico» */
+            --tinta: #0d1220;
+            --navy: #082a86;
+            --royal: #1f5eff;
+            --royal-oscuro: #1650d8;
+            --lima: #7cc6ff;
             --blanco: #ffffff;
 
             --fondo: #f3f5fb;
@@ -92,9 +93,8 @@
             position: sticky;
             top: 0;
             z-index: 5;
-            background: rgba(255, 255, 255, .92);
-            border-bottom: 1px solid var(--borde);
-            backdrop-filter: blur(10px);
+            background: var(--navy);
+            color: var(--blanco);
         }
 
         .barra {
@@ -112,13 +112,13 @@
             align-items: center;
             gap: .625rem;
             min-height: 44px;
-            color: var(--tinta);
+            color: var(--blanco);
             text-decoration: none;
         }
 
         .marca svg { width: 2.25rem; height: 2.25rem; flex: none; }
-        .marca b { display: block; font-size: 1.125rem; }
-        .marca small { display: block; font-size: .75rem; font-weight: 600; color: var(--texto-secundario); }
+        .marca b { display: block; font-size: 1.625rem; }
+        .marca small { display: block; font-size: .6875rem; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: #cfe0ff; }
 
         /* En el celular el menú es una sola fila que se desliza, para no amontonar la cabecera */
         .navegacion { display: flex; gap: .25rem; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
@@ -131,33 +131,33 @@
             min-height: 44px;
             padding: 0 .875rem;
             border-radius: 999px;
-            color: var(--tinta);
+            color: var(--blanco);
             font-size: .9375rem;
             font-weight: 600;
             text-decoration: none;
         }
 
-        .navegacion a:hover { background: var(--suave); }
-        .navegacion a[aria-current="page"] { background: var(--suave); color: var(--royal-oscuro); }
+        .navegacion a:hover { background: rgba(255, 255, 255, .14); }
+        .navegacion a[aria-current="page"] { background: rgba(255, 255, 255, .16); box-shadow: inset 0 -3px 0 var(--lima); }
 
         .navegacion .cuenta {
-            background: var(--royal);
-            color: var(--blanco);
-            font-weight: 700;
+            background: var(--lima);
+            color: var(--tinta);
+            font-weight: 800;
+            letter-spacing: .04em;
         }
 
-        .navegacion .cuenta:hover { background: var(--royal-oscuro); }
+        .navegacion .cuenta:hover { background: var(--blanco); }
 
         /* Portada: tarjeta Navy redondeada sobre el fondo claro */
         .portada {
             position: relative;
             overflow: hidden;
-            margin-top: 1rem;
-            border-radius: 2rem;
-            background: linear-gradient(150deg, var(--navy) 10%, var(--royal) 75%, #2149e6);
+            background: linear-gradient(155deg, var(--navy), #1656e6 62%, var(--navy));
             color: var(--blanco);
-            box-shadow: var(--sombra);
         }
+
+        .portada > .contenedor { position: relative; z-index: 1; }
 
         /* Rampa clara al fondo, como un graderío */
         .portada::before {
@@ -180,7 +180,8 @@
             grid-template-columns: minmax(0, 1fr);
             gap: 1.5rem;
             align-items: center;
-            padding: 1.75rem 1.25rem 2rem;
+            padding-top: 1.75rem;
+            padding-bottom: 2rem;
         }
 
         .etiqueta-hero {
@@ -237,7 +238,7 @@
             position: absolute;
             inset: 28% -30% 18% -10%;
             transform: rotate(-9deg) skewX(-14deg);
-            background: repeating-linear-gradient(180deg, transparent 0 10px, rgba(212, 245, 60, .8) 10px 14px, transparent 14px 24px, rgba(255, 255, 255, .5) 24px 26px, transparent 26px 36px, rgba(255, 255, 255, .25) 36px 42px, transparent 42px 52px);
+            background: repeating-linear-gradient(180deg, transparent 0 10px, rgba(124, 198, 255, .85) 10px 14px, transparent 14px 24px, rgba(255, 255, 255, .5) 24px 26px, transparent 26px 36px, rgba(255, 90, 79, .55) 36px 40px, transparent 42px 52px);
             -webkit-mask-image: linear-gradient(90deg, transparent, #000 35%, #000 80%, transparent);
             mask-image: linear-gradient(90deg, transparent, #000 35%, #000 80%, transparent);
         }
@@ -245,6 +246,40 @@
         .balon { position: absolute; left: 22%; top: 6%; width: 62%; aspect-ratio: 1; }
         .camiseta { position: absolute; right: 4%; top: -4%; width: 34%; transform: rotate(14deg); }
         .sombra-balon { position: absolute; left: 30%; bottom: 0; width: 46%; height: 1.25rem; border-radius: 50%; background: radial-gradient(rgba(0, 0, 0, .3), transparent 70%); }
+
+        /* Tarjetas de cristal sobre la ilustración, con datos reales de la página */
+        .vidrio {
+            position: absolute;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            padding: .875rem 1.125rem;
+            border: 1px solid rgba(255, 255, 255, .3);
+            border-radius: 1.25rem;
+            background: rgba(255, 255, 255, .14);
+            color: var(--blanco);
+            box-shadow: 0 20px 40px -22px rgba(0, 0, 0, .5);
+            pointer-events: auto;
+        }
+
+        .vidrio p { margin: 0; }
+        .vidrio b { display: block; font-size: .9375rem; }
+        .vidrio span { font-size: .8125rem; color: #e1e9ff; }
+        .vidrio .icono { display: grid; place-items: center; flex: none; width: 2.5rem; height: 2.5rem; border-radius: .875rem; background: var(--lima); color: var(--tinta); font-weight: 900; }
+        .vidrio-1 { left: 0; bottom: 8%; }
+        .vidrio-2 { right: 0; bottom: 34%; }
+
+        .cifras {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            margin: 0;
+            border-top: 1px solid rgba(255, 255, 255, .2);
+        }
+
+        .cifras div { padding: 1rem 0 1.25rem; }
+        .cifras dd { margin: 0; font-family: var(--display); font-weight: 900; font-style: italic; font-size: 2.25rem; line-height: 1; }
+        .cifras dt { margin-top: .375rem; font-size: .75rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #cfe0ff; }
 
         /* Cinta de partidos que corre (se pausa al pasar el cursor o con el foco) */
         .cinta {
@@ -418,9 +453,10 @@
         @media (min-width: 48rem) {
             .contenedor { padding: 1.25rem 2rem; }
             .barra { padding-top: .75rem; padding-bottom: .75rem; }
-            .portada { margin-top: 1.5rem; }
             .hero { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 2.5rem; padding: 3.5rem 3.5rem 3.75rem; }
-            .arte { display: block; height: 22rem; }
+            .arte { display: block; height: 24rem; }
+            .cifras { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+            .cifras dd { font-size: 2.75rem; }
             .hero h1 { font-size: clamp(3rem, 5.2vw, 5.25rem); }
             .seccion-titulo { font-size: 2.125rem; }
         }
@@ -434,8 +470,8 @@
     <header class="cabecera">
         <div class="contenedor barra">
             <a class="marca" href="{{ route('portal.programacion') }}">
-                <svg viewBox="0 0 40 40" aria-hidden="true" focusable="false"><circle cx="20" cy="20" r="18" fill="none" stroke="#0b1a5c" stroke-width="3"/><circle cx="20" cy="20" r="11" fill="none" stroke="#2f5bff" stroke-width="3"/><circle cx="20" cy="20" r="4.5" fill="#d4f53c" stroke="#0b1a5c" stroke-width="2"/></svg>
-                <span><b class="display">Liga Municipal</b><small>de Fútbol · Morelia</small></span>
+                <svg viewBox="0 0 40 40" aria-hidden="true" focusable="false"><path d="M4 28 22 6h14L18 28Z" fill="#fff"/><path d="M14 34 24 22h12L26 34Z" fill="#7cc6ff"/></svg>
+                <span><b class="display">SGLD</b><small>Liga Morelia</small></span>
             </a>
             <nav class="navegacion" aria-label="Portal público">
                 <a href="{{ route('portal.programacion') }}" @if (request()->routeIs('portal.programacion')) aria-current="page" @endif>Programación</a>
@@ -450,8 +486,8 @@
         </div>
     </header>
 
-    <div class="contenedor">
-        <section class="portada" aria-label="Portada">
+    <section class="portada" aria-label="Portada">
+        <div class="contenedor">
             <div class="hero">
                 <div class="hero-texto">
                     @yield('hero')
@@ -473,15 +509,19 @@
                         <circle cx="100" cy="100" r="96" fill="url(#sombra)"/>
                         <ellipse cx="70" cy="58" rx="30" ry="18" fill="#fff" opacity=".55" transform="rotate(-30 70 58)"/>
                     </svg>
+                    @yield('hero-tarjetas')
                     <svg class="camiseta" viewBox="0 0 200 200" focusable="false">
-                        <path d="M70 18 38 30 6 70l28 24 16-14v104h100V80l16 14 28-24-32-40-32-12q-30 28-60 0Z" fill="#d4f53c"/>
+                        <path d="M70 18 38 30 6 70l28 24 16-14v104h100V80l16 14 28-24-32-40-32-12q-30 28-60 0Z" fill="#7cc6ff"/>
                         <path d="M70 18q30 28 60 0l-8-3q-22 19-44 0Z" fill="#0b1a5c"/>
                         <path d="M6 70l28 24 6-6-28-25ZM194 70l-28 24-6-6 28-25Z" fill="#0b1a5c"/>
                         <text x="100" y="150" text-anchor="middle" font-family="Impact, 'Arial Narrow', sans-serif" font-style="italic" font-weight="900" font-size="64" fill="#0b1a5c">10</text>
                     </svg>
                 </div>
             </div>
-        </section>
+            @yield('hero-cifras')
+        </div>
+    </section>
+    <div class="contenedor">
         @yield('cinta')
     </div>
 
