@@ -64,6 +64,9 @@
                             <a href="{{ route('grupos.liguilla', $grupo) }}" class="text-green-400 hover:underline focus:outline-none focus:ring-2 focus:ring-green-400 rounded">
                                 Liguilla<span class="sr-only"> de {{ $grupo->nombre }}</span>
                             </a>
+                            <a href="{{ route('grupos.ascenso-descenso', $grupo) }}" class="text-green-400 hover:underline focus:outline-none focus:ring-2 focus:ring-green-400 rounded">
+                                Ascenso y descenso<span class="sr-only"> de {{ $grupo->nombre }}</span>
+                            </a>
                             <a href="{{ route('grupos.configuracion', $grupo) }}" class="text-blue-400 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-400 rounded">
                                 Formato y clasificación<span class="sr-only"> de {{ $grupo->nombre }}</span>
                             </a>
