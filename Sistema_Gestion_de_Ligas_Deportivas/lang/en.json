@@ -1,0 +1,5 @@
+{
+    "The provided two factor authentication code was invalid.": "El código del segundo factor no es válido. Revisa la hora de tu celular y escribe el código que muestra ahora tu app de autenticación.",
+    "The provided two factor recovery code was invalid.": "El código de recuperación no es válido o ya se usó. Cada código sirve una sola vez.",
+    "The provided password was incorrect.": "La contraseña no es correcta."
+}

@@ -63,7 +63,8 @@ return [
     |--------------------------------------------------------------------------
     */
 
-    'middleware' => ['web'],
+    // HU-082: las rutas de Fortify (perfil, contraseña…) también exigen el segundo factor a las cuentas obligadas
+    'middleware' => ['web', App\Http\Middleware\ExigirSegundoFactor::class],
 
     /*
     |--------------------------------------------------------------------------
@@ -123,9 +124,11 @@ return [
             // 'window' => 0,
         ]),
 
-        Features::passkeys([
-            'confirmPassword' => true,
-        ]),
+        // HU-082 (decisión de Daniel, 25/11): sin passkeys, para que nadie se salte el TOTP al iniciar sesión.
+        // No tenían pantalla; su tabla se conserva
+        // Features::passkeys([
+        //     'confirmPassword' => true,
+        // ]),
     ],
 
 ];

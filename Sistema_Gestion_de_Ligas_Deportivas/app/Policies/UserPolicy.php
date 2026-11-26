@@ -11,7 +11,7 @@ class UserPolicy
     public function before(User $usuarioAutenticado, string $habilidad): ?bool
     {
         // Eliminar, desactivar y cambiar roles se revisan en su metodo: nadie puede hacerlo sobre su propia cuenta
-        if (in_array($habilidad, ['delete', 'toggleStatus', 'asignarRoles'], true)) {
+        if (in_array($habilidad, ['delete', 'toggleStatus', 'asignarRoles', 'reiniciarSegundoFactor'], true)) {
             return null;
         }
 
@@ -80,5 +80,18 @@ class UserPolicy
         return $usuarioAutenticado->can('usuarios.asignar_rol')
             ? Response::allow()
             : Response::deny('No cuenta con privilegios para asignar roles.');
+    }
+
+    // HU-082 (criterios 4 y 5): solo el Administrador General reinicia el segundo factor de otra cuenta; nunca el suyo,
+    // para que el sistema no se quede sin un Administrador con acceso
+    public function reiniciarSegundoFactor(User $usuarioAutenticado, User $usuarioObjetivo): Response
+    {
+        if ($usuarioAutenticado->id === $usuarioObjetivo->id) {
+            return Response::deny('No es posible reiniciar el segundo factor de la propia cuenta.');
+        }
+
+        return $usuarioAutenticado->hasRole('Administrador General')
+            ? Response::allow()
+            : Response::deny('Solo el Administrador General puede reiniciar el segundo factor de una cuenta.');
     }
 }

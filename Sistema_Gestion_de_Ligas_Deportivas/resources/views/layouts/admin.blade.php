@@ -131,7 +131,11 @@
             @endcan
         </nav>
 
-        <div class="p-4 border-t border-gray-700">
+        <div class="p-4 border-t border-gray-700 space-y-1">
+            {{-- HU-082: activar el segundo factor o ver los códigos de recuperación --}}
+            <a href="{{ route('segundo-factor.show') }}" class="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg {{ request()->routeIs('segundo-factor.*') ? 'bg-gray-700 text-white' : '' }}">
+                Segundo factor
+            </a>
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
                 <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-700 rounded-lg">

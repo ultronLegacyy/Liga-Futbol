@@ -5,9 +5,11 @@ namespace App\Http\Responses;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
+use Laravel\Fortify\Contracts\TwoFactorLoginResponse as TwoFactorLoginResponseContract;
 use Symfony\Component\HttpFoundation\Response;
 
-class LoginResponse implements LoginResponseContract
+// También responde después del reto del segundo factor (HU-082)
+class LoginResponse implements LoginResponseContract, TwoFactorLoginResponseContract
 {
     /**
      * Crear una respuesta HTTP tras un inicio de sesion exitoso.

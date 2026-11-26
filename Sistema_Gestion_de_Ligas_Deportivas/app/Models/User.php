@@ -75,6 +75,21 @@ class User extends Authenticatable
         ];
     }
 
+    // HU-082 (decisión 2 de Daniel): roles con privilegios que deben tener el segundo factor. El Tribunal de Penas es la
+    // «Comisión Disciplinaria» de la ERS. Los demás roles pueden activarlo si quieren
+    public const ROLES_CON_SEGUNDO_FACTOR = ['Administrador General', 'Tribunal de Penas', 'Tesorero', 'Secretario', 'Programador de Partidos'];
+
+    public function requiereSegundoFactor(): bool
+    {
+        return $this->hasAnyRole(self::ROLES_CON_SEGUNDO_FACTOR);
+    }
+
+    // Obligado y sin el segundo factor confirmado: solo puede activarlo
+    public function debeActivarSegundoFactor(): bool
+    {
+        return $this->requiereSegundoFactor() && ! $this->hasEnabledTwoFactorAuthentication();
+    }
+
     /** @return BelongsTo<Club, $this> */
     public function club(): BelongsTo
     {
