@@ -204,7 +204,8 @@ class TablaPosicionesService
     {
         return Partido::query()
             ->whereHas('jornada', function ($jornada) use ($grupo, $hastaJornada): void {
-                $jornada->where('grupo_id', $grupo->id);
+                // HU-056: las jornadas de liguilla no cuentan para la tabla de la fase regular
+                $jornada->where('grupo_id', $grupo->id)->whereNull('fase_id');
 
                 if ($hastaJornada !== null) {
                     $jornada->where('numero_jornada', '<=', $hastaJornada);
