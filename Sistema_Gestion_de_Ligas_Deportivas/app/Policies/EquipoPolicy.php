@@ -95,4 +95,24 @@ class EquipoPolicy
 
         return Response::deny('No posee privilegios para modificar este equipo.');
     }
+
+    /**
+     * HU-019 CA3: la elegibilidad de los jugadores del equipo la ven el Presidente y el Delegado de su club (para que
+     * se enteren de un bloqueo o un «no verificado» antes del partido) y el Secretario, que supervisa el padrón.
+     */
+    public function verElegibilidad(User $usuario, Equipo $equipo): Response
+    {
+        if ($usuario->hasRole('Secretario') && $usuario->can('jugadores.ver')) {
+            return Response::allow();
+        }
+
+        $esSuClub = $usuario->hasAnyRole(['Presidente del Club', 'Delegado del Club'])
+            && $usuario->club_id !== null
+            && (int) $usuario->club_id === (int) $equipo->club_id
+            && $usuario->can('jugadores.ver');
+
+        return $esSuClub
+            ? Response::allow()
+            : Response::deny('Solo el Secretario o la directiva del club consultan la elegibilidad de sus jugadores.');
+    }
 }

@@ -98,6 +98,16 @@
                                         @if ($fila->jugador && $fila->jugador->estado_elegibilidad !== 'Activo')
                                             <span class="text-xs text-amber-400">({{ $fila->jugador->estado_elegibilidad }})</span>
                                         @endif
+                                        {{-- HU-019 CA3: bloqueado o no verificado, con el motivo y la regla --}}
+                                        @php($estadoElegibilidad = $elegibilidad[$fila->jugador_id] ?? null)
+                                        @if ($estadoElegibilidad && $estadoElegibilidad['estado'] !== \App\Services\ElegibilidadJugadorService::HABILITADO)
+                                            <span class="block mt-1 text-xs {{ $estadoElegibilidad['estado'] === \App\Services\ElegibilidadJugadorService::NO_VERIFICADO ? 'text-amber-300' : 'text-red-300' }}" data-elegibilidad="{{ $estadoElegibilidad['estado'] }}">
+                                                {{ $estadoElegibilidad['estado'] === \App\Services\ElegibilidadJugadorService::NO_VERIFICADO ? 'No verificado' : 'No elegible' }}:
+                                                @foreach ($estadoElegibilidad['motivos'] as $motivo)
+                                                    {{ $motivo['motivo'] }} <span class="text-gray-400">({{ $motivo['regla'] }})</span>
+                                                @endforeach
+                                            </span>
+                                        @endif
                                     </span>
                                     <label class="flex items-center gap-2 text-sm text-gray-300">
                                         Núm.
