@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Models\CedulaArbitral;
 use App\Models\Partido;
 use App\Models\User;
 use Illuminate\Auth\Access\Response;
@@ -13,11 +14,11 @@ class CedulaArbitralPolicy
 
     /**
      * El Administrador General pasa en todo, salvo en abrir, firmar y cerrar: le tocan al árbitro asignado
-     * y la matriz no le da cedulas.firmar (HU-075).
+     * y la matriz no le da cedulas.firmar (HU-075). Tampoco en corregirResultado: ni él corrige lo que capturó (HU-039).
      */
     public function before(User $usuario, string $habilidad): ?bool
     {
-        if (in_array($habilidad, ['abrir', 'firmar', 'cerrar'], true)) {
+        if (in_array($habilidad, ['abrir', 'firmar', 'cerrar', 'corregirResultado'], true)) {
             return null;
         }
 
@@ -121,5 +122,22 @@ class CedulaArbitralPolicy
         return $usuario->can('resultados.validar')
             ? Response::allow()
             : Response::deny('Solo el Administrador General puede validar los resultados de los partidos.');
+    }
+
+    /**
+     * HU-039 (RF-08.3): corregir un resultado ya validado. Lo hace quien valida (resultados.validar, hoy solo el
+     * Administrador General), pero nunca quien capturó o cerró esa cédula (CA3: «distinto del capturista»).
+     */
+    public function corregirResultado(User $usuario, CedulaArbitral $cedula): Response
+    {
+        if (! $usuario->can('resultados.validar')) {
+            return Response::deny('Solo el Administrador General puede corregir un resultado ya validado.');
+        }
+
+        $loCapturo = in_array((int) $usuario->getKey(), [(int) $cedula->capturada_por_id, (int) $cedula->cerrada_por_id], true);
+
+        return $loCapturo
+            ? Response::deny('Quien capturó o cerró la cédula no puede corregir su resultado: debe hacerlo otro usuario autorizado.')
+            : Response::allow();
     }
 }
