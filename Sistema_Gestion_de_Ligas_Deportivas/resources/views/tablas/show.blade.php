@@ -11,11 +11,16 @@
             <h2 class="text-xl font-bold text-white">{{ $grupo->categoria?->nombre }} · {{ $grupo->nombre }}</h2>
             <p class="text-sm text-gray-400">Temporada {{ $grupo->temporada?->nombre }}</p>
         </div>
-        @if ($grupo->categoria)
-            <a href="{{ route('categorias.show', $grupo->categoria) }}" class="self-start text-gray-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-400 rounded">
-                Volver a la categoría
+        <div class="flex gap-4 self-start">
+            <a href="{{ route('grupos.estadisticas', $grupo) }}" class="text-green-400 hover:underline focus:outline-none focus:ring-2 focus:ring-green-400 rounded">
+                Estadísticas y tabla por jornada
             </a>
-        @endif
+            @if ($grupo->categoria)
+                <a href="{{ route('categorias.show', $grupo->categoria) }}" class="text-gray-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-400 rounded">
+                    Volver a la categoría
+                </a>
+            @endif
+        </div>
     </div>
 
     <p class="text-sm text-gray-300">
