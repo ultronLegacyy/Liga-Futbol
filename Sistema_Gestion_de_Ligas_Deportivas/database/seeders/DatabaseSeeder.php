@@ -578,6 +578,21 @@ class DatabaseSeeder extends Seeder
                     'updated_at' => $now,
                 ]);
 
+                // HU-019: registro completo (fotografía y comprobante, como pide HU-016) para que la demo pueda alinearlos.
+                // Son rutas de ejemplo: la demo no descarga estos archivos
+                foreach (['Foto', 'Comprobante'] as $tipoDocumento) {
+                    DB::table('documentos_persona')->insert([
+                        'persona_id' => $personaDemoId,
+                        'tipo' => $tipoDocumento,
+                        'disco' => 'private',
+                        'ruta_storage' => 'personas/'.$personaDemoId.'/demo-'.strtolower($tipoDocumento).'.pdf',
+                        'mime_type' => 'application/pdf',
+                        'tamano_bytes' => 1,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                }
+
                 DB::table('jugadores_equipos')->insert([
                     'persona_id' => $personaDemoId,
                     'equipo_id' => $equipoDemoId,

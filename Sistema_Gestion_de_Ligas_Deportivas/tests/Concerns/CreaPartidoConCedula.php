@@ -48,8 +48,20 @@ trait CreaPartidoConCedula
 
         // Tres jugadores activos, uno suspendido y una baja (que no entra en la alineación)
         foreach (['Activo', 'Activo', 'Activo', 'Suspendido', 'Baja'] as $indice => $estado) {
+            $persona = Persona::factory()->create(['nombre' => 'Jugador '.($indice + 1), 'apellidos' => 'Equipo '.$this->consecutivo]);
+            // Registro completo, como lo deja el formulario de HU-016: con fotografía y comprobante (HU-019 lo revisa)
+            foreach (['Foto', 'Comprobante'] as $tipo) {
+                $persona->documentos()->create([
+                    'tipo' => $tipo,
+                    'disco' => 'private',
+                    'ruta_storage' => 'personas/'.$persona->id.'/'.strtolower($tipo).'.pdf',
+                    'mime_type' => 'application/pdf',
+                    'tamano_bytes' => 1,
+                ]);
+            }
+
             Jugador::create([
-                'persona_id' => Persona::factory()->create(['nombre' => 'Jugador '.($indice + 1), 'apellidos' => 'Equipo '.$this->consecutivo])->id,
+                'persona_id' => $persona->id,
                 'equipo_id' => $equipo->id,
                 'dorsal' => $indice + 1,
                 'estado_elegibilidad' => $estado,
