@@ -81,6 +81,7 @@
                         <th scope="col" class="px-4 py-3">Partido</th>
                         <th scope="col" class="px-4 py-3">Marcador</th>
                         <th scope="col" class="px-4 py-3">Validó</th>
+                        <th scope="col" class="px-4 py-3"><span class="sr-only">Acción</span></th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-700">
@@ -91,6 +92,13 @@
                             <td class="px-4 py-3">{{ $partido?->local?->nombre }} vs {{ $partido?->visitante?->nombre }}</td>
                             <td class="px-4 py-3 font-mono text-white">{{ $cedula->goles_local }} - {{ $cedula->goles_visitante }} <x-badge variant="success">Oficial</x-badge></td>
                             <td class="px-4 py-3">{{ $cedula->validadaPor?->name ?? 'Sin dato' }} · {{ $cedula->validada_en?->format('d/m/Y H:i') }}</td>
+                            <td class="px-4 py-3 text-right">
+                                @can('corregirResultado', $cedula)
+                                    <a href="{{ route('resultados.corregir.edit', $cedula->id) }}" class="text-yellow-400 hover:underline focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded">
+                                        Corregir<span class="sr-only"> el resultado de {{ $partido?->local?->nombre }} vs {{ $partido?->visitante?->nombre }}</span>
+                                    </a>
+                                @endcan
+                            </td>
                         </tr>
                     @endforeach
                 </tbody>

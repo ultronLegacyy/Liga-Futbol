@@ -262,6 +262,13 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/resultados/{cedula}/validar', [ResultadoController::class, 'validar'])
             ->whereNumber('cedula')
             ->name('resultados.validar');
+        // Corregir un resultado ya validado, con motivo y recálculo de la tabla (HU-039, RF-08.3)
+        Route::get('/resultados/{cedula}/corregir', [ResultadoController::class, 'editarCorreccion'])
+            ->whereNumber('cedula')
+            ->name('resultados.corregir.edit');
+        Route::put('/resultados/{cedula}/corregir', [ResultadoController::class, 'corregir'])
+            ->whereNumber('cedula')
+            ->name('resultados.corregir.update');
 
         // Audiencias disciplinarias (HU-045 / RF-10.2)
         Route::post('/disciplina/expedientes/{expediente}/audiencias', [AudienciaDisciplinariaController::class, 'store'])
