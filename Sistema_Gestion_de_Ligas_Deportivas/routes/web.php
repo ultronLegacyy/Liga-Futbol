@@ -14,6 +14,7 @@ use App\Http\Controllers\CierreCedulaController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\ComunicadoController;
+use App\Http\Controllers\ElegibilidadEquipoController;
 use App\Http\Controllers\EquipoController;
 use App\Http\Controllers\EstadisticasGrupoController;
 use App\Http\Controllers\ExpedienteDisciplinarioController;
@@ -174,6 +175,10 @@ Route::middleware(['auth'])->group(function () {
         // Historial de equipos por temporada (HU-015, RF-03.4)
         Route::get('/historial-equipos', [HistorialEquipoController::class, 'index'])->name('equipos.historial.index');
         Route::get('/historial-equipos/{equipo}', [HistorialEquipoController::class, 'show'])->name('equipos.historial.show');
+        // Elegibilidad de los jugadores del equipo antes de participar (HU-019, RF-04.4)
+        Route::get('/equipos/{equipo}/elegibilidad', [ElegibilidadEquipoController::class, 'show'])
+            ->whereNumber('equipo')
+            ->name('equipos.elegibilidad');
 
         // Padrón de árbitros y su asignación a partidos programados (HU-026, RF-06.1)
         Route::get('/arbitros/asignaciones', [ArbitroController::class, 'asignaciones'])

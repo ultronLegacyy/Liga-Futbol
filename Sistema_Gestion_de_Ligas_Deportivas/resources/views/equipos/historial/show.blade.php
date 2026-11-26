@@ -11,9 +11,16 @@
             <h2 class="text-xl font-bold text-white">{{ $equipo->nombre }}</h2>
             <p class="text-sm text-gray-400">Club {{ $equipo->club->nombre }} · historial por temporada, de la más reciente a la más antigua.</p>
         </div>
-        <a href="{{ route('equipos.historial.index') }}" class="self-start text-gray-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-400 rounded">
-            Volver al historial de equipos
-        </a>
+        <div class="flex gap-4 self-start">
+            @can('verElegibilidad', $equipo)
+                <a href="{{ route('equipos.elegibilidad', $equipo) }}" class="text-green-400 hover:underline focus:outline-none focus:ring-2 focus:ring-green-400 rounded">
+                    Elegibilidad de los jugadores
+                </a>
+            @endcan
+            <a href="{{ route('equipos.historial.index') }}" class="text-gray-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-400 rounded">
+                Volver al historial de equipos
+            </a>
+        </div>
     </div>
 
     <x-table caption="Participación del equipo en cada temporada">

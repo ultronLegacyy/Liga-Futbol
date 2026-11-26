@@ -37,6 +37,7 @@ class CedulaService
         private readonly AuditService $auditoria,
         private readonly ReglaEdadCategoriaService $reglaEdad,
         private readonly ControlSancionesDeportivasService $controlSanciones,
+        private readonly ElegibilidadJugadorService $elegibilidad,
     ) {
     }
 
@@ -166,6 +167,8 @@ class CedulaService
                 $jugadorInstancia = $fila->jugador()->firstOrFail();
                 $this->reglaEdad->validarAlineacion($jugadorInstancia);
                 $this->controlSanciones->validarAlineacionJugador($jugadorInstancia, $bloqueada->partido);
+                // HU-019: el resto de la elegibilidad (padrón, cuota, registro, categoría); no verificado nunca se habilita
+                $this->elegibilidad->exigirHabilitado($jugadorInstancia, $bloqueada->partido);
             }
 
             $esCapitan = (bool) ($datos['es_capitan'] ?? $fila->es_capitan);

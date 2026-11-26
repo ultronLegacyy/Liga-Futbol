@@ -82,7 +82,7 @@ class ValidacionCedulaServiceTest extends TestCase
     public function test_detecta_un_jugador_suspendido(): void
     {
         $suspendido = Jugador::query()->where('equipo_id', $this->partido->equipo_visitante_id)->where('estado_elegibilidad', 'Suspendido')->firstOrFail();
-        $this->asistio($suspendido);
+        $this->asistioYDespuesLoSuspendieron($suspendido);
 
         $this->assertSame(
             [['tipo' => ValidacionCedulaService::SUSPENDIDO, 'mensaje' => 'Jugador 4 Equipo 2 (Equipo Cédula 2) está suspendido y aparece en la cédula.']],
@@ -123,7 +123,7 @@ class ValidacionCedulaServiceTest extends TestCase
         $this->evento($baja, 'Gol');
         $baja->update(['estado_elegibilidad' => 'Baja']);
         $suspendido = Jugador::query()->where('equipo_id', $this->partido->equipo_local_id)->where('estado_elegibilidad', 'Suspendido')->firstOrFail();
-        $this->asistio($suspendido);
+        $this->asistioYDespuesLoSuspendieron($suspendido);
         $this->evento($this->activo('visitante'), 'Amarilla');
 
         $tipos = array_count_values(array_column($this->validacion->validar($this->cedula->refresh()), 'tipo'));
@@ -143,6 +143,17 @@ class ValidacionCedulaServiceTest extends TestCase
             ->where('estado_elegibilidad', 'Activo')
             ->orderBy('id')
             ->firstOrFail();
+    }
+
+    /**
+     * Desde HU-019 un suspendido ya no se puede alinear; este caso es el de un jugador alineado cuando estaba activo
+     * y suspendido después, antes del cierre: la validación del cierre (HU-075) lo sigue detectando.
+     */
+    private function asistioYDespuesLoSuspendieron(Jugador $jugador): void
+    {
+        $jugador->update(['estado_elegibilidad' => 'Activo']);
+        $this->asistio($jugador);
+        $jugador->update(['estado_elegibilidad' => 'Suspendido']);
     }
 
     private function asistio(Jugador $jugador): void

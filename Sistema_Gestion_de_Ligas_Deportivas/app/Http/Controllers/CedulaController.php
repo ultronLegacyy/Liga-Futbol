@@ -14,6 +14,7 @@ use App\Models\Partido;
 use App\Models\User;
 use App\Services\CedulaService;
 use App\Services\CierreCedulaService;
+use App\Services\ElegibilidadJugadorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,6 +27,7 @@ class CedulaController extends Controller
     public function __construct(
         private readonly CedulaService $cedulas,
         private readonly CierreCedulaService $cierre,
+        private readonly ElegibilidadJugadorService $elegibilidad,
     ) {
     }
 
@@ -64,6 +66,11 @@ class CedulaController extends Controller
             return view('cedulas.captura', [
                 'partido' => $partido,
                 'cedula' => $cedula,
+                // HU-019 CA3: el árbitro ve antes de alinear quién está bloqueado o no verificado y por qué
+                'elegibilidad' => $cedula->alineaciones
+                    ->filter(fn ($fila) => $fila->jugador !== null)
+                    ->mapWithKeys(fn ($fila) => [$fila->jugador_id => $this->elegibilidad->evaluar($fila->jugador, $partido)])
+                    ->all(),
                 'jugadoresNuevos' => Gate::allows('abrir', [CedulaArbitral::class, $partido]) ? $this->cedulas->jugadoresNuevos($cedula, $partido) : 0,
             ]);
         }
