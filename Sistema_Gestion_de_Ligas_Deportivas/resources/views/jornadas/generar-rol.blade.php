@@ -138,6 +138,74 @@
             </x-form.field>
         </div>
 
+        <div class="rounded-xl border border-indigo-500/30 bg-indigo-950/20 p-4 space-y-4">
+            <div class="flex flex-col gap-1">
+                <h3 class="text-sm font-semibold text-indigo-300">Programación automática de cancha, fecha y hora (HU-074 / RF-07.2)</h3>
+                <p class="text-xs text-gray-400">
+                    Asigna sedes y horarios respetando bloqueos, capacidad diaria, sanciones vigentes y preferencias de equipo. Si algún partido no tiene espacio, se informará la causa sin bloquear el rol (HU-033).
+                </p>
+            </div>
+
+            <label class="flex items-center gap-3 text-sm text-gray-200 cursor-pointer">
+                <input
+                    type="checkbox"
+                    id="asignar_horarios"
+                    name="asignar_horarios"
+                    value="1"
+                    {{ ($errors->any() ? old('asignar_horarios') : true) ? 'checked' : '' }}
+                    class="rounded bg-gray-900 border-indigo-500 text-indigo-500 focus:ring-indigo-400 w-4 h-4"
+                >
+                <span>Asignar automáticamente cancha, fecha y hora a los enfrentamientos generados</span>
+            </label>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <x-form.field name="horarios_texto" label="Franjas horarias candidatas (HH:MM separadas por coma)" :error="$errors->first('horarios_texto')" help="Por defecto: 09:00, 11:00, 13:00, 15:00.">
+                    <input
+                        type="text"
+                        id="horarios_texto"
+                        name="horarios_texto"
+                        value="{{ old('horarios_texto', implode(', ', $horariosDefecto ?? ['09:00', '11:00', '13:00', '15:00'])) }}"
+                        class="w-full rounded-lg bg-gray-900 border border-gray-600 text-white text-sm p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    >
+                </x-form.field>
+
+                <div class="space-y-2">
+                    <span class="block text-xs font-medium text-gray-300">Canchas operativas permitidas (opcional)</span>
+                    @if (! empty($canchasDisponibles) && $canchasDisponibles->isNotEmpty())
+                        @php($canchasOld = is_array(old('cancha_ids')) ? old('cancha_ids') : [])
+                        <div class="max-h-28 overflow-y-auto rounded-lg border border-gray-700 bg-gray-900/70 p-2 space-y-1.5">
+                            @foreach ($canchasDisponibles as $canchaItem)
+                                <label class="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        name="cancha_ids[]"
+                                        value="{{ $canchaItem->id }}"
+                                        {{ in_array($canchaItem->id, $canchasOld) ? 'checked' : '' }}
+                                        class="rounded bg-gray-800 border-gray-600 text-indigo-500 focus:ring-indigo-400"
+                                    >
+                                    <span>{{ $canchaItem->nombre }} (cap. {{ $canchaItem->capacidad_partidos_consecutivos }}/día)</span>
+                                </label>
+                            @endforeach
+                        </div>
+                    @else
+                        <p class="text-xs text-amber-300">No hay canchas activas en estado Disponible en este momento.</p>
+                    @endif
+                </div>
+            </div>
+
+            <label class="flex items-center gap-3 text-xs text-gray-300 cursor-pointer">
+                <input
+                    type="checkbox"
+                    id="respetar_capacidad_cancha"
+                    name="respetar_capacidad_cancha"
+                    value="1"
+                    {{ ($errors->any() ? old('respetar_capacidad_cancha') : true) ? 'checked' : '' }}
+                    class="rounded bg-gray-900 border-gray-600 text-indigo-500 focus:ring-indigo-400 w-4 h-4"
+                >
+                <span>Respetar el límite máximo de partidos consecutivos por cancha y día</span>
+            </label>
+        </div>
+
         <div class="space-y-3 pt-2">
             <label class="flex items-center gap-3 text-sm text-gray-200 cursor-pointer">
                 <input

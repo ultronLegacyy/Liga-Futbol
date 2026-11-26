@@ -153,15 +153,21 @@ Route::middleware(['auth'])->group(function () {
             ->whereNumber('grupo')
             ->name('grupos.liguilla.store');
 
-        // Generación automática de rol regular y enfrentamientos (HU-032, RF-07.1)
+        // Generación automática de rol regular y enfrentamientos (HU-032, RF-07.1) y motor de programación horaria (HU-074, HU-033, RF-07.2, RF-07.3)
         Route::get('/grupos/{grupo}/generar-rol', [GeneradorEnfrentamientosController::class, 'configurar'])
             ->name('grupos.generar-rol');
         Route::post('/grupos/{grupo}/previsualizar-rol', [GeneradorEnfrentamientosController::class, 'previsualizar'])
             ->name('grupos.previsualizar-rol');
         Route::post('/grupos/{grupo}/confirmar-rol', [GeneradorEnfrentamientosController::class, 'confirmar'])
             ->name('grupos.confirmar-rol');
+        Route::post('/grupos/{grupo}/asignar-horarios', [GeneradorEnfrentamientosController::class, 'asignarHorariosGrupo'])
+            ->name('grupos.asignar-horarios');
         Route::post('/jornadas/{jornada}/generar-partidos', [GeneradorEnfrentamientosController::class, 'generarJornada'])
             ->name('jornadas.generar-partidos');
+        Route::post('/jornadas/{jornada}/asignar-horarios', [GeneradorEnfrentamientosController::class, 'asignarHorariosJornada'])
+            ->name('jornadas.asignar-horarios');
+        Route::post('/temporadas/{temporada}/asignar-horarios-masivo', [GeneradorEnfrentamientosController::class, 'asignarHorariosTemporada'])
+            ->name('temporadas.asignar-horarios-masivo');
 
         // Alta manual, reprogramación, gestión de estados e historial de partidos (HU-027, HU-029, HU-031, RF-06.1, RF-06.3, RF-06.4, RF-06.6)
         Route::get('/partidos/{partido}/reprogramar', [PartidoController::class, 'formularioReprogramar'])

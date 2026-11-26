@@ -121,19 +121,41 @@
             </div>
         @endif
 
-        {{-- Alerta de conflictos de programación (HU-030 / SCRUM-200) --}}
-        @if (! empty($conflictos))
-            <div class="mt-4 bg-red-950/40 border border-red-600/50 rounded-xl p-4">
+        {{-- Alerta y explicación estructurada de conflictos de programación (HU-030 / HU-033 / RNF-19) --}}
+        @if (! empty($conflictosDetallados) || ! empty($conflictos) || session('programacion_conflictos'))
+            @php
+                $listaConflictosDetallados = ! empty($conflictosDetallados)
+                    ? $conflictosDetallados
+                    : (session('programacion_conflictos') ?? []);
+            @endphp
+            <div class="mt-4 bg-red-950/40 border border-red-600/50 rounded-xl p-4 space-y-3">
                 <div class="flex items-start gap-3">
                     <div class="flex-shrink-0 text-red-400 font-bold text-base mt-0.5">!</div>
-                    <div class="space-y-1">
-                        <h4 class="text-sm font-bold text-red-200">Conflictos de programación detectados:</h4>
-                        <p class="text-xs text-red-300">La programación contiene solapamientos o colisiones que deben corregirse antes de su publicación:</p>
-                        <ul class="list-disc list-inside text-xs text-red-300 space-y-0.5 mt-2">
-                            @foreach ($conflictos as $conflicto)
-                                <li>{{ $conflicto }}</li>
-                            @endforeach
-                        </ul>
+                    <div class="space-y-1 flex-1">
+                        <h4 class="text-sm font-bold text-red-200">Conflictos y déficits de programación detectados (HU-033 / RNF-19):</h4>
+                        <p class="text-xs text-red-300">Detalle por regla de origen, causa específica y acción sugerida para resolverlos:</p>
+                        @if (! empty($listaConflictosDetallados))
+                            <div class="space-y-2 mt-2">
+                                @foreach ($listaConflictosDetallados as $detalle)
+                                    <div class="rounded-lg border {{ ($detalle['severidad'] ?? 'bloqueante') === 'advertencia' ? 'border-amber-500/40 bg-amber-950/30' : 'border-red-500/40 bg-gray-900/70' }} p-3 text-xs space-y-1">
+                                        <div class="flex flex-wrap items-center justify-between gap-2">
+                                            <span class="font-semibold text-white">{{ $detalle['enfrentamiento'] ?? 'Jornada' }}</span>
+                                            <span class="px-2 py-0.5 rounded bg-red-500/20 text-red-200 font-medium">{{ $detalle['regla_origen'] ?? 'Regla de programación' }}</span>
+                                        </div>
+                                        <p class="text-gray-200"><strong>Causa:</strong> {{ $detalle['causa'] ?? ($detalle['mensaje'] ?? '') }}</p>
+                                        @if (! empty($detalle['sugerencia']))
+                                            <p class="text-emerald-300"><strong>Sugerencia:</strong> {{ $detalle['sugerencia'] }}</p>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <ul class="list-disc list-inside text-xs text-red-300 space-y-0.5 mt-2">
+                                @foreach ($conflictos as $conflicto)
+                                    <li>{{ $conflicto }}</li>
+                                @endforeach
+                            </ul>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -209,6 +231,20 @@
                             @csrf
                             <button type="submit" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 transition">
                                 Generar partidos automáticamente (HU-032)
+                            </button>
+                        </form>
+                    @endcan
+                @elseif ($jornada->esBorrador())
+                    @can('update', $jornada)
+                        <form action="{{ route('jornadas.asignar-horarios', $jornada) }}" method="POST" class="flex flex-wrap items-center gap-2">
+                            @csrf
+                            <input type="hidden" name="horarios_texto" value="{{ implode(',', $horariosDefecto ?? ['09:00', '11:00', '13:00', '15:00']) }}">
+                            <label class="flex items-center gap-1.5 text-xs text-gray-300 cursor-pointer">
+                                <input type="checkbox" name="reemplazar_existentes" value="1" class="rounded bg-gray-900 border-gray-600 text-cyan-500 focus:ring-cyan-400">
+                                <span>Reasignar todos</span>
+                            </label>
+                            <button type="submit" class="px-3 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-medium text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-400 transition">
+                                Auto-asignar canchas y horarios (HU-074)
                             </button>
                         </form>
                     @endcan

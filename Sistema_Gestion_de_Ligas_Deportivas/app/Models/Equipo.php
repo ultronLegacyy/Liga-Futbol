@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Equipo extends Model
 {
@@ -65,5 +66,15 @@ class Equipo extends Model
     public function sanciones(): HasMany
     {
         return $this->hasMany(Sancion::class, 'equipo_id');
+    }
+
+    /**
+     * Preferencia de cancha, día y hora del equipo para programación automática (HU-074).
+     *
+     * @return HasOne<PreferenciaEquipo, $this>
+     */
+    public function preferencia(): HasOne
+    {
+        return $this->hasOne(PreferenciaEquipo::class, 'equipo_id');
     }
 }

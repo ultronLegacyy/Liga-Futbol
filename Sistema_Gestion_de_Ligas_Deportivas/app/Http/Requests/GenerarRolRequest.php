@@ -2,15 +2,28 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\DescartaArreglosEnCamposDeTexto;
+use App\Http\Requests\Concerns\ValidaOpcionesHorarios;
 use App\Models\Grupo;
 use App\Models\Jornada;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Validator;
 
-// Solicitud de configuración y previsualización de rol de juegos (HU-032, RF-07.1)
+// Solicitud de configuración y previsualización de rol de juegos (HU-032, RF-07.1, HU-074)
 class GenerarRolRequest extends FormRequest
 {
+    use DescartaArreglosEnCamposDeTexto;
+    use ValidaOpcionesHorarios;
+
+    /**
+     * @return list<string>
+     */
+    protected function camposDeTexto(): array
+    {
+        return ['fecha_inicio', 'horarios_texto', 'horarios.*'];
+    }
     public function authorize(): Response
     {
         $grupo = $this->route('grupo');
@@ -36,14 +49,22 @@ class GenerarRolRequest extends FormRequest
             }
         }
 
-        return [
+        return array_merge([
             'fecha_inicio' => $fechaRules,
             'intervalo_dias' => ['required', 'integer', 'min:1', 'max:60'],
             'dias_duracion' => ['required', 'integer', 'min:0', 'max:30'],
             'vueltas' => ['required', 'integer', 'in:1,2'],
             'aleatorizar' => ['nullable', 'boolean'],
             'sobrescribir' => ['nullable', 'boolean'],
-        ];
+            'asignar_horarios' => ['nullable', 'boolean'],
+        ], $this->reglasOpcionesHorarios());
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $this->validarHorariosTexto($validator);
+        });
     }
 
     /**
@@ -51,7 +72,7 @@ class GenerarRolRequest extends FormRequest
      */
     public function messages(): array
     {
-        return [
+        return array_merge([
             'fecha_inicio.required' => 'La fecha de inicio es obligatoria para calcular el calendario.',
             'fecha_inicio.date_format' => 'La fecha de inicio debe tener el formato AAAA-MM-DD (Y-m-d).',
             'fecha_inicio.after_or_equal' => 'La fecha de inicio no puede ser anterior al inicio de la temporada.',
@@ -66,6 +87,6 @@ class GenerarRolRequest extends FormRequest
             'dias_duracion.max' => 'La duración no puede superar los 30 días.',
             'vueltas.required' => 'Debe seleccionar el número de vueltas a programar.',
             'vueltas.in' => 'El número de vueltas debe ser 1 (ida) o 2 (ida y vuelta).',
-        ];
+        ], $this->mensajesOpcionesHorarios());
     }
 }

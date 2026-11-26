@@ -15,7 +15,8 @@ use Illuminate\Validation\ValidationException;
 class GeneradorEnfrentamientosService
 {
     public function __construct(
-        private readonly AuditService $auditService
+        private readonly AuditService $auditService,
+        private readonly ProgramacionAutomaticaService $programacionAutomaticaService,
     ) {
     }
 
@@ -157,8 +158,8 @@ class GeneradorEnfrentamientosService
     /**
      * Genera la propuesta completa del rol regular para previsualización.
      *
-     * @param  array{fecha_inicio?: string|null, intervalo_dias?: int|string|null, dias_duracion?: int|string|null, vueltas?: int|string|null, aleatorizar?: bool|int|string|null}  $opciones
-     * @return array{grupo_id: int, grupo_nombre: string, categoria_nombre: string, temporada_nombre: string, total_equipos: int, total_jornadas: int, vueltas: int, jornadas: array<int, array{numero_jornada: int, fecha_inicio: string, fecha_fin: string, equipo_descanso_id: int|null, equipo_descanso_nombre: string|null, partidos: array<int, array{equipo_local_id: int, equipo_local_nombre: string, equipo_visitante_id: int, equipo_visitante_nombre: string}>}>}
+     * @param  array{fecha_inicio?: string|null, intervalo_dias?: int|string|null, dias_duracion?: int|string|null, vueltas?: int|string|null, aleatorizar?: bool|int|string|null, asignar_horarios?: bool|int|string|null, horarios?: array<int, string>|null, cancha_ids?: array<int, int>|null, respetar_capacidad_cancha?: bool|int|string|null}  $opciones
+     * @return array<string, mixed>
      *
      * @throws ValidationException
      */
@@ -230,7 +231,7 @@ class GeneradorEnfrentamientosService
             }
         }
 
-        return [
+        $propuesta = [
             'grupo_id' => $grupo->id,
             'grupo_nombre' => $grupo->nombre,
             'categoria_nombre' => $grupo->categoria->nombre,
@@ -240,6 +241,12 @@ class GeneradorEnfrentamientosService
             'vueltas' => $vueltas,
             'jornadas' => $jornadasFormateadas,
         ];
+
+        if ((bool) ($opciones['asignar_horarios'] ?? false)) {
+            return $this->programacionAutomaticaService->asignarPropuesta($grupo, $propuesta, $opciones);
+        }
+
+        return $propuesta;
     }
 
     /**
@@ -637,20 +644,28 @@ class GeneradorEnfrentamientosService
     }
 
     /**
-     * Persiste la propuesta del rol regular en la base de datos bajo transacción atómica.
+     * Persiste una propuesta de rol regular como jornadas y partidos reales en estado borrador.
+     * Si `$asignarHorarios` es verdadero, ejecuta la asignación automática de cancha, fecha y hora (HU-074)
+     * reportando cualquier déficit sin bloquear el guardado (HU-033).
      *
-     * @param  array{jornadas: array<int, array{numero_jornada: int, fecha_inicio: string, fecha_fin: string, equipo_descanso_id: int|null, partidos: array<int, array{equipo_local_id: int, equipo_visitante_id: int}>}>}  $propuesta
-     * @return array{jornadas_creadas: int, partidos_creados: int}
+     * @param  array<string, mixed>  $propuesta
+     * @param  array<string, mixed>  $opcionesHorarios
+     * @return array<string, mixed>
      *
      * @throws ValidationException
      */
-    public function guardarRolGenerado(Grupo $grupo, array $propuesta, bool $sobrescribir = false): array
-    {
+    public function guardarRolGenerado(
+        Grupo $grupo,
+        array $propuesta,
+        bool $sobrescribir = false,
+        bool $asignarHorarios = false,
+        array $opcionesHorarios = []
+    ): array {
         $this->validarPropuestaRol($grupo, $propuesta);
 
         return $this->auditService->conMotivo(
             'Generación automática de rol de enfrentamientos (HU-032 / RF-07.1)',
-            function () use ($grupo, $propuesta, $sobrescribir): array {
+            function () use ($grupo, $propuesta, $sobrescribir, $asignarHorarios, $opcionesHorarios): array {
                 // Serializar concurrencia bloqueando pesimistamente la fila del grupo (RNF-33)
                 /** @var Grupo $grupoBloqueado */
                 $grupoBloqueado = Grupo::query()->whereKey($grupo->id)->lockForUpdate()->firstOrFail();
@@ -733,10 +748,19 @@ class GeneradorEnfrentamientosService
                     }
                 }
 
-                return [
+                $resumen = [
                     'jornadas_creadas' => $totalJornadas,
                     'partidos_creados' => $totalPartidos,
                 ];
+
+                if ($asignarHorarios) {
+                    $resumen['resumen_horarios'] = $this->programacionAutomaticaService->asignarHorariosAGrupo(
+                        $grupoBloqueado,
+                        $opcionesHorarios
+                    );
+                }
+
+                return $resumen;
             }
         );
     }
