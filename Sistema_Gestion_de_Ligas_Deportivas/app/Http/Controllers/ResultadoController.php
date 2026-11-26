@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\CorregirResultadoRequest;
 use App\Models\CedulaArbitral;
 use App\Models\User;
+use App\Services\CorreccionResultadoService;
 use App\Services\ValidacionResultadoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -43,5 +45,29 @@ class ResultadoController extends Controller
         return redirect()
             ->route('resultados.index')
             ->with('success', 'Resultado validado: '.$partido?->local?->nombre.' '.$cedula->goles_local.' - '.$cedula->goles_visitante.' '.$partido?->visitante?->nombre.'. Ya es oficial.');
+    }
+
+    // HU-039: formulario para corregir un resultado ya validado, con sus correcciones anteriores
+    public function editarCorreccion(CedulaArbitral $cedula, CorreccionResultadoService $correccion): View
+    {
+        Gate::authorize('corregirResultado', $cedula);
+
+        $cedula->load(['partido.local:id,nombre', 'partido.visitante:id,nombre', 'partido.jornada.grupo.categoria:id,nombre', 'validadaPor:id,name']);
+
+        return view('resultados.corregir', [
+            'cedula' => $cedula,
+            'historial' => $correccion->historial($cedula),
+        ]);
+    }
+
+    // HU-039 CA1 y CA2: guarda la corrección con su motivo y recalcula la tabla del grupo
+    public function corregir(CorregirResultadoRequest $request, CedulaArbitral $cedula, CorreccionResultadoService $correccion): RedirectResponse
+    {
+        $datos = $request->validated();
+        $correccion->corregir($cedula, (int) $datos['goles_local'], (int) $datos['goles_visitante'], (string) $datos['motivo']);
+
+        return redirect()
+            ->route('resultados.corregir.edit', $cedula->id)
+            ->with('success', 'Resultado corregido: '.$datos['goles_local'].' - '.$datos['goles_visitante'].'. La tabla de posiciones ya se recalculó.');
     }
 }
