@@ -28,6 +28,7 @@ use App\Http\Controllers\PagoController;
 use App\Http\Controllers\PartidoController;
 use App\Http\Controllers\PersonaController;
 use App\Http\Controllers\PortalController;
+use App\Http\Controllers\PropuestaAscensoDescensoController;
 use App\Http\Controllers\RecuperacionContrasenaController;
 use App\Http\Controllers\RegistroCorreoController;
 use App\Http\Controllers\ReporteFinancieroController;
@@ -145,6 +146,13 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/grupos/{grupo}/estadisticas', [EstadisticasGrupoController::class, 'show'])
             ->whereNumber('grupo')
             ->name('grupos.estadisticas');
+        // Propuestas de ascenso y descenso, versionadas con sus reglas (HU-057, RF-11.3)
+        Route::get('/grupos/{grupo}/ascenso-descenso', [PropuestaAscensoDescensoController::class, 'show'])
+            ->whereNumber('grupo')
+            ->name('grupos.ascenso-descenso');
+        Route::post('/grupos/{grupo}/ascenso-descenso', [PropuestaAscensoDescensoController::class, 'store'])
+            ->whereNumber('grupo')
+            ->name('grupos.ascenso-descenso.store');
 
         // Generación automática de rol regular y enfrentamientos (HU-032, RF-07.1)
         Route::get('/grupos/{grupo}/generar-rol', [GeneradorEnfrentamientosController::class, 'configurar'])
