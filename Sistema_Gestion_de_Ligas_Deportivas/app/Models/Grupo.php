@@ -65,6 +65,13 @@ class Grupo extends Model
         return $this->hasMany(Equipo::class, 'grupo_id');
     }
 
+    // Renglones de la tabla de posiciones calculada (HU-041)
+    /** @return HasMany<TablaPosicion, $this> */
+    public function tablaPosiciones(): HasMany
+    {
+        return $this->hasMany(TablaPosicion::class, 'grupo_id');
+    }
+
     /** @return HasMany<Jornada, $this> */
     public function jornadas(): HasMany
     {
