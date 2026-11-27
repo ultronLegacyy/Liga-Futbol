@@ -9,6 +9,7 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Ejecuta en segundo plano la programación automática masiva de toda una temporada/jornada general
@@ -35,6 +36,19 @@ class ProgramarCalendarioMasivoJob implements ShouldQueue
     {
         $temporada = Temporada::query()->find($this->temporadaId);
         if (! $temporada instanceof Temporada || $temporada->estado === 'cerrada') {
+            Cache::put(
+                "programacion_masiva_temporada_{$this->temporadaId}",
+                [
+                    'estado' => 'cancelado',
+                    'motivo' => ! $temporada instanceof Temporada
+                        ? 'La temporada ya no existe al iniciar el proceso.'
+                        : 'La temporada fue cerrada antes de iniciar la programación automática masiva.',
+                    'solicitado_por_id' => $this->usuarioId,
+                    'ejecutado_en' => now()->toIso8601String(),
+                ],
+                now()->addHours(6)
+            );
+
             return;
         }
 
@@ -71,5 +85,25 @@ class ProgramarCalendarioMasivoJob implements ShouldQueue
                 Auth::onceUsingId($usuarioPrevioId);
             }
         }
+    }
+
+    public function failed(Throwable $exception): void
+    {
+        Cache::put(
+            "programacion_masiva_temporada_{$this->temporadaId}",
+            [
+                'estado' => 'fallido',
+                'motivo' => 'La programación masiva en segundo plano no pudo completarse.',
+                'solicitado_por_id' => $this->usuarioId,
+                'ejecutado_en' => now()->toIso8601String(),
+            ],
+            now()->addHours(6)
+        );
+
+        Log::error('Error en programación automática masiva en segundo plano.', [
+            'temporada_id' => $this->temporadaId,
+            'usuario_id' => $this->usuarioId,
+            'error' => $exception->getMessage(),
+        ]);
     }
 }

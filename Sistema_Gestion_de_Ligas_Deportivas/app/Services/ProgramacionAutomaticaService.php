@@ -13,8 +13,10 @@ use App\Models\PreferenciaEquipo;
 use App\Models\Temporada;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
+use DateTimeImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -120,6 +122,7 @@ class ProgramacionAutomaticaService
                     numeroJornada: $numeroJornada,
                     partidoId: null,
                     fechaReferencia: (string) $jornadaPropuesta['fecha_inicio'],
+                    fechaFinJornada: (string) $jornadaPropuesta['fecha_fin'],
                     ventanaSlots: $ventanaSlots,
                     estado: $estado,
                     slotPreferidoPropuesta: null
@@ -280,7 +283,7 @@ class ProgramacionAutomaticaService
     ): array {
         $inicioCronometro = microtime(true);
         $reemplazar = (bool) ($opciones['reemplazar_existentes'] ?? false);
-        /** @var array<int, array<string, array{cancha_id: int, fecha_partido: string, hora_partido: string}>> $slotsPropuesta */
+        /** @var array<int, array<string, array<string, mixed>>> $slotsPropuesta */
         $slotsPropuesta = is_array($opciones['slots_preferidos_propuesta'] ?? null)
             ? $opciones['slots_preferidos_propuesta']
             : [];
@@ -407,7 +410,24 @@ class ProgramacionAutomaticaService
             $cambiosPendientes = [];
 
             foreach ($jornadasPorOrden as $jornada) {
-                $fechaInicioPorJornada[$jornada->id] = $this->normalizarFecha($jornada->fecha_inicio);
+                $fechaInicioJornada = $this->normalizarFecha($jornada->fecha_inicio);
+                $fechaFinJornada = $this->normalizarFecha($jornada->fecha_fin);
+                $fechaInicioPorJornada[$jornada->id] = $fechaInicioJornada;
+
+                if (isset($opciones['cancha_ids']) || isset($opciones['horarios'])) {
+                    Cache::put(
+                        "programacion_opciones_jornada_{$jornada->id}",
+                        [
+                            'cancha_ids' => is_array($opciones['cancha_ids'] ?? null)
+                                ? array_values(array_map('intval', $opciones['cancha_ids']))
+                                : null,
+                            'horarios' => $estado['horarios'],
+                        ],
+                        now()->addHours(6)
+                    );
+                } else {
+                    Cache::forget("programacion_opciones_jornada_{$jornada->id}");
+                }
 
                 /** @var Collection<int, Partido>|null $lote */
                 $lote = $partidosPorJornada->get($jornada->id);
@@ -416,8 +436,8 @@ class ProgramacionAutomaticaService
                 }
 
                 $ventanaSlots = $this->construirSlotsVentana(
-                    $fechaInicioPorJornada[$jornada->id],
-                    $this->normalizarFecha($jornada->fecha_fin),
+                    $fechaInicioJornada,
+                    $fechaFinJornada,
                     $estado['horarios'],
                     $estado['duracion_minutos']
                 );
@@ -437,7 +457,8 @@ class ProgramacionAutomaticaService
                         arbitroId: $partido->arbitro_id !== null ? (int) $partido->arbitro_id : null,
                         numeroJornada: (int) $jornada->numero_jornada,
                         partidoId: $partido->id,
-                        fechaReferencia: $fechaInicioPorJornada[$jornada->id],
+                        fechaReferencia: $fechaInicioJornada,
+                        fechaFinJornada: $fechaFinJornada,
                         ventanaSlots: $ventanaSlots,
                         estado: $estado,
                         slotPreferidoPropuesta: $slotPreferido
@@ -537,9 +558,10 @@ class ProgramacionAutomaticaService
             ->values();
 
         // Incluir día previo para detectar partidos que cruzan medianoche (23:00 -> 01:00)
-        $fechaAnteriorMin = Carbon::parse($fechaMin)->subMinutes($duracionMinutos)->toDateString();
+        $fechaAnteriorMin = Carbon::parse($fechaMin.' 00:00:00')->subMinutes($duracionMinutos)->toDateString();
+        $fechaPosteriorMax = Carbon::parse($fechaMax.' 23:59:59')->addMinutes($duracionMinutos)->toDateString();
         $inicioVentana = Carbon::parse($fechaAnteriorMin.' 00:00:00');
-        $finVentana = Carbon::parse($fechaMax.' 23:59:59')->addMinutes($duracionMinutos);
+        $finVentana = Carbon::parse($fechaPosteriorMax.' 23:59:59');
 
         $bloqueosRaw = BloqueoCancha::query()
             ->solapadosCon($inicioVentana, $finVentana)
@@ -561,9 +583,10 @@ class ProgramacionAutomaticaService
 
         $ignorarIds = array_flip(array_map('intval', $opciones['ignorar_partido_ids'] ?? []));
 
+        // Ampliar la ventana hacia atrás y hacia adelante por cruce de medianoche (HU-025 / HU-026)
         $partidosExistentes = Partido::query()
             ->queOcupanCancha()
-            ->whereBetween('fecha_partido', [$fechaAnteriorMin, $fechaMax])
+            ->whereBetween('fecha_partido', [$fechaAnteriorMin, $fechaPosteriorMax])
             ->get(['id', 'cancha_id', 'arbitro_id', 'equipo_local_id', 'equipo_visitante_id', 'fecha_partido', 'hora_partido']);
 
         $canchaSlots = [];
@@ -615,7 +638,7 @@ class ProgramacionAutomaticaService
                 ->whereIn('arbitro_id', $arbitroIds)
                 ->whereNotNull('fecha_partido')
                 ->whereNotNull('hora_partido')
-                ->whereBetween('fecha_partido', [$fechaAnteriorMin, $fechaMax])
+                ->whereBetween('fecha_partido', [$fechaAnteriorMin, $fechaPosteriorMax])
                 ->get(['id', 'arbitro_id', 'fecha_partido', 'hora_partido']);
 
             foreach ($filasArbitros as $fila) {
@@ -632,6 +655,8 @@ class ProgramacionAutomaticaService
             ? PreferenciaEquipo::query()->whereIn('equipo_id', $equipoIds)->get()->keyBy('equipo_id')
             : collect();
 
+        $equiposSancionados = ProgramacionJornadaService::motivosSancionVigentePorEquipos($equipoIds);
+
         return [
             'duracion_minutos' => $duracionMinutos,
             'horarios' => $horarios,
@@ -645,6 +670,7 @@ class ProgramacionAutomaticaService
             'arbitro_slots' => $arbitroSlots,
             'arbitro_horarios_exactos' => $arbitroHorariosExactos,
             'preferencias' => $preferencias,
+            'equipos_sancionados' => $equiposSancionados,
         ];
     }
 
@@ -653,7 +679,7 @@ class ProgramacionAutomaticaService
      *
      * @param  array<int, array{fecha: string, fin_fecha: string, hora: string, dia_iso: int, inicio_ts: int, fin_ts: int}>  $ventanaSlots
      * @param  array<string, mixed>  $estado
-     * @param  array{cancha_id: int, fecha_partido: string, hora_partido: string}|null  $slotPreferidoPropuesta
+     * @param  array<string, mixed>|null  $slotPreferidoPropuesta
      * @return array<string, mixed>
      */
     private function asignarPartidoEnMemoria(
@@ -665,10 +691,29 @@ class ProgramacionAutomaticaService
         int $numeroJornada,
         ?int $partidoId,
         string $fechaReferencia,
+        string $fechaFinJornada,
         array $ventanaSlots,
         array &$estado,
         ?array $slotPreferidoPropuesta
     ): array {
+        // Restricción dura (HU-074 CA1 / HU-027 / PO): no se programan equipos con >= 3 defaults o sanción vigente de suspensión/desafiliación
+        foreach ([[$localId, $localNombre], [$visitanteId, $visitanteNombre]] as [$equipoIdCheck, $equipoNombreCheck]) {
+            if (isset($estado['equipos_sancionados'][$equipoIdCheck])) {
+                return [
+                    'asignado' => false,
+                    'preferencia_aplicada' => false,
+                    'conflicto' => $this->detectorConflictos->construirConflictoEquipoSancionado(
+                        jornadaNumero: $numeroJornada,
+                        partidoId: $partidoId,
+                        enfrentamiento: "{$localNombre} vs {$visitanteNombre}",
+                        fechaReferencia: $fechaReferencia,
+                        equipoNombre: $equipoNombreCheck,
+                        motivoSancion: (string) $estado['equipos_sancionados'][$equipoIdCheck],
+                    ),
+                ];
+            }
+        }
+
         /** @var Collection<int, Cancha> $canchasOperativas */
         $canchasOperativas = $estado['canchas_operativas'];
 
@@ -689,13 +734,15 @@ class ProgramacionAutomaticaService
             'por_empalme_arbitro' => 0,
         ];
 
-        // Recomendado: si viene de confirmación tras previsualización, intentar conservar primero el slot exacto visto
+        // Recomendado: si viene de confirmación tras previsualización, intentar conservar el slot visto solo si es válido en rango y franjas
         if ($slotPreferidoPropuesta !== null && $canchasOperativas->isNotEmpty()) {
             $candidatoPropuesta = $this->evaluarSlotEspecificoPropuesta(
                 $slotPreferidoPropuesta,
                 $localId,
                 $visitanteId,
                 $arbitroId,
+                $fechaReferencia,
+                $fechaFinJornada,
                 $prefLocal,
                 $prefVisitante,
                 $estado
@@ -835,7 +882,7 @@ class ProgramacionAutomaticaService
     /**
      * Valida si el slot visto en previsualización sigue cumpliendo todas las restricciones duras en BD.
      *
-     * @param  array{cancha_id: int, fecha_partido: string, hora_partido: string}  $slotPropuesta
+     * @param  array<string, mixed>  $slotPropuesta
      * @param  array<string, mixed>  $estado
      * @return array{cancha: Cancha, fecha: string, hora: string, inicio_ts: int, fin_ts: int, preferencia_aplicada: bool}|null
      */
@@ -844,18 +891,38 @@ class ProgramacionAutomaticaService
         int $localId,
         int $visitanteId,
         ?int $arbitroId,
+        string $fechaInicioJornada,
+        string $fechaFinJornada,
         ?PreferenciaEquipo $prefLocal,
         ?PreferenciaEquipo $prefVisitante,
         array $estado
     ): ?array {
+        $rawCancha = $slotPropuesta['cancha_id'] ?? null;
+        $rawFecha = $slotPropuesta['fecha_partido'] ?? null;
+        $rawHora = $slotPropuesta['hora_partido'] ?? null;
+        if (! is_int($rawCancha) || ! is_string($rawFecha) || ! is_string($rawHora)) {
+            return null;
+        }
+
+        $fechaDt = DateTimeImmutable::createFromFormat('Y-m-d', $rawFecha);
+        $horaStr = substr(trim($rawHora), 0, 5);
+        if (
+            $fechaDt === false
+            || $fechaDt->format('Y-m-d') !== $rawFecha
+            || $rawFecha < $fechaInicioJornada
+            || $rawFecha > $fechaFinJornada
+            || ! in_array($horaStr, $estado['horarios'], true)
+        ) {
+            return null;
+        }
+
         /** @var Cancha|null $cancha */
-        $cancha = $estado['canchas_operativas_por_id']->get((int) $slotPropuesta['cancha_id']);
+        $cancha = $estado['canchas_operativas_por_id']->get($rawCancha);
         if (! $cancha instanceof Cancha) {
             return null;
         }
 
-        $fechaStr = $slotPropuesta['fecha_partido'];
-        $horaStr = substr($slotPropuesta['hora_partido'], 0, 5);
+        $fechaStr = $rawFecha;
         $inicioTs = strtotime($fechaStr.' '.$horaStr.':00') ?: 0;
         if ($inicioTs <= 0) {
             return null;
@@ -969,29 +1036,33 @@ class ProgramacionAutomaticaService
         ?PreferenciaEquipo $prefLocal,
         ?PreferenciaEquipo $prefVisitante
     ): int {
+        $pesos = (array) config('programacion.pesos_preferencias', []);
+        $pesoLocal = (array) ($pesos['local'] ?? []);
+        $pesoVisitante = (array) ($pesos['visitante'] ?? []);
+
         $puntaje = 0;
 
         if ($prefLocal !== null) {
             if ($prefLocal->cancha_id_preferida === $canchaId) {
-                $puntaje += 40;
+                $puntaje += (int) ($pesoLocal['cancha'] ?? 40);
             }
             if ($prefLocal->diaPreferidoIso() === $diaIso) {
-                $puntaje += 25;
+                $puntaje += (int) ($pesoLocal['dia'] ?? 25);
             }
             if ($prefLocal->horaNormalizada() === $horaStr) {
-                $puntaje += 20;
+                $puntaje += (int) ($pesoLocal['hora'] ?? 20);
             }
         }
 
         if ($prefVisitante !== null) {
             if ($prefVisitante->cancha_id_preferida === $canchaId) {
-                $puntaje += 15;
+                $puntaje += (int) ($pesoVisitante['cancha'] ?? 15);
             }
             if ($prefVisitante->diaPreferidoIso() === $diaIso) {
-                $puntaje += 10;
+                $puntaje += (int) ($pesoVisitante['dia'] ?? 10);
             }
             if ($prefVisitante->horaNormalizada() === $horaStr) {
-                $puntaje += 8;
+                $puntaje += (int) ($pesoVisitante['hora'] ?? 8);
             }
         }
 

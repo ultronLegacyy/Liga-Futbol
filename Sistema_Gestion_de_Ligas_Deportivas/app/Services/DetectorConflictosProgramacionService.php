@@ -10,6 +10,7 @@ use App\Models\Partido;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Detector y explicador de conflictos de programación automática y semanal (HU-033, RF-07.3, RNF-19).
@@ -67,7 +68,18 @@ class DetectorConflictosProgramacionService
         }
 
         $duracionMinutos = $this->canchaService->duracionEnMinutos();
-        $horariosCandidatos = $this->resolverHorarios($horarios);
+        $opcionesGuardadas = Cache::get("programacion_opciones_jornada_{$jornada->id}");
+        $horariosEfectivos = $horarios;
+        $canchaIdsFiltro = null;
+        if (is_array($opcionesGuardadas)) {
+            if ($horariosEfectivos === [] && is_array($opcionesGuardadas['horarios'] ?? null) && $opcionesGuardadas['horarios'] !== []) {
+                $horariosEfectivos = array_map('strval', $opcionesGuardadas['horarios']);
+            }
+            if (is_array($opcionesGuardadas['cancha_ids'] ?? null) && $opcionesGuardadas['cancha_ids'] !== []) {
+                $canchaIdsFiltro = array_map('intval', $opcionesGuardadas['cancha_ids']);
+            }
+        }
+        $horariosCandidatos = $this->resolverHorarios($horariosEfectivos);
         $contexto = $datosPrecargados ?? $this->precargarContextoParaJornada($jornada, $partidosActivos);
 
         $conflictos = [];
@@ -84,14 +96,43 @@ class DetectorConflictosProgramacionService
 
         foreach ($partidosActivos as $partido) {
             $enfrentamiento = $this->formatearEnfrentamiento($partido);
+            $fechaPartidoRef = $partido->fecha_partido !== null
+                ? $this->normalizarFecha($partido->fecha_partido)
+                : $this->normalizarFecha($jornada->fecha_inicio);
+
+            foreach (
+                [
+                    [(int) $partido->equipo_local_id, $this->nombreEquipo($partido->local, (int) $partido->equipo_local_id)],
+                    [(int) $partido->equipo_visitante_id, $this->nombreEquipo($partido->visitante, (int) $partido->equipo_visitante_id)],
+                ] as [$equipoIdCheck, $equipoNombreCheck]
+            ) {
+                if (isset($contexto['equipos_sancionados'][$equipoIdCheck])) {
+                    $conflictos[] = $this->construirConflictoEquipoSancionado(
+                        jornadaNumero: $jornada->numero_jornada,
+                        partidoId: $partido->id,
+                        enfrentamiento: $enfrentamiento,
+                        fechaReferencia: $fechaPartidoRef,
+                        equipoNombre: $equipoNombreCheck,
+                        motivoSancion: (string) $contexto['equipos_sancionados'][$equipoIdCheck],
+                    );
+                }
+            }
 
             if ($partido->cancha_id === null || $partido->fecha_partido === null || $partido->hora_partido === null) {
+                if (
+                    isset($contexto['equipos_sancionados'][(int) $partido->equipo_local_id])
+                    || isset($contexto['equipos_sancionados'][(int) $partido->equipo_visitante_id])
+                ) {
+                    continue;
+                }
+
                 $conflictos[] = $this->diagnosticarPartidoSinHorario(
                     $jornada,
                     $partido,
                     $horariosCandidatos,
                     $duracionMinutos,
-                    $contexto
+                    $contexto,
+                    $canchaIdsFiltro
                 );
 
                 continue;
@@ -533,6 +574,7 @@ class DetectorConflictosProgramacionService
      *
      * @param  array<int, string>  $horariosCandidatos
      * @param  array<string, mixed>  $contexto
+     * @param  array<int, int>|null  $canchaIdsFiltro
      * @return array<string, mixed>
      */
     private function diagnosticarPartidoSinHorario(
@@ -540,10 +582,14 @@ class DetectorConflictosProgramacionService
         Partido $partido,
         array $horariosCandidatos,
         int $duracionMinutos,
-        array $contexto
+        array $contexto,
+        ?array $canchaIdsFiltro = null
     ): array {
         /** @var Collection<int, Cancha> $canchasOperativas */
         $canchasOperativas = $contexto['canchas_operativas'];
+        if ($canchaIdsFiltro !== null) {
+            $canchasOperativas = $canchasOperativas->whereIn('id', $canchaIdsFiltro)->values();
+        }
         $fechas = $this->expandirFechas($jornada->fecha_inicio, $jornada->fecha_fin);
 
         $rechazos = [
@@ -644,7 +690,7 @@ class DetectorConflictosProgramacionService
                 partidoId: $partido->id,
                 enfrentamiento: $this->formatearEnfrentamiento($partido),
                 fechaReferencia: $this->normalizarFecha($jornada->fecha_inicio),
-                causa: "El partido '{$this->formatearEnfrentamiento($partido)}' aún no cuenta con cancha u horario asignado completo (consultando el catálogo general de franjas existen espacios libres o ejecute nuevamente la asignación según las sedes y horarios elegidos).",
+                causa: "El partido '{$this->formatearEnfrentamiento($partido)}' aún no cuenta con cancha u horario asignado completo, aunque existen franjas libres dentro de la configuración evaluada.",
                 sugerencia: 'Ejecute la asignación automática de horarios o capture manualmente cancha, fecha y hora.',
             );
         }
@@ -686,10 +732,11 @@ class DetectorConflictosProgramacionService
         }
 
         $duracionMinutos = $this->canchaService->duracionEnMinutos();
-        $fechaAnteriorMin = Carbon::parse($fechaMin)->subMinutes($duracionMinutos)->toDateString();
+        $fechaAnteriorMin = Carbon::parse($fechaMin.' 00:00:00')->subMinutes($duracionMinutos)->toDateString();
+        $fechaPosteriorMax = Carbon::parse($fechaMax.' 23:59:59')->addMinutes($duracionMinutos)->toDateString();
 
         $inicioVentana = Carbon::parse($fechaAnteriorMin.' 00:00:00');
-        $finVentana = Carbon::parse($fechaMax.' 23:59:59')->addMinutes($duracionMinutos);
+        $finVentana = Carbon::parse($fechaPosteriorMax.' 23:59:59');
 
         $todasCanchas = Cancha::query()->orderBy('id')->get();
         $canchasPorId = $todasCanchas->keyBy('id');
@@ -703,7 +750,7 @@ class DetectorConflictosProgramacionService
         $partidosVentana = Partido::query()
             ->with(['local', 'visitante'])
             ->queOcupanCancha()
-            ->whereBetween('fecha_partido', [$fechaAnteriorMin, $fechaMax])
+            ->whereBetween('fecha_partido', [$fechaAnteriorMin, $fechaPosteriorMax])
             ->get();
 
         $ocupacionTodas = [];
@@ -773,7 +820,7 @@ class DetectorConflictosProgramacionService
                 ->whereIn('arbitro_id', $arbitrosIds)
                 ->whereNotNull('fecha_partido')
                 ->whereNotNull('hora_partido')
-                ->whereBetween('fecha_partido', [$fechaAnteriorMin, $fechaMax])
+                ->whereBetween('fecha_partido', [$fechaAnteriorMin, $fechaPosteriorMax])
                 ->get(['id', 'arbitro_id', 'fecha_partido', 'hora_partido']);
 
             foreach ($filasArbitros as $fila) {
@@ -781,6 +828,14 @@ class DetectorConflictosProgramacionService
                 $arbitroHorariosExactos[(int) $fila->arbitro_id][$claveExacta] = $fila->id;
             }
         }
+
+        $equiposIds = $partidosActivos
+            ->flatMap(fn (Partido $p): array => [(int) $p->equipo_local_id, (int) $p->equipo_visitante_id])
+            ->unique()
+            ->values()
+            ->all();
+
+        $equiposSancionados = ProgramacionJornadaService::motivosSancionVigentePorEquipos($equiposIds);
 
         return [
             'canchas_por_id' => $canchasPorId,
@@ -792,6 +847,7 @@ class DetectorConflictosProgramacionService
             'ocupacion_equipos' => $ocupacionEquipos,
             'ocupacion_arbitros' => $ocupacionArbitros,
             'arbitro_horarios_exactos' => $arbitroHorariosExactos,
+            'equipos_sancionados' => $equiposSancionados,
         ];
     }
 
@@ -908,6 +964,32 @@ class DetectorConflictosProgramacionService
         }
 
         return $respaldo ?? "Equipo #{$equipoId}";
+    }
+
+    /**
+     * Construye conflicto estándar cuando uno de los equipos está impedido por sanción vigente (HU-027 / HU-074 CA1).
+     *
+     * @return array<string, mixed>
+     */
+    public function construirConflictoEquipoSancionado(
+        ?int $jornadaNumero,
+        ?int $partidoId,
+        string $enfrentamiento,
+        ?string $fechaReferencia,
+        string $equipoNombre,
+        string $motivoSancion
+    ): array {
+        return $this->construirConflicto(
+            codigoRegla: 'SANCION_EQUIPO_VIGENTE',
+            reglaOrigen: 'RF-07.2 / HU-027 / HU-074 CA1: Exclusión de equipos con sanción disciplinaria vigente o 3 defaults',
+            severidad: 'bloqueante',
+            jornadaNumero: $jornadaNumero,
+            partidoId: $partidoId,
+            enfrentamiento: $enfrentamiento,
+            fechaReferencia: $fechaReferencia,
+            causa: "El equipo '{$equipoNombre}' no puede programarse porque {$motivoSancion}.",
+            sugerencia: 'Regularice el estatus disciplinario del equipo o retírelo de la jornada antes de programar/publicar.',
+        );
     }
 
     /**

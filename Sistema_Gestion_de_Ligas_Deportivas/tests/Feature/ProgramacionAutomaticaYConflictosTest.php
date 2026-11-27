@@ -17,8 +17,10 @@ use App\Models\Persona;
 use App\Models\PreferenciaEquipo;
 use App\Models\Temporada;
 use App\Models\User;
+use App\Services\AsignacionArbitroService;
 use App\Services\GeneradorEnfrentamientosService;
 use App\Services\ProgramacionAutomaticaService;
+use App\Services\ProgramacionJornadaService;
 use App\Services\PublicacionProgramacionService;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -1111,6 +1113,340 @@ class ProgramacionAutomaticaYConflictosTest extends TestCase
         $this->assertSame(5, $resumen['asignados']);
         // Precarga constante + actualizaciones + auditoría acotada, sin lecturas N+1 dentro del ciclo de evaluación
         $this->assertLessThanOrEqual(25, $consultasEjecutadas, "Se ejecutaron {$consultasEjecutadas} consultas SQL; no debe existir N+1.");
+    }
+
+    public function test_json_alterado_al_confirmar_rol_descarta_fechas_fuera_de_rango_sin_error_500(): void
+    {
+        $this->crearEquipo('Tamper 1');
+        $this->crearEquipo('Tamper 2');
+        $this->crearEquipo('Tamper 3');
+        $this->crearEquipo('Tamper 4');
+
+        $cancha = Cancha::factory()->create(['nombre' => 'Cancha Tamper', 'estado' => 'Disponible']);
+
+        $preview = $this->actingAs($this->programador)
+            ->postJson(route('grupos.previsualizar-rol', $this->grupo), [
+                'fecha_inicio' => '2027-05-01',
+                'intervalo_dias' => 7,
+                'dias_duracion' => 1,
+                'vueltas' => 1,
+                'asignar_horarios' => true,
+                'horarios' => ['09:00', '11:00'],
+                'cancha_ids' => [$cancha->id],
+            ])
+            ->assertOk()
+            ->json();
+
+        // Alterar payload oculto con fecha fuera de temporada, fecha inexistente, hora no permitida y arreglo malicioso
+        $preview['jornadas'][0]['partidos'][0]['fecha_partido'] = '2030-01-01';
+        $preview['jornadas'][0]['partidos'][0]['hora_partido'] = '03:17';
+        $preview['jornadas'][0]['partidos'][1]['fecha_partido'] = '2026-02-30';
+        $preview['jornadas'][1]['partidos'][0]['fecha_partido'] = ['x'];
+
+        $this->actingAs($this->programador)
+            ->post(route('grupos.confirmar-rol', $this->grupo), [
+                'fixture_payload' => json_encode($preview, JSON_THROW_ON_ERROR),
+                'asignar_horarios' => 1,
+                'horarios' => ['09:00', '11:00'],
+                'cancha_ids' => [$cancha->id],
+            ])
+            ->assertRedirect(route('grupos.jornadas.index', $this->grupo))
+            ->assertSessionHas('success');
+
+        $jornadas = $this->grupo->jornadas()->with('partidos')->get();
+        foreach ($jornadas as $jornada) {
+            $inicioJ = $jornada->fecha_inicio->toDateString();
+            $finJ = $jornada->fecha_fin->toDateString();
+            foreach ($jornada->partidos as $partido) {
+                $fechaGuardada = $partido->fecha_partido?->toDateString();
+                $this->assertNotNull($fechaGuardada);
+                $this->assertGreaterThanOrEqual($inicioJ, $fechaGuardada);
+                $this->assertLessThanOrEqual($finJ, $fechaGuardada);
+                $this->assertContains($partido->hora_partido, ['09:00:00', '11:00:00']);
+            }
+        }
+    }
+
+    public function test_medianoche_hacia_adelante_evita_y_detecta_empalme_en_cancha_y_arbitro(): void
+    {
+        $e1 = $this->crearEquipo('Aurora FC');
+        $e2 = $this->crearEquipo('Bruma FC');
+        $e3 = $this->crearEquipo('Noche FC');
+        $e4 = $this->crearEquipo('Velada FC');
+
+        $cancha = Cancha::factory()->create(['nombre' => 'Cancha C4', 'estado' => 'Disponible']);
+        $canchaAlterna = Cancha::factory()->create(['nombre' => 'Cancha Alterna', 'estado' => 'Disponible']);
+
+        $personaArbitro = Persona::factory()->create();
+        $arbitro = Arbitro::create(['persona_id' => $personaArbitro->id, 'estado' => 'Activo']);
+
+        // Partido existente al día siguiente a las 00:30 (2026-10-21)
+        $jornadaSiguiente = Jornada::create([
+            'grupo_id' => $this->grupo->id,
+            'numero_jornada' => 2,
+            'fecha_inicio' => '2026-10-21',
+            'fecha_fin' => '2026-10-21',
+            'estado' => Jornada::ESTADO_PUBLICADA,
+        ]);
+
+        Partido::create([
+            'jornada_id' => $jornadaSiguiente->id,
+            'equipo_local_id' => $e1->id,
+            'equipo_visitante_id' => $e2->id,
+            'cancha_id' => $cancha->id,
+            'arbitro_id' => $arbitro->id,
+            'fecha_partido' => '2026-10-21',
+            'hora_partido' => '00:30:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        // Jornada en borrador el 2026-10-20 con partido que intenta programar a las 23:00 en Cancha C4 (terminaría 01:00 del 21)
+        $jornadaPrevia = Jornada::create([
+            'grupo_id' => $this->grupo->id,
+            'numero_jornada' => 1,
+            'fecha_inicio' => '2026-10-20',
+            'fecha_fin' => '2026-10-20',
+            'estado' => Jornada::ESTADO_BORRADOR,
+        ]);
+
+        $partidoPrevio = Partido::create([
+            'jornada_id' => $jornadaPrevia->id,
+            'equipo_local_id' => $e3->id,
+            'equipo_visitante_id' => $e4->id,
+            'arbitro_id' => $arbitro->id,
+            'estado' => Partido::ESTADO_BORRADOR,
+        ]);
+
+        // Solo 23:00 sobre Cancha C4: debe evitarlo por traslape con 00:30 del día siguiente (cancha y árbitro)
+        $resCancha = $this->programacionService->asignarHorariosAJornada($jornadaPrevia, [
+            'horarios' => ['23:00'],
+            'cancha_ids' => [$cancha->id],
+        ]);
+        $this->assertSame(0, $resCancha['asignados']);
+        $this->assertNull($partidoPrevio->fresh()->hora_partido);
+
+        // Incluso en otra cancha, a las 23:30 el árbitro choca con 00:30 del día 21
+        $resArbitro = $this->programacionService->asignarHorariosAJornada($jornadaPrevia, [
+            'horarios' => ['23:30'],
+            'cancha_ids' => [$canchaAlterna->id],
+        ]);
+        $this->assertSame(0, $resArbitro['asignados']);
+        $this->assertSame('ARBITRO_OCUPADO', $resArbitro['conflictos'][0]['codigo_regla']);
+
+        // Si el partido previo existiera en C4 el 20/10 a las 23:00, el detector debe denunciar CANCHA_OCUPADA hacia adelante
+        $partidoPrevio->update([
+            'cancha_id' => $cancha->id,
+            'fecha_partido' => '2026-10-20',
+            'hora_partido' => '23:00:00',
+        ]);
+        $conflictosForward = app(PublicacionProgramacionService::class)->detectarConflictosDetallados($jornadaPrevia->fresh());
+        $this->assertContains('CANCHA_OCUPADA', array_column($conflictosForward, 'codigo_regla'));
+        $this->assertContains('ARBITRO_OCUPADO', array_column($conflictosForward, 'codigo_regla'));
+    }
+
+    public function test_regla_unica_arbitro_ventana_120_min_en_hu026_hu027_motor_y_detector(): void
+    {
+        $e1 = $this->crearEquipo('Arbitro E1');
+        $e2 = $this->crearEquipo('Arbitro E2');
+        $e3 = $this->crearEquipo('Arbitro E3');
+        $e4 = $this->crearEquipo('Arbitro E4');
+
+        $cancha1 = Cancha::factory()->create(['estado' => 'Disponible']);
+        $cancha2 = Cancha::factory()->create(['estado' => 'Disponible']);
+        $cancha3 = Cancha::factory()->create(['estado' => 'Disponible']);
+
+        $rolArbitro = app(\App\Services\IdentidadPersonaService::class)->asignarRol([
+            'nombre' => 'Juez',
+            'apellidos' => 'Ventana Central',
+            'fecha_nacimiento' => '1986-04-10',
+            'curp' => 'ARBV860410HDFRRN09',
+        ], 'arbitro', $this->temporada);
+        $arbitro = Arbitro::create(['persona_id' => $rolArbitro->persona_id, 'estado' => 'Activo']);
+
+        $jornada = Jornada::create([
+            'grupo_id' => $this->grupo->id,
+            'numero_jornada' => 1,
+            'fecha_inicio' => '2026-12-12',
+            'fecha_fin' => '2026-12-12',
+            'estado' => Jornada::ESTADO_BORRADOR,
+        ]);
+
+        Partido::create([
+            'jornada_id' => $jornada->id,
+            'equipo_local_id' => $e1->id,
+            'equipo_visitante_id' => $e2->id,
+            'cancha_id' => $cancha1->id,
+            'arbitro_id' => $arbitro->id,
+            'fecha_partido' => '2026-12-12',
+            'hora_partido' => '09:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        $partidoEmpalme = Partido::create([
+            'jornada_id' => $jornada->id,
+            'equipo_local_id' => $e3->id,
+            'equipo_visitante_id' => $e4->id,
+            'cancha_id' => $cancha2->id,
+            'fecha_partido' => '2026-12-12',
+            'hora_partido' => '10:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        // HU-026: AsignacionArbitroService rechaza 10:00 por ventana de 120 min contra 09:00
+        try {
+            app(AsignacionArbitroService::class)->asignar($partidoEmpalme, $arbitro);
+            $this->fail('Se esperaba ValidationException por traslape de 120 min del árbitro en HU-026.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('arbitro_id', $e->errors());
+        }
+
+        // HU-027: ProgramacionJornadaService::actualizarPartido aplica la misma regla única
+        try {
+            app(ProgramacionJornadaService::class)->actualizarPartido($partidoEmpalme, [
+                'arbitro_id' => $arbitro->id,
+            ]);
+            $this->fail('Se esperaba ValidationException por traslape de 120 min del árbitro en HU-027.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('arbitro_id', $e->errors());
+        }
+
+        // A las 11:00 (justo al cumplir 120 min) HU-026 sí permite asignar al mismo árbitro
+        $partidoValido = Partido::create([
+            'jornada_id' => $jornada->id,
+            'equipo_local_id' => $this->crearEquipo('Arbitro E5')->id,
+            'equipo_visitante_id' => $this->crearEquipo('Arbitro E6')->id,
+            'cancha_id' => $cancha3->id,
+            'fecha_partido' => '2026-12-12',
+            'hora_partido' => '11:00:00',
+            'estado' => Partido::ESTADO_PROGRAMADO,
+        ]);
+
+        app(AsignacionArbitroService::class)->asignar($partidoValido, $arbitro);
+        $this->assertSame($arbitro->id, $partidoValido->fresh()->arbitro_id);
+        $this->assertSame([], app(PublicacionProgramacionService::class)->detectarConflictos($jornada->fresh()));
+    }
+
+    public function test_hu027_sancion_equipo_por_3_defaults_impide_programacion_automatica_y_publicacion(): void
+    {
+        $suspendido = $this->crearEquipo('Suspendido Default');
+        $suspendido->update(['partidos_default_acumulados' => 3]);
+        $rival = $this->crearEquipo('Rival Limpio');
+        $limpioA = $this->crearEquipo('Limpio A');
+        $limpioB = $this->crearEquipo('Limpio B');
+
+        $cancha = Cancha::factory()->create(['estado' => 'Disponible']);
+        $this->assertSame(4, $cancha->capacidad_partidos_consecutivos);
+
+        $jornada = Jornada::create([
+            'grupo_id' => $this->grupo->id,
+            'numero_jornada' => 1,
+            'fecha_inicio' => '2026-10-17',
+            'fecha_fin' => '2026-10-17',
+            'estado' => Jornada::ESTADO_BORRADOR,
+        ]);
+
+        $partidoSancionado = Partido::create([
+            'jornada_id' => $jornada->id,
+            'equipo_local_id' => $suspendido->id,
+            'equipo_visitante_id' => $rival->id,
+            'estado' => Partido::ESTADO_BORRADOR,
+        ]);
+        $partidoLimpio = Partido::create([
+            'jornada_id' => $jornada->id,
+            'equipo_local_id' => $limpioA->id,
+            'equipo_visitante_id' => $limpioB->id,
+            'estado' => Partido::ESTADO_BORRADOR,
+        ]);
+
+        $resumen = $this->programacionService->asignarHorariosAJornada($jornada);
+        $this->assertSame(1, $resumen['asignados']);
+        $this->assertSame(1, $resumen['sin_asignar']);
+        $this->assertSame('SANCION_EQUIPO_VIGENTE', $resumen['conflictos'][0]['codigo_regla']);
+        $this->assertNull($partidoSancionado->fresh()->hora_partido);
+        $this->assertNotNull($partidoLimpio->fresh()->hora_partido);
+
+        $conflictos = app(PublicacionProgramacionService::class)->detectarConflictosDetallados($jornada->fresh());
+        $this->assertContains('SANCION_EQUIPO_VIGENTE', array_column($conflictos, 'codigo_regla'));
+    }
+
+    public function test_programador_puede_registrar_preferencias_de_equipo_y_motor_usa_pesos_configurables(): void
+    {
+        $eq1 = $this->crearEquipo('Pref Local');
+        $eq2 = $this->crearEquipo('Pref Visita');
+        $cancha1 = Cancha::factory()->create(['nombre' => 'Cancha Uno', 'estado' => 'Disponible']);
+        $cancha2 = Cancha::factory()->create(['nombre' => 'Cancha Dos', 'estado' => 'Disponible']);
+
+        // Un delegado o jugador no puede acceder todavía en este sprint (403)
+        $delegado = $this->crearUsuario('delegado_pref@liga.com', 'Delegado del Club');
+        $this->actingAs($delegado)
+            ->get(route('grupos.preferencias.edit', $this->grupo))
+            ->assertForbidden();
+
+        // El Programador de Partidos registra las preferencias solicitadas por los clubes
+        $this->actingAs($this->programador)
+            ->get(route('grupos.preferencias.edit', $this->grupo))
+            ->assertOk()
+            ->assertSee('Pref Local');
+
+        $this->actingAs($this->programador)
+            ->put(route('grupos.preferencias.update', $this->grupo), [
+                'preferencias' => [
+                    $eq1->id => [
+                        'cancha_id_preferida' => $cancha2->id,
+                        'dia_preferido' => 'Domingo',
+                        'hora_preferida' => '15:00',
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('grupos.preferencias.edit', $this->grupo))
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('preferencias_equipo', [
+            'equipo_id' => $eq1->id,
+            'cancha_id_preferida' => $cancha2->id,
+            'dia_preferido' => 'Domingo',
+            'hora_preferida' => '15:00:00',
+        ]);
+
+        // Pesos configurables en config/programacion.php
+        $this->assertSame(40, config('programacion.pesos_preferencias.local.cancha'));
+        $this->assertSame(15, config('programacion.pesos_preferencias.visitante.cancha'));
+
+        // Validación en español
+        $this->actingAs($this->programador)
+            ->putJson(route('grupos.preferencias.update', $this->grupo), [
+                'preferencias' => [
+                    $eq2->id => [
+                        'dia_preferido' => 'Feriado',
+                        'hora_preferida' => '25:99',
+                    ],
+                ],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['preferencias.'.$eq2->id.'.dia_preferido', 'preferencias.'.$eq2->id.'.hora_preferida']);
+    }
+
+    public function test_job_masivo_marca_cancelado_si_temporada_cierra_y_oculta_resumen_a_jugador(): void
+    {
+        Cache::put(
+            "programacion_masiva_temporada_{$this->temporada->id}",
+            ['estado' => 'en_proceso'],
+            now()->addHours(6)
+        );
+
+        $this->temporada->update(['estado' => 'cerrada']);
+        (new ProgramarCalendarioMasivoJob($this->temporada->id, [], $this->programador->id))->handle($this->programacionService);
+
+        $estado = Cache::get("programacion_masiva_temporada_{$this->temporada->id}");
+        $this->assertIsArray($estado);
+        $this->assertSame('cancelado', $estado['estado']);
+
+        // Un jugador con temporadas.ver NO debe ver el resumen ni los conflictos internos del motor
+        $jugador = $this->crearUsuario('jugador_resumen@liga.com', 'Jugador');
+        $this->actingAs($jugador)
+            ->get(route('temporadas.show', $this->temporada))
+            ->assertOk()
+            ->assertDontSee('Programación masiva en segundo plano');
     }
 
     private function crearUsuario(string $email, string $rol): User

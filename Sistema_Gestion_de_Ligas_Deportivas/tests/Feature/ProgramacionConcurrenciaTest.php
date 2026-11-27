@@ -27,7 +27,7 @@ class ProgramacionConcurrenciaTest extends TestCase
 
     public function test_concurrencia_real_dos_procesos_compiten_por_misma_cancha_y_horario_sin_doble_reserva(): void
     {
-        if (config('database.default') !== 'mysql') {
+        if (! in_array((string) config('database.default'), ['mysql', 'mariadb'], true)) {
             $this->markTestSkipped('La prueba de bloqueos concurrentes FOR UPDATE requiere MariaDB/MySQL.');
         }
 
@@ -83,7 +83,7 @@ class ProgramacionConcurrenciaTest extends TestCase
 
     public function test_concurrencia_real_asignacion_automatica_vs_enviar_a_revision_mantiene_consistencia(): void
     {
-        if (config('database.default') !== 'mysql') {
+        if (! in_array((string) config('database.default'), ['mysql', 'mariadb'], true)) {
             $this->markTestSkipped('La prueba de bloqueos concurrentes FOR UPDATE requiere MariaDB/MySQL.');
         }
 

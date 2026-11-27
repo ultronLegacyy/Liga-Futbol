@@ -16,7 +16,7 @@ class CanchaFactory extends Factory
         return [
             'nombre' => 'Cancha '.fake()->unique()->numberBetween(1, 9999),
             'direccion_ubicacion' => 'Unidad Deportiva, campo '.fake()->numberBetween(1, 40),
-            'capacidad_partidos_consecutivos' => fake()->numberBetween(1, 4),
+            'capacidad_partidos_consecutivos' => 4,
         ];
     }
 }

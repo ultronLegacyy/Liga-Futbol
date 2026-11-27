@@ -28,6 +28,7 @@ use App\Http\Controllers\PagoController;
 use App\Http\Controllers\PartidoController;
 use App\Http\Controllers\PersonaController;
 use App\Http\Controllers\PortalController;
+use App\Http\Controllers\PreferenciaEquipoController;
 use App\Http\Controllers\RecuperacionContrasenaController;
 use App\Http\Controllers\RegistroCorreoController;
 use App\Http\Controllers\ReporteFinancieroController;
@@ -160,6 +161,12 @@ Route::middleware(['auth'])->group(function () {
         // Generación automática de rol regular y enfrentamientos (HU-032, RF-07.1) y motor de programación horaria (HU-074, HU-033, RF-07.2, RF-07.3)
         Route::get('/grupos/{grupo}/generar-rol', [GeneradorEnfrentamientosController::class, 'configurar'])
             ->name('grupos.generar-rol');
+        Route::get('/grupos/{grupo}/preferencias', [PreferenciaEquipoController::class, 'edit'])
+            ->whereNumber('grupo')
+            ->name('grupos.preferencias.edit');
+        Route::put('/grupos/{grupo}/preferencias', [PreferenciaEquipoController::class, 'update'])
+            ->whereNumber('grupo')
+            ->name('grupos.preferencias.update');
         Route::post('/grupos/{grupo}/previsualizar-rol', [GeneradorEnfrentamientosController::class, 'previsualizar'])
             ->name('grupos.previsualizar-rol');
         Route::post('/grupos/{grupo}/confirmar-rol', [GeneradorEnfrentamientosController::class, 'confirmar'])

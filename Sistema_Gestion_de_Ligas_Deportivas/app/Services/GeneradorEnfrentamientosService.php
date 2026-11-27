@@ -755,21 +755,65 @@ class GeneradorEnfrentamientosService
 
                 if ($asignarHorarios) {
                     $slotsPropuesta = [];
+                    $temporadaGrupo = $grupoBloqueado->temporada;
+                    $minTemp = $temporadaGrupo?->fecha_inicio ? Carbon::parse($temporadaGrupo->fecha_inicio)->toDateString() : null;
+                    $maxTemp = $temporadaGrupo?->fecha_fin ? Carbon::parse($temporadaGrupo->fecha_fin)->toDateString() : null;
+
                     foreach ($propuesta['jornadas'] as $itemJornada) {
-                        $numJ = (int) $itemJornada['numero_jornada'];
+                        if (! is_array($itemJornada) || ! isset($itemJornada['partidos']) || ! is_array($itemJornada['partidos'])) {
+                            continue;
+                        }
+
+                        $numJ = (int) ($itemJornada['numero_jornada'] ?? 0);
+                        $inicioJ = is_string($itemJornada['fecha_inicio'] ?? null) ? $itemJornada['fecha_inicio'] : null;
+                        $finJ = is_string($itemJornada['fecha_fin'] ?? null) ? $itemJornada['fecha_fin'] : null;
+                        if ($numJ <= 0 || $inicioJ === null || $finJ === null) {
+                            continue;
+                        }
+
                         foreach ($itemJornada['partidos'] as $itemPartido) {
-                            if (
-                                ! empty($itemPartido['cancha_id'])
-                                && ! empty($itemPartido['fecha_partido'])
-                                && ! empty($itemPartido['hora_partido'])
-                            ) {
-                                $clavePar = (int) $itemPartido['equipo_local_id'].'-'.(int) $itemPartido['equipo_visitante_id'];
-                                $slotsPropuesta[$numJ][$clavePar] = [
-                                    'cancha_id' => (int) $itemPartido['cancha_id'],
-                                    'fecha_partido' => (string) $itemPartido['fecha_partido'],
-                                    'hora_partido' => (string) $itemPartido['hora_partido'],
-                                ];
+                            if (! is_array($itemPartido)) {
+                                continue;
                             }
+
+                            $rawCancha = $itemPartido['cancha_id'] ?? null;
+                            $rawFecha = $itemPartido['fecha_partido'] ?? null;
+                            $rawHora = $itemPartido['hora_partido'] ?? null;
+                            $rawLocal = $itemPartido['equipo_local_id'] ?? null;
+                            $rawVisitante = $itemPartido['equipo_visitante_id'] ?? null;
+
+                            if (
+                                (! is_int($rawCancha) && ! (is_string($rawCancha) && ctype_digit($rawCancha)))
+                                || (! is_int($rawLocal) && ! (is_string($rawLocal) && ctype_digit($rawLocal)))
+                                || (! is_int($rawVisitante) && ! (is_string($rawVisitante) && ctype_digit($rawVisitante)))
+                                || ! is_string($rawFecha)
+                                || ! is_string($rawHora)
+                            ) {
+                                continue;
+                            }
+
+                            $canchaIdValida = (int) $rawCancha;
+                            $fechaDt = \DateTimeImmutable::createFromFormat('Y-m-d', $rawFecha);
+                            $horaLimpiar = substr(trim($rawHora), 0, 5);
+                            if (
+                                $canchaIdValida <= 0
+                                || $fechaDt === false
+                                || $fechaDt->format('Y-m-d') !== $rawFecha
+                                || $rawFecha < $inicioJ
+                                || $rawFecha > $finJ
+                                || ($minTemp !== null && $rawFecha < $minTemp)
+                                || ($maxTemp !== null && $rawFecha > $maxTemp)
+                                || preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $horaLimpiar) !== 1
+                            ) {
+                                continue;
+                            }
+
+                            $clavePar = (int) $rawLocal.'-'.(int) $rawVisitante;
+                            $slotsPropuesta[$numJ][$clavePar] = [
+                                'cancha_id' => $canchaIdValida,
+                                'fecha_partido' => $rawFecha,
+                                'hora_partido' => $horaLimpiar,
+                            ];
                         }
                     }
 
