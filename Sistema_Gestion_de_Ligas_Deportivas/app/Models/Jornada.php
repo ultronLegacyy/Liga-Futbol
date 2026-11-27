@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  *
  * @property int $id
  * @property int $grupo_id
+ * @property int|null $fase_id
  * @property int $numero_jornada
  * @property \Carbon\Carbon|string $fecha_inicio
  * @property \Carbon\Carbon|string $fecha_fin
@@ -43,6 +44,7 @@ class Jornada extends Model
 
     protected $fillable = [
         'grupo_id',
+        'fase_id',
         'numero_jornada',
         'fecha_inicio',
         'fecha_fin',

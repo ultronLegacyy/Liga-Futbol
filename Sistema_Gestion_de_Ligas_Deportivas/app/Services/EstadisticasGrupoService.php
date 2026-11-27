@@ -193,8 +193,10 @@ class EstadisticasGrupoService
         $bloqueado = Grupo::query()->whereKey($grupo->getKey())->lockForUpdate()->firstOrFail();
         $regla = null;
 
+        // HU-056: la copia es de la tabla de la fase regular; las jornadas de liguilla no la cambian
         $jornadas = Jornada::query()
             ->where('grupo_id', $bloqueado->id)
+            ->whereNull('fase_id')
             ->withCount([
                 'partidos as jugables_count' => fn ($partido) => $partido->where('estado', '!=', Partido::ESTADO_CANCELADO),
                 'partidos as oficiales_count' => fn ($partido) => $partido->where('estado', '!=', Partido::ESTADO_CANCELADO)

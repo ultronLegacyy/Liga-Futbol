@@ -34,6 +34,17 @@
         @endif
     </p>
 
+    @if ($regla)
+        {{-- HU-042: los empates en puntos se resuelven con los criterios de la temporada, en este orden --}}
+        <p class="text-sm text-gray-300" data-desempates>
+            Empates en puntos: se desempata por
+            @foreach ($criterios as $criterio)
+                {{ $loop->iteration }}. {{ $criterio }}@if (! $loop->last), @endif
+            @endforeach.
+            Si siguen empatados, comparten la posición.
+        </p>
+    @endif
+
     @if ($tabla->isEmpty())
         <p class="text-sm text-gray-400">Todavía no hay resultados oficiales en este grupo.</p>
     @else

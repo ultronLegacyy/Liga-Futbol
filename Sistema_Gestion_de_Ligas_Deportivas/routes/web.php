@@ -152,6 +152,10 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/grupos/{grupo}/liguilla', [LiguillaController::class, 'store'])
             ->whereNumber('grupo')
             ->name('grupos.liguilla.store');
+        // Rondas de la liguilla: avances, eliminaciones, campeón y subcampeón (HU-056, RF-11.2)
+        Route::post('/grupos/{grupo}/liguilla/rondas', [LiguillaController::class, 'crearRonda'])
+            ->whereNumber('grupo')
+            ->name('grupos.liguilla.rondas');
 
         // Generación automática de rol regular y enfrentamientos (HU-032, RF-07.1) y motor de programación horaria (HU-074, HU-033, RF-07.2, RF-07.3)
         Route::get('/grupos/{grupo}/generar-rol', [GeneradorEnfrentamientosController::class, 'configurar'])

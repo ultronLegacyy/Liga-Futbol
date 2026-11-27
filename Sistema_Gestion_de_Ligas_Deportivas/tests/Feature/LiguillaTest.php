@@ -278,26 +278,6 @@ class LiguillaTest extends TestCase
         $this->actingAs($this->usuario('Presidente'))->get('/grupos/999999/liguilla')->assertNotFound();
     }
 
-    /**
-     * Juega el rol completo de «Todos contra todos»: gana 1-0 el que va antes en la lista, o todos empatan 0-0.
-     * Se marcan validadas directamente y se recalcula una sola vez, para que la prueba sea rápida.
-     *
-     * @param  list<\App\Models\Equipo>  $equipos
-     */
-    private function jugarRolCompleto(Grupo $grupo, array $equipos, bool $empates = false): void
-    {
-        $jornada = 1;
-        foreach ($equipos as $i => $local) {
-            foreach (array_slice($equipos, $i + 1) as $visitante) {
-                $cedula = $this->resultado($grupo, $jornada, $local, $empates ? 0 : 1, 0, $visitante, validar: false);
-                $cedula->forceFill(['validada_en' => now(), 'validada_por_id' => $this->validador()->id])->save();
-                $jornada++;
-            }
-        }
-
-        app(\App\Services\TablaPosicionesService::class)->recalcular($grupo);
-    }
-
     private function clasifican(int $equipos): void
     {
         $this->grupo->update(['criterios_clasificacion' => ['clasifican_liguilla' => $equipos, 'clasifican_consolacion' => 0]]);

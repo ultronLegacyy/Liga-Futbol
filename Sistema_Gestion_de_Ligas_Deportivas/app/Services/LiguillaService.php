@@ -16,6 +16,8 @@ use Illuminate\Validation\ValidationException;
 /**
  * HU-055 (RF-11.1): al terminar la fase regular, toma los primeros lugares de la tabla final (HU-041)
  * según los equipos que clasifican en el grupo (HU-008) y arma los cruces 1° vs N°, 2° vs (N-1)°...
+ * Si los clasificados no son 2, 4, 8 o 16, los mejores ubicados pasan directo y los demás juegan la primera ronda
+ * (decisión de Daniel, 25/11, como en la práctica del fútbol mexicano): con 6, 1° y 2° pasan; 3° vs 6° y 4° vs 5°.
  * Cada llave conserva la versión de las reglas y los criterios con que se generó (CA2, RNF-36).
  */
 class LiguillaService
@@ -35,7 +37,8 @@ class LiguillaService
     {
         return LlaveLiguilla::query()
             ->where('grupo_id', $grupo->id)
-            ->with(['local:id,nombre', 'visitante:id,nombre', 'regla:id,version', 'generadaPor:id,name'])
+            ->with(['local:id,nombre', 'visitante:id,nombre', 'avanza:id,nombre', 'regla:id,version', 'generadaPor:id,name', 'partido:id,jornada_id,estado', 'partido.jornada:id,numero_jornada'])
+            ->orderBy('ronda')
             ->orderBy('orden')
             ->get();
     }
@@ -45,7 +48,7 @@ class LiguillaService
      * La tabla se calcula con la versión vigente de las reglas, aunque se haya publicado después del último
      * resultado (decisión de Daniel, 23/11); en la vista previa no se guarda nada.
      *
-     * @return array{cruces: list<array{orden: int, local: array{equipo_id: int, nombre: string, posicion: int}, visitante: array{equipo_id: int, nombre: string, posicion: int}}>, problemas: list<string>, clasifican: int, regla: ReglaTemporada|null}
+     * @return array{cruces: list<array{orden: int, local: array{equipo_id: int, nombre: string, posicion: int}, visitante: array{equipo_id: int, nombre: string, posicion: int}|null}>, problemas: list<string>, clasifican: int, regla: ReglaTemporada|null}
      */
     public function revisar(Grupo $grupo): array
     {
@@ -76,16 +79,36 @@ class LiguillaService
 
         $cruces = [];
         if ($problemas === []) {
-            for ($lugar = 1; $lugar <= intdiv($clasifican, 2); $lugar++) {
+            $directos = $this->pasesDirectos($clasifican);
+            for ($lugar = 1; $lugar <= $directos; $lugar++) {
+                $cruces[] = ['orden' => $lugar, 'local' => $tabla[$lugar - 1], 'visitante' => null];
+            }
+
+            // Los que no pasan directo se cruzan igual: el mejor ubicado contra el peor
+            for ($i = 0; $i < intdiv($clasifican - $directos, 2); $i++) {
                 $cruces[] = [
-                    'orden' => $lugar,
-                    'local' => $tabla[$lugar - 1],
-                    'visitante' => $tabla[$clasifican - $lugar],
+                    'orden' => $directos + $i + 1,
+                    'local' => $tabla[$directos + $i],
+                    'visitante' => $tabla[$clasifican - 1 - $i],
                 ];
             }
         }
 
         return ['cruces' => $cruces, 'problemas' => $problemas, 'clasifican' => $clasifican, 'regla' => $regla];
+    }
+
+    /**
+     * Cuántos de los mejores ubicados pasan directo para que la segunda ronda tenga 2, 4, 8 o 16 equipos.
+     * Con 6 clasificados la potencia es 4: pasan 2 y juegan 4; con 8 no pasa nadie.
+     */
+    private function pasesDirectos(int $clasifican): int
+    {
+        $potencia = 1;
+        while ($potencia * 2 <= $clasifican) {
+            $potencia *= 2;
+        }
+
+        return $potencia === $clasifican ? 0 : 2 * $potencia - $clasifican;
     }
 
     /**
@@ -98,7 +121,7 @@ class LiguillaService
     private function problemasDeLaFaseRegular(Grupo $grupo): array
     {
         $partidos = Partido::query()
-            ->whereHas('jornada', fn ($jornada) => $jornada->where('grupo_id', $grupo->id))
+            ->whereHas('jornada', fn ($jornada) => $jornada->where('grupo_id', $grupo->id)->whereNull('fase_id'))
             ->with('cedula:id,partido_id,estado,validada_en')
             ->get(['id', 'jornada_id', 'equipo_local_id', 'equipo_visitante_id', 'estado']);
 
@@ -205,8 +228,10 @@ class LiguillaService
                         'orden' => $cruce['orden'],
                         'equipo_local_id' => $cruce['local']['equipo_id'],
                         'lugar_local' => $cruce['local']['posicion'],
-                        'equipo_visitante_id' => $cruce['visitante']['equipo_id'],
-                        'lugar_visitante' => $cruce['visitante']['posicion'],
+                        'equipo_visitante_id' => $cruce['visitante']['equipo_id'] ?? null,
+                        'lugar_visitante' => $cruce['visitante']['posicion'] ?? null,
+                        // HU-056: el pase directo avanza sin jugar
+                        'avanza_equipo_id' => $cruce['visitante'] === null ? $cruce['local']['equipo_id'] : null,
                         'regla_temporada_id' => $regla->id,
                         'regla_version' => $regla->version,
                         'criterios_clasificacion' => $bloqueado->getAttribute('criterios_clasificacion'),
