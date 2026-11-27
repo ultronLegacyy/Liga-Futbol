@@ -81,7 +81,7 @@
             @php($resumenHorarios = $propuesta['resumen_horarios'])
             <div class="bg-indigo-950/30 border border-indigo-500/40 rounded-lg p-4 space-y-2">
                 <div class="flex flex-wrap items-center justify-between gap-2">
-                    <h3 class="text-sm font-semibold text-indigo-200">Resultado preliminar de horarios automáticos (HU-074)</h3>
+                    <h3 class="text-sm font-semibold text-indigo-200">Resultado preliminar de horarios automáticos</h3>
                     <span class="text-xs text-gray-300">Tiempo de cálculo: {{ $resumenHorarios['duracion_ms'] ?? 0 }} ms</span>
                 </div>
                 <p class="text-xs text-gray-300">
@@ -96,7 +96,7 @@
 
         @if (! empty($propuesta['conflictos']))
             <div class="bg-amber-950/40 border border-amber-500/50 rounded-lg p-4 space-y-2">
-                <h3 class="text-sm font-bold text-amber-200">Conflictos o déficits detectados (HU-033 / RNF-19)</h3>
+                <h3 class="text-sm font-bold text-amber-200">Conflictos o déficits detectados</h3>
                 <p class="text-xs text-amber-200/80">
                     La propuesta parcial no bloquea la confirmación del rol; los partidos listados permanecerán en borrador sin horario para su ajuste manual o ampliación de capacidad.
                 </p>
@@ -196,7 +196,6 @@
             <input type="hidden" name="fixture_payload" value="{{ json_encode($propuesta) }}">
             <input type="hidden" name="sobrescribir" value="{{ $sobrescribir ? '1' : '0' }}">
             <input type="hidden" name="asignar_horarios" value="{{ ! empty($asignarHorarios) ? '1' : '0' }}">
-            <input type="hidden" name="respetar_capacidad_cancha" value="{{ ! empty($respetarCapacidadCancha) ? '1' : '0' }}">
             @if (! empty($horariosSeleccionados))
                 <input type="hidden" name="horarios_texto" value="{{ implode(',', $horariosSeleccionados) }}">
             @endif

@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Models\Concerns\Auditable;
-use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -51,16 +50,6 @@ class PreferenciaEquipo extends Model
     public function diaPreferidoIso(): ?int
     {
         return self::normalizarDiaIso($this->dia_preferido);
-    }
-
-    /**
-     * Verifica si una fecha dada coincide con el día preferido del equipo.
-     */
-    public function coincideDia(CarbonInterface $fecha): bool
-    {
-        $diaIso = $this->diaPreferidoIso();
-
-        return $diaIso !== null && $fecha->dayOfWeekIso === $diaIso;
     }
 
     /**

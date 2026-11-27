@@ -33,7 +33,7 @@
                     <form action="{{ route('grupos.asignar-horarios', $grupo) }}" method="POST" class="inline">
                         @csrf
                         <button type="submit" class="px-4 py-2 bg-cyan-600 text-white font-medium text-sm rounded-lg hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-400 transition">
-                            Auto-asignar horarios (HU-074)
+                            Auto-asignar horarios
                         </button>
                     </form>
                 @endif
@@ -54,7 +54,7 @@
 
     @if (session('programacion_conflictos'))
         <div class="bg-amber-950/40 border border-amber-500/50 rounded-xl p-4 space-y-2">
-            <h3 class="text-sm font-bold text-amber-200">Partidos sin asignación completa de horario (HU-033 / RNF-19)</h3>
+            <h3 class="text-sm font-bold text-amber-200">Partidos sin asignación completa de horario</h3>
             <p class="text-xs text-amber-200/80">
                 Los encuentros válidos ya fueron asignados. Revise las siguientes causas antes de publicar:
             </p>

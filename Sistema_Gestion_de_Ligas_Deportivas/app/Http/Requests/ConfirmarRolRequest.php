@@ -40,9 +40,9 @@ class ConfirmarRolRequest extends FormRequest
     public function rules(): array
     {
         return array_merge([
-            'fixture_payload' => ['required', 'string', 'json'],
-            'sobrescribir' => ['nullable', 'boolean'],
-            'asignar_horarios' => ['nullable', 'boolean'],
+            'fixture_payload' => ['bail', 'required', 'string', 'json'],
+            'sobrescribir' => ['bail', 'nullable', 'boolean'],
+            'asignar_horarios' => ['bail', 'nullable', 'boolean'],
         ], $this->reglasOpcionesHorarios());
     }
 
@@ -55,6 +55,8 @@ class ConfirmarRolRequest extends FormRequest
             'fixture_payload.required' => 'La propuesta de enfrentamientos es requerida para su confirmación.',
             'fixture_payload.string' => 'El formato de la propuesta de enfrentamientos no es válido.',
             'fixture_payload.json' => 'La propuesta de enfrentamientos debe ser una estructura JSON válida.',
+            'sobrescribir.boolean' => 'La confirmación de reemplazo debe ser verdadera o falsa.',
+            'asignar_horarios.boolean' => 'La opción de asignación automática de horarios debe ser verdadera o falsa.',
         ], $this->mensajesOpcionesHorarios());
     }
 

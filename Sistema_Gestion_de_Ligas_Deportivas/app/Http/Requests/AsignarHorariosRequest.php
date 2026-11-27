@@ -42,18 +42,7 @@ class AsignarHorariosRequest extends FormRequest
 
         $temporada = $this->route('temporada');
         if ($temporada instanceof Temporada) {
-            if ($temporada->estado === 'cerrada') {
-                return Response::deny('Una temporada cerrada no admite cambios en su programación.');
-            }
-
-            $usuario = $this->user();
-            if ($usuario === null) {
-                return Response::deny('Debe iniciar sesión para programar horarios.');
-            }
-
-            return ($usuario->hasRole('Administrador General') || $usuario->can('partidos.programar'))
-                ? Response::allow()
-                : Response::deny('No cuenta con privilegios para ejecutar la programación automática masiva.');
+            return Gate::inspect('programarMasivo', $temporada);
         }
 
         return Response::deny('No se identificó el destino de la programación automática.');
@@ -65,9 +54,9 @@ class AsignarHorariosRequest extends FormRequest
     public function rules(): array
     {
         return array_merge($this->reglasOpcionesHorarios(), [
-            'reemplazar_existentes' => ['nullable', 'boolean'],
-            'en_segundo_plano' => ['nullable', 'boolean'],
-            'numero_jornada' => ['nullable', 'integer', 'min:1', 'max:200'],
+            'reemplazar_existentes' => ['bail', 'nullable', 'boolean'],
+            'en_segundo_plano' => ['bail', 'nullable', 'boolean'],
+            'numero_jornada' => ['bail', 'nullable', 'integer', 'min:1', 'max:200'],
         ]);
     }
 
@@ -84,7 +73,11 @@ class AsignarHorariosRequest extends FormRequest
     public function messages(): array
     {
         return array_merge($this->mensajesOpcionesHorarios(), [
-            'numero_jornada.integer' => 'El número de jornada debe ser un entero positivo.',
+            'reemplazar_existentes.boolean' => 'La opción de reasignación total debe ser verdadera o falsa.',
+            'en_segundo_plano.boolean' => 'La opción de ejecución en segundo plano debe ser verdadera o falsa.',
+            'numero_jornada.integer' => 'El número de jornada debe ser un número entero positivo.',
+            'numero_jornada.min' => 'El número de jornada debe ser al menos 1.',
+            'numero_jornada.max' => 'El número de jornada no puede ser mayor que 200.',
         ]);
     }
 }

@@ -50,13 +50,13 @@ class GenerarRolRequest extends FormRequest
         }
 
         return array_merge([
-            'fecha_inicio' => $fechaRules,
-            'intervalo_dias' => ['required', 'integer', 'min:1', 'max:60'],
-            'dias_duracion' => ['required', 'integer', 'min:0', 'max:30'],
-            'vueltas' => ['required', 'integer', 'in:1,2'],
-            'aleatorizar' => ['nullable', 'boolean'],
-            'sobrescribir' => ['nullable', 'boolean'],
-            'asignar_horarios' => ['nullable', 'boolean'],
+            'fecha_inicio' => array_merge(['bail'], $fechaRules),
+            'intervalo_dias' => ['bail', 'required', 'integer', 'min:1', 'max:60'],
+            'dias_duracion' => ['bail', 'required', 'integer', 'min:0', 'max:30'],
+            'vueltas' => ['bail', 'required', 'integer', 'in:1,2'],
+            'aleatorizar' => ['bail', 'nullable', 'boolean'],
+            'sobrescribir' => ['bail', 'nullable', 'boolean'],
+            'asignar_horarios' => ['bail', 'nullable', 'boolean'],
         ], $this->reglasOpcionesHorarios());
     }
 
@@ -86,7 +86,11 @@ class GenerarRolRequest extends FormRequest
             'dias_duracion.min' => 'La duración no puede ser negativa.',
             'dias_duracion.max' => 'La duración no puede superar los 30 días.',
             'vueltas.required' => 'Debe seleccionar el número de vueltas a programar.',
+            'vueltas.integer' => 'El número de vueltas debe ser un entero válido.',
             'vueltas.in' => 'El número de vueltas debe ser 1 (ida) o 2 (ida y vuelta).',
+            'aleatorizar.boolean' => 'La opción de sorteo aleatorio debe ser verdadera o falsa.',
+            'sobrescribir.boolean' => 'La confirmación de reemplazo debe ser verdadera o falsa.',
+            'asignar_horarios.boolean' => 'La opción de asignación automática de horarios debe ser verdadera o falsa.',
         ], $this->mensajesOpcionesHorarios());
     }
 }

@@ -19,25 +19,31 @@ trait ValidaOpcionesHorarios
     protected function reglasOpcionesHorarios(): array
     {
         return [
-            'horarios' => ['nullable', 'array', 'max:12'],
-            'horarios.*' => ['required', 'string', 'regex:'.self::REGEX_HORA_VALIDA],
-            'horarios_texto' => ['nullable', 'string', 'max:255'],
-            'cancha_ids' => ['nullable', 'array'],
-            'cancha_ids.*' => ['integer', 'exists:canchas,id'],
-            'respetar_capacidad_cancha' => ['nullable', 'boolean'],
+            'horarios' => ['bail', 'nullable', 'array', 'max:12'],
+            'horarios.*' => ['bail', 'required', 'string', 'regex:'.self::REGEX_HORA_VALIDA],
+            'horarios_texto' => ['bail', 'nullable', 'string', 'max:255'],
+            'cancha_ids' => ['bail', 'nullable', 'array'],
+            'cancha_ids.*' => ['bail', 'integer', 'exists:canchas,id'],
         ];
     }
 
     /**
-     * Mensajes de error comunes en español.
+     * Mensajes de error comunes en español para que no existan respuestas 422 en inglés.
      *
      * @return array<string, string>
      */
     protected function mensajesOpcionesHorarios(): array
     {
         return [
+            'horarios.array' => 'Las franjas horarias deben enviarse como una lista válida.',
+            'horarios.max' => 'No se permiten más de 12 franjas horarias personalizadas.',
+            'horarios.*.required' => 'Cada franja horaria seleccionada es obligatoria.',
+            'horarios.*.string' => 'Cada franja horaria debe ser una cadena de texto en formato HH:MM.',
             'horarios.*.regex' => 'Cada franja horaria debe tener formato válido HH:MM entre 00:00 y 23:59 (por ejemplo, 09:00).',
             'horarios_texto.string' => 'Las franjas horarias deben enviarse como texto separado por comas.',
+            'horarios_texto.max' => 'Las franjas horarias personalizadas no deben exceder los 255 caracteres.',
+            'cancha_ids.array' => 'La selección de canchas debe enviarse como una lista válida.',
+            'cancha_ids.*.integer' => 'Cada identificador de cancha seleccionada debe ser un número entero.',
             'cancha_ids.*.exists' => 'Alguna de las canchas seleccionadas no existe en el catálogo.',
         ];
     }
@@ -108,9 +114,6 @@ trait ValidaOpcionesHorarios
         return [
             'horarios' => $this->horariosNormalizados(),
             'cancha_ids' => array_map('intval', (array) ($this->validated('cancha_ids') ?? [])),
-            'respetar_capacidad_cancha' => $this->has('respetar_capacidad_cancha')
-                ? $this->boolean('respetar_capacidad_cancha')
-                : true,
         ];
     }
 }

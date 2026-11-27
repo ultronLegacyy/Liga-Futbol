@@ -186,7 +186,7 @@
                 </a>
             @endcan
 
-            @if ($temporada->estado !== 'cerrada' && (auth()->user()?->hasRole('Administrador General') || auth()->user()?->can('partidos.programar')))
+            @can('programarMasivo', $temporada)
                 <form action="{{ route('temporadas.asignar-horarios-masivo', $temporada) }}" method="POST" class="inline-flex items-center gap-2">
                     @csrf
                     <label class="inline-flex items-center gap-1.5 text-xs text-gray-300 cursor-pointer">
@@ -197,10 +197,10 @@
                         type="submit"
                         class="inline-flex items-center px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-400 transition"
                     >
-                        Auto-asignar horarios de temporada (HU-074)
+                        Auto-asignar horarios de temporada
                     </button>
                 </form>
-            @endif
+            @endcan
         </div>
 
         @if (session('success'))
@@ -215,11 +215,36 @@
             </div>
         @endif
 
-        @if (session('programacion_conflictos'))
+        @php
+            $conflictosTemporada = session('programacion_conflictos') ?? ($resumenProgramacionMasiva['conflictos'] ?? []);
+        @endphp
+
+        @if (! empty($resumenProgramacionMasiva))
+            <div class="mt-4 rounded-lg border border-indigo-500/40 bg-indigo-950/30 p-4 space-y-2">
+                @if (($resumenProgramacionMasiva['estado'] ?? '') === 'en_proceso')
+                    <h4 class="text-sm font-semibold text-indigo-200">Programación masiva en segundo plano en proceso</h4>
+                    <p class="text-xs text-gray-300">
+                        La tarea fue encolada correctamente. Recargue esta vista en unos instantes para consultar el resumen y los posibles conflictos.
+                    </p>
+                @else
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <h4 class="text-sm font-semibold text-indigo-200">Último resumen de programación masiva en segundo plano</h4>
+                        <span class="text-xs text-gray-400">Duración: {{ $resumenProgramacionMasiva['duracion_ms'] ?? 0 }} ms</span>
+                    </div>
+                    <p class="text-xs text-gray-300">
+                        Partidos procesados: <strong class="text-white">{{ $resumenProgramacionMasiva['total_partidos'] ?? 0 }}</strong>
+                        | Asignados: <strong class="text-green-300">{{ $resumenProgramacionMasiva['asignados'] ?? 0 }}</strong>
+                        | Sin asignar: <strong class="text-amber-300">{{ $resumenProgramacionMasiva['sin_asignar'] ?? 0 }}</strong>
+                    </p>
+                @endif
+            </div>
+        @endif
+
+        @if (! empty($conflictosTemporada))
             <div class="mt-4 rounded-lg border border-amber-500/40 bg-amber-950/30 p-4 space-y-2">
-                <h4 class="text-sm font-semibold text-amber-200">Conflictos detectados durante la programación masiva (HU-033 / RNF-19)</h4>
+                <h4 class="text-sm font-semibold text-amber-200">Conflictos detectados durante la programación masiva</h4>
                 <div class="space-y-2">
-                    @foreach (session('programacion_conflictos', []) as $conflicto)
+                    @foreach ($conflictosTemporada as $conflicto)
                         <div class="rounded border border-amber-500/30 bg-gray-900/70 p-2.5 text-xs space-y-1">
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <span class="font-semibold text-white">Jornada {{ $conflicto['jornada_numero'] ?? '' }} — {{ $conflicto['enfrentamiento'] ?? '' }}</span>

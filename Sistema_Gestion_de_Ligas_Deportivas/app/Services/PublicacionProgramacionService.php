@@ -27,17 +27,18 @@ class PublicacionProgramacionService
      */
     public function detectarConflictos(Jornada $jornada): array
     {
-        $detallados = $this->detectarConflictosDetallados($jornada);
+        return $this->filtrarMensajesBloqueantes($this->detectarConflictosDetallados($jornada));
+    }
 
-        $mensajes = array_map(
-            static fn (array $conflicto): string => (string) $conflicto['mensaje'],
-            array_filter(
-                $detallados,
-                static fn (array $conflicto): bool => ($conflicto['severidad'] ?? 'bloqueante') === 'bloqueante'
-            )
-        );
-
-        return array_values(array_unique($mensajes));
+    /**
+     * Extrae mensajes únicos bloqueantes delegando al filtro único del detector (HU-030 / HU-033).
+     *
+     * @param  array<int, array<string, mixed>>  $conflictosDetallados
+     * @return array<int, string>
+     */
+    public function filtrarMensajesBloqueantes(array $conflictosDetallados): array
+    {
+        return $this->detectorConflictos->filtrarMensajesBloqueantes($conflictosDetallados);
     }
 
     /**

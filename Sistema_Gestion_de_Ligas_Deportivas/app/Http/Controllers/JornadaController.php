@@ -92,13 +92,7 @@ class JornadaController extends Controller
         $conflictosDetallados = $jornada->partidos->isNotEmpty()
             ? $this->publicacionService->detectarConflictosDetallados($jornada)
             : [];
-        $conflictos = array_values(array_unique(array_map(
-            static fn (array $item): string => (string) $item['mensaje'],
-            array_filter(
-                $conflictosDetallados,
-                static fn (array $item): bool => ($item['severidad'] ?? 'bloqueante') === 'bloqueante'
-            )
-        )));
+        $conflictos = $this->publicacionService->filtrarMensajesBloqueantes($conflictosDetallados);
         $canchasDisponibles = Cancha::query()
             ->where('estado', 'Disponible')
             ->orderBy('nombre')
@@ -223,13 +217,7 @@ class JornadaController extends Controller
         Gate::authorize('view', $jornada);
 
         $conflictosDetallados = $this->publicacionService->detectarConflictosDetallados($jornada);
-        $conflictos = array_values(array_unique(array_map(
-            static fn (array $item): string => (string) $item['mensaje'],
-            array_filter(
-                $conflictosDetallados,
-                static fn (array $item): bool => ($item['severidad'] ?? 'bloqueante') === 'bloqueante'
-            )
-        )));
+        $conflictos = $this->publicacionService->filtrarMensajesBloqueantes($conflictosDetallados);
 
         return response()->json([
             'jornada_id' => $jornada->id,

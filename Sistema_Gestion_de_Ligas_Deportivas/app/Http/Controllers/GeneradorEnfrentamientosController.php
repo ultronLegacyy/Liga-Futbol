@@ -14,6 +14,7 @@ use App\Services\GeneradorEnfrentamientosService;
 use App\Services\ProgramacionAutomaticaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -86,7 +87,6 @@ class GeneradorEnfrentamientosController extends Controller
         $asignarHorarios = (bool) $opciones['asignar_horarios'];
         $horariosSeleccionados = $opciones['horarios'];
         $canchasSeleccionadas = array_map('intval', (array) ($opciones['cancha_ids'] ?? []));
-        $respetarCapacidadCancha = (bool) $opciones['respetar_capacidad_cancha'];
 
         $jornadasPrevias = $grupo->jornadas()->with('partidos')->get();
         $partidosPreviosCount = $jornadasPrevias->sum(fn ($j) => $j->partidos->count());
@@ -99,7 +99,6 @@ class GeneradorEnfrentamientosController extends Controller
             'asignarHorarios',
             'horariosSeleccionados',
             'canchasSeleccionadas',
-            'respetarCapacidadCancha',
             'partidosPreviosCount',
             'partidosConArbitroCount'
         ));
@@ -181,7 +180,10 @@ class GeneradorEnfrentamientosController extends Controller
             $resumen = $this->programacionAutomaticaService->asignarHorariosAJornada($jornada, $opciones);
         } catch (ValidationException $e) {
             if ($request->wantsJson()) {
-                return response()->json(['message' => $e->validator->errors()->first() ?: $e->getMessage()], 422);
+                return response()->json([
+                    'message' => $e->validator->errors()->first() ?: $e->getMessage(),
+                    'errors' => $e->errors(),
+                ], 422);
             }
 
             return redirect()->route('jornadas.show', $jornada)
@@ -213,7 +215,10 @@ class GeneradorEnfrentamientosController extends Controller
             $resumen = $this->programacionAutomaticaService->asignarHorariosAGrupo($grupo, $opciones);
         } catch (ValidationException $e) {
             if ($request->wantsJson()) {
-                return response()->json(['message' => $e->validator->errors()->first() ?: $e->getMessage()], 422);
+                return response()->json([
+                    'message' => $e->validator->errors()->first() ?: $e->getMessage(),
+                    'errors' => $e->errors(),
+                ], 422);
             }
 
             return redirect()->route('grupos.jornadas.index', $grupo)
@@ -245,7 +250,17 @@ class GeneradorEnfrentamientosController extends Controller
         }
 
         if ($request->boolean('en_segundo_plano')) {
-            ProgramarCalendarioMasivoJob::dispatch($temporada->id, $opciones);
+            $usuarioId = $request->user()?->id;
+            Cache::put(
+                "programacion_masiva_temporada_{$temporada->id}",
+                [
+                    'estado' => 'en_proceso',
+                    'solicitado_por_id' => $usuarioId,
+                    'solicitado_en' => now()->toIso8601String(),
+                ],
+                now()->addHours(6)
+            );
+            ProgramarCalendarioMasivoJob::dispatch($temporada->id, $opciones, $usuarioId);
 
             $mensaje = "Programación masiva en segundo plano iniciada para la temporada '{$temporada->nombre}'.";
 
@@ -264,7 +279,10 @@ class GeneradorEnfrentamientosController extends Controller
             $resumen = $this->programacionAutomaticaService->asignarHorariosMasivoTemporada($temporada, $opciones);
         } catch (ValidationException $e) {
             if ($request->wantsJson()) {
-                return response()->json(['message' => $e->validator->errors()->first() ?: $e->getMessage()], 422);
+                return response()->json([
+                    'message' => $e->validator->errors()->first() ?: $e->getMessage(),
+                    'errors' => $e->errors(),
+                ], 422);
             }
 
             return redirect()->route('temporadas.show', $temporada)

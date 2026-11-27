@@ -3,24 +3,23 @@
 namespace Tests\Feature;
 
 use App\Jobs\ProgramarCalendarioMasivoJob;
+use App\Models\Arbitro;
 use App\Models\AuditoriaLog;
 use App\Models\BloqueoCancha;
 use App\Models\Cancha;
-use App\Models\CatalogoArticulo;
 use App\Models\Categoria;
 use App\Models\Club;
 use App\Models\Equipo;
-use App\Models\ExpedienteDisciplinario;
 use App\Models\Grupo;
 use App\Models\Jornada;
 use App\Models\Partido;
 use App\Models\Persona;
 use App\Models\PreferenciaEquipo;
-use App\Models\Sancion;
 use App\Models\Temporada;
 use App\Models\User;
 use App\Services\GeneradorEnfrentamientosService;
 use App\Services\ProgramacionAutomaticaService;
+use App\Services\PublicacionProgramacionService;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Cache;
@@ -168,60 +167,23 @@ class ProgramacionAutomaticaYConflictosTest extends TestCase
         );
     }
 
-    public function test_excluye_equipo_con_sancion_colectiva_vigente_e_ignora_sancion_individual_de_jugador(): void
+    public function test_conflicto_arbitro_ocupado_no_produce_error_500_y_reporta_regla_origen(): void
     {
-        $e1 = $this->crearEquipo('Sancionado FC');
-        $e2 = $this->crearEquipo('Rival Limpio');
-        $e3 = $this->crearEquipo('Con Jugador Suspendido');
-        $e4 = $this->crearEquipo('Invitado FC');
+        $e1 = $this->crearEquipo('Águilas');
+        $e2 = $this->crearEquipo('Halcones');
+        $e3 = $this->crearEquipo('Cuervos');
+        $e4 = $this->crearEquipo('Búhos');
 
-        Cancha::factory()->create(['estado' => 'Disponible', 'capacidad_partidos_consecutivos' => 4]);
+        $canchaA = Cancha::factory()->create(['nombre' => 'Cancha A', 'estado' => 'Disponible', 'capacidad_partidos_consecutivos' => 4]);
+        $canchaB = Cancha::factory()->create(['nombre' => 'Cancha B', 'estado' => 'Disponible', 'capacidad_partidos_consecutivos' => 4]);
 
-        $articulo = CatalogoArticulo::create([
-            'codigo' => 'ART-EQ-01',
-            'descripcion' => 'Suspensión temporal de actividad competitiva al club/equipo por incumplimiento.',
-            'castigo_base_partidos' => 2,
+        $personaArbitro = Persona::factory()->create();
+        $arbitro = Arbitro::create([
+            'persona_id' => $personaArbitro->id,
+            'estado' => 'Activo',
         ]);
 
-        $expediente = ExpedienteDisciplinario::create([
-            'folio' => 'EXP-EQ-AUTO-01',
-            'partido_id' => null,
-            'articulo_id' => $articulo->id,
-            'titulo' => 'Suspensión colectiva administrativa de equipo',
-            'descripcion_hechos' => 'Incumplimiento administrativo vigente del club.',
-            'origen' => 'comision',
-            'estado' => ExpedienteDisciplinario::ESTADO_ABIERTO,
-        ]);
-
-        // Sanción colectiva al equipo e1 (persona_id = null)
-        Sancion::create([
-            'expediente_id' => $expediente->id,
-            'equipo_id' => $e1->id,
-            'persona_id' => null,
-            'articulo_id' => $articulo->id,
-            'tipo_sancion' => Sancion::TIPO_TEMPORAL,
-            'partidos_suspendidos' => 0,
-            'partidos_cumplidos' => 0,
-            'fecha_inicio' => '2026-08-01',
-            'fecha_fin' => '2026-08-30',
-            'motivo' => 'Adeudo disciplinario vigente del club.',
-            'estado' => Sancion::ESTADO_VIGENTE,
-        ]);
-
-        // Sanción individual de un jugador de e3 (NO debe bloquear al equipo completo)
-        $personaJugador = Persona::factory()->create();
-        Sancion::create([
-            'expediente_id' => $expediente->id,
-            'equipo_id' => $e3->id,
-            'persona_id' => $personaJugador->id,
-            'articulo_id' => $articulo->id,
-            'tipo_sancion' => Sancion::TIPO_PARTIDOS,
-            'partidos_suspendidos' => 2,
-            'partidos_cumplidos' => 0,
-            'motivo' => 'Doble amonestación en jornada previa.',
-            'estado' => Sancion::ESTADO_VIGENTE,
-        ]);
-
+        // Dos partidos simultáneos en el único horario disponible (09:00) que comparten el mismo árbitro preasignado
         $jornada = Jornada::create([
             'grupo_id' => $this->grupo->id,
             'numero_jornada' => 1,
@@ -230,37 +192,206 @@ class ProgramacionAutomaticaYConflictosTest extends TestCase
             'estado' => Jornada::ESTADO_BORRADOR,
         ]);
 
-        $partidoBloqueado = Partido::create([
+        $partido1 = Partido::create([
             'jornada_id' => $jornada->id,
+            'equipo_local_id' => $e1->id,
+            'equipo_visitante_id' => $e2->id,
+            'arbitro_id' => $arbitro->id,
+            'estado' => Partido::ESTADO_BORRADOR,
+        ]);
+
+        $partido2 = Partido::create([
+            'jornada_id' => $jornada->id,
+            'equipo_local_id' => $e3->id,
+            'equipo_visitante_id' => $e4->id,
+            'arbitro_id' => $arbitro->id,
+            'estado' => Partido::ESTADO_BORRADOR,
+        ]);
+
+        $resumen = $this->actingAs($this->programador)
+            ->postJson(route('jornadas.asignar-horarios', $jornada), [
+                'horarios' => ['09:00'],
+                'cancha_ids' => [$canchaA->id, $canchaB->id],
+            ])
+            ->assertOk()
+            ->json();
+
+        // El primero se asigna a 09:00 y el segundo NO lanza SQL 500 Duplicate entry: reporta ARBITRO_OCUPADO (HU-026)
+        $this->assertSame(1, $resumen['asignados']);
+        $this->assertSame(1, $resumen['sin_asignar']);
+        $this->assertCount(1, $resumen['conflictos']);
+        $this->assertSame('ARBITRO_OCUPADO', $resumen['conflictos'][0]['codigo_regla']);
+        $this->assertStringContainsString('HU-026', $resumen['conflictos'][0]['regla_origen']);
+
+        $partido1->refresh();
+        $partido2->refresh();
+        $this->assertNotNull($partido1->cancha_id);
+        $this->assertSame('09:00:00', $partido1->hora_partido);
+        $this->assertNull($partido2->cancha_id);
+        $this->assertNull($partido2->hora_partido);
+
+        // Además, si dos partidos ya programados en fechas solapadas comparten árbitro, el detector lo reporta como bloqueante
+        $partido2->update([
+            'cancha_id' => $canchaB->id,
+            'fecha_partido' => '2026-08-08',
+            'hora_partido' => '10:00:00',
+        ]);
+
+        $conflictosDetector = app(PublicacionProgramacionService::class)->detectarConflictosDetallados($jornada->fresh());
+        $codigos = array_column($conflictosDetector, 'codigo_regla');
+        $this->assertContains('ARBITRO_OCUPADO', $codigos);
+    }
+
+    public function test_bloquea_modificacion_en_jornada_en_revision_y_ordena_locks_for_update(): void
+    {
+        $e1 = $this->crearEquipo('Lock Local');
+        $e2 = $this->crearEquipo('Lock Visita');
+        $cancha = Cancha::factory()->create(['estado' => 'Disponible', 'capacidad_partidos_consecutivos' => 4]);
+        $personaArbitro = Persona::factory()->create();
+        $arbitro = Arbitro::create([
+            'persona_id' => $personaArbitro->id,
+            'estado' => 'Activo',
+        ]);
+
+        $jornadaRevision = Jornada::create([
+            'grupo_id' => $this->grupo->id,
+            'numero_jornada' => 1,
+            'fecha_inicio' => '2026-08-15',
+            'fecha_fin' => '2026-08-15',
+            'estado' => Jornada::ESTADO_EN_REVISION,
+        ]);
+
+        $partidoRevision = Partido::create([
+            'jornada_id' => $jornadaRevision->id,
             'equipo_local_id' => $e1->id,
             'equipo_visitante_id' => $e2->id,
             'estado' => Partido::ESTADO_BORRADOR,
         ]);
-        $partidoValido = Partido::create([
-            'jornada_id' => $jornada->id,
+
+        $this->actingAs($this->programador)
+            ->postJson(route('jornadas.asignar-horarios', $jornadaRevision), [
+                'horarios' => ['09:00'],
+                'cancha_ids' => [$cancha->id],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['jornada']);
+
+        // En una jornada en borrador validamos el orden estricto de bloqueos FOR UPDATE: jornadas -> partidos -> canchas -> arbitros
+        $jornadaBorrador = Jornada::create([
+            'grupo_id' => $this->grupo->id,
+            'numero_jornada' => 2,
+            'fecha_inicio' => '2026-08-22',
+            'fecha_fin' => '2026-08-22',
+            'estado' => Jornada::ESTADO_BORRADOR,
+        ]);
+
+        $partidoBorrador = Partido::create([
+            'jornada_id' => $jornadaBorrador->id,
+            'equipo_local_id' => $e1->id,
+            'equipo_visitante_id' => $e2->id,
+            'arbitro_id' => $arbitro->id,
+            'estado' => Partido::ESTADO_BORRADOR,
+        ]);
+
+        $tablasBloqueadas = [];
+        DB::listen(static function ($query) use (&$tablasBloqueadas): void {
+            $sql = strtolower($query->sql);
+            if (! str_contains($sql, 'for update')) {
+                return;
+            }
+            foreach (['jornadas', 'partidos', 'canchas', 'arbitros'] as $tabla) {
+                if (str_contains($sql, "from `{$tabla}`") || str_contains($sql, "from {$tabla}")) {
+                    $tablasBloqueadas[] = $tabla;
+                }
+            }
+        });
+
+        // Ejecutar asignación por grupo ignora silenciosamente la jornada en revisión y procesa solo el borrador
+        $resumenGrupo = $this->programacionService->asignarHorariosAGrupo($this->grupo, [
+            'horarios' => ['09:00'],
+            'cancha_ids' => [$cancha->id],
+        ]);
+
+        $this->assertSame(1, $resumenGrupo['asignados']);
+        $this->assertNull($partidoRevision->fresh()->hora_partido);
+        $this->assertSame('09:00:00', $partidoBorrador->fresh()->hora_partido);
+        $this->assertSame(['jornadas', 'partidos', 'canchas', 'arbitros'], $tablasBloqueadas);
+    }
+
+    public function test_medianoche_detecta_y_evita_empalme_cruzando_las_00_00(): void
+    {
+        $e1 = $this->crearEquipo('Nocturno A');
+        $e2 = $this->crearEquipo('Nocturno B');
+        $e3 = $this->crearEquipo('Madrugada C');
+        $e4 = $this->crearEquipo('Madrugada D');
+
+        $cancha = Cancha::factory()->create([
+            'nombre' => 'Cancha Nocturna',
+            'estado' => 'Disponible',
+            'capacidad_partidos_consecutivos' => 5,
+        ]);
+
+        // Partido previo el sábado 2026-08-08 a las 23:00 (cierra hasta el domingo 2026-08-09 01:00)
+        $jornadaSabado = Jornada::create([
+            'grupo_id' => $this->grupo->id,
+            'numero_jornada' => 1,
+            'fecha_inicio' => '2026-08-08',
+            'fecha_fin' => '2026-08-08',
+            'estado' => Jornada::ESTADO_BORRADOR,
+        ]);
+
+        Partido::create([
+            'jornada_id' => $jornadaSabado->id,
+            'equipo_local_id' => $e1->id,
+            'equipo_visitante_id' => $e2->id,
+            'cancha_id' => $cancha->id,
+            'fecha_partido' => '2026-08-08',
+            'hora_partido' => '23:00:00',
+            'estado' => Partido::ESTADO_BORRADOR,
+        ]);
+
+        // Jornada del domingo 2026-08-09: el horario 00:30 se traslapa con las 23:00 del sábado y debe evitarse
+        $jornadaDomingo = Jornada::create([
+            'grupo_id' => $this->grupo->id,
+            'numero_jornada' => 2,
+            'fecha_inicio' => '2026-08-09',
+            'fecha_fin' => '2026-08-09',
+            'estado' => Jornada::ESTADO_BORRADOR,
+        ]);
+
+        $partidoMadrugada = Partido::create([
+            'jornada_id' => $jornadaDomingo->id,
             'equipo_local_id' => $e3->id,
             'equipo_visitante_id' => $e4->id,
             'estado' => Partido::ESTADO_BORRADOR,
         ]);
 
-        $resumen = $this->programacionService->asignarHorariosAJornada($jornada);
+        $resumenSoloTraslape = $this->programacionService->asignarHorariosAJornada($jornadaDomingo, [
+            'horarios' => ['00:30'],
+            'cancha_ids' => [$cancha->id],
+        ]);
 
-        $this->assertSame(2, $resumen['total_partidos']);
-        $this->assertSame(1, $resumen['asignados']);
-        $this->assertSame(1, $resumen['sin_asignar']);
-        $this->assertCount(1, $resumen['conflictos']);
+        $this->assertSame(0, $resumenSoloTraslape['asignados']);
+        $this->assertSame('CANCHA_OCUPADA', $resumenSoloTraslape['conflictos'][0]['codigo_regla']);
+        $this->assertNull($partidoMadrugada->fresh()->hora_partido);
 
-        $conflicto = $resumen['conflictos'][0];
-        $this->assertSame('SANCION_EQUIPO_VIGENTE', $conflicto['codigo_regla']);
-        $this->assertStringContainsString('RF-07.2', $conflicto['regla_origen']);
-        $this->assertStringContainsString('Sancionado FC', $conflicto['causa']);
+        // Con 01:00 disponible, debe saltar 00:30 y asignar 01:00 sin empalmar
+        $resumenConAlternativa = $this->programacionService->asignarHorariosAJornada($jornadaDomingo, [
+            'horarios' => ['00:30', '01:00'],
+            'cancha_ids' => [$cancha->id],
+        ]);
+        $this->assertSame(1, $resumenConAlternativa['asignados']);
+        $this->assertSame('01:00:00', $partidoMadrugada->fresh()->hora_partido);
 
-        $partidoBloqueado->refresh();
-        $partidoValido->refresh();
-        $this->assertNull($partidoBloqueado->cancha_id);
-        $this->assertNull($partidoBloqueado->hora_partido);
-        $this->assertNotNull($partidoValido->cancha_id);
-        $this->assertNotNull($partidoValido->hora_partido);
+        // Si manualmente existiera a las 00:30, el detector de conflictos debe denunciar el empalme de medianoche
+        $partidoMadrugada->update([
+            'cancha_id' => $cancha->id,
+            'fecha_partido' => '2026-08-09',
+            'hora_partido' => '00:30:00',
+        ]);
+
+        $conflictos = app(PublicacionProgramacionService::class)->detectarConflictosDetallados($jornadaDomingo->fresh());
+        $this->assertContains('CANCHA_OCUPADA', array_column($conflictos, 'codigo_regla'));
     }
 
     public function test_prioriza_preferencias_blandas_de_equipo_y_usa_alternativa_si_hay_bloqueo(): void
@@ -521,9 +652,33 @@ class ProgramacionAutomaticaYConflictosTest extends TestCase
             ->assertSessionHas('success');
 
         $this->assertSame(3, $this->grupo->jornadas()->count());
-        $partidos = Partido::query()->whereIn('jornada_id', $this->grupo->jornadas()->pluck('id'))->get();
+        $partidos = Partido::query()
+            ->with('jornada')
+            ->whereIn('jornada_id', $this->grupo->jornadas()->pluck('id'))
+            ->get();
         $this->assertCount(6, $partidos);
         $this->assertSame(6, $partidos->whereNotNull('cancha_id')->whereNotNull('hora_partido')->count());
+
+        // Cada partido confirmado conserva exactamente cancha, fecha y hora mostrados en previsualización
+        $esperadosPorClave = [];
+        foreach ($preview['jornadas'] as $jornadaPreview) {
+            foreach ($jornadaPreview['partidos'] as $partidoPreview) {
+                $clave = $jornadaPreview['numero_jornada'].'|'.$partidoPreview['equipo_local_id'].'|'.$partidoPreview['equipo_visitante_id'];
+                $esperadosPorClave[$clave] = [
+                    'cancha_id' => $partidoPreview['cancha_id'],
+                    'fecha' => $partidoPreview['fecha_partido'],
+                    'hora' => $partidoPreview['hora_partido'].':00',
+                ];
+            }
+        }
+
+        foreach ($partidos as $partidoPersistido) {
+            $clave = $partidoPersistido->jornada->numero_jornada.'|'.$partidoPersistido->equipo_local_id.'|'.$partidoPersistido->equipo_visitante_id;
+            $this->assertArrayHasKey($clave, $esperadosPorClave);
+            $this->assertSame($esperadosPorClave[$clave]['cancha_id'], $partidoPersistido->cancha_id);
+            $this->assertSame($esperadosPorClave[$clave]['fecha'], $partidoPersistido->fecha_partido?->toDateString());
+            $this->assertSame($esperadosPorClave[$clave]['hora'], $partidoPersistido->hora_partido);
+        }
     }
 
     public function test_rnf07_grupo_hasta_50_equipos_asigna_horarios_en_menos_de_10_segundos(): void
@@ -607,12 +762,14 @@ class ProgramacionAutomaticaYConflictosTest extends TestCase
             DB::table('partidos')->insert($lotePartidos);
         }
 
+        // Verificar que la ejecución en segundo plano sin sesión HTTP activa conserva el usuario solicitante en auditoría (RNF-30)
+        auth()->logout();
         $inicio = microtime(true);
 
         (new ProgramarCalendarioMasivoJob($this->temporada->id, [
             'horarios' => ['08:00', '10:00', '12:00', '14:00', '16:00'],
             'cancha_ids' => array_map(fn (Cancha $c): int => $c->id, $canchas),
-        ]))->handle($this->programacionService);
+        ], $this->programador->id))->handle($this->programacionService);
 
         $duracionSegundos = microtime(true) - $inicio;
 
@@ -620,9 +777,19 @@ class ProgramacionAutomaticaYConflictosTest extends TestCase
 
         $resumenCache = Cache::get("programacion_masiva_temporada_{$this->temporada->id}");
         $this->assertIsArray($resumenCache);
+        $this->assertSame('completado', $resumenCache['estado']);
         $this->assertSame(400, $resumenCache['total_partidos']);
         $this->assertSame(400, $resumenCache['asignados']);
         $this->assertTrue($resumenCache['completado']);
+
+        $this->assertTrue(
+            AuditoriaLog::query()
+                ->where('tabla_afectada', 'partidos')
+                ->where('usuario_id', $this->programador->id)
+                ->where('motivo', 'like', '%Programación automática masiva%')
+                ->exists(),
+            'Los registros de auditoría del job en segundo plano deben conservar el usuario_id solicitante.'
+        );
 
         // Verificar que no exista ningún empalme de cancha en los 400 partidos persistidos
         $slotsOcupados = Partido::query()
@@ -632,7 +799,15 @@ class ProgramacionAutomaticaYConflictosTest extends TestCase
 
         $this->assertCount(400, $slotsOcupados->unique());
 
-        // Encolado HTTP en segundo plano (en_segundo_plano = 1)
+        // La vista de detalle de la temporada debe leer y mostrar el resumen guardado en caché (HU-033 CA1)
+        $this->actingAs($this->programador)
+            ->get(route('temporadas.show', $this->temporada))
+            ->assertOk()
+            ->assertSee('Último resumen de programación masiva en segundo plano')
+            ->assertSee('Partidos procesados:')
+            ->assertSee('400');
+
+        // Encolado HTTP en segundo plano (en_segundo_plano = 1) pasa el id del usuario solicitante al Job
         Queue::fake();
         $this->actingAs($this->programador)
             ->postJson(route('temporadas.asignar-horarios-masivo', $this->temporada), [
@@ -641,7 +816,13 @@ class ProgramacionAutomaticaYConflictosTest extends TestCase
             ->assertStatus(202)
             ->assertJson(['enqueued' => true, 'temporada_id' => $this->temporada->id]);
 
-        Queue::assertPushed(ProgramarCalendarioMasivoJob::class);
+        Queue::assertPushed(ProgramarCalendarioMasivoJob::class, function (ProgramarCalendarioMasivoJob $job): bool {
+            return $job->temporadaId === $this->temporada->id
+                && $job->usuarioId === $this->programador->id;
+        });
+
+        $enProceso = Cache::get("programacion_masiva_temporada_{$this->temporada->id}");
+        $this->assertSame('en_proceso', $enProceso['estado'] ?? null);
     }
 
     public function test_rbac_y_temporada_cerrada_rechazan_programacion_automatica(): void
@@ -654,21 +835,37 @@ class ProgramacionAutomaticaYConflictosTest extends TestCase
             'estado' => Jornada::ESTADO_BORRADOR,
         ]);
 
-        // Usuario sin permisos (Tesorero) -> 403 con mensaje en español
-        $this->actingAs($this->usuarioSinPermiso)
-            ->postJson(route('jornadas.asignar-horarios', $jornada))
-            ->assertForbidden()
-            ->assertJsonFragment(['mensaje' => 'No cuenta con privilegios para modificar jornadas.']);
+        // Todos los roles sin privilegios de programación -> 403 con mensaje en español
+        $rolesSinPermiso = [
+            'Tesorero',
+            'Presidente',
+            'Capturista',
+            'Tribunal de Penas',
+            'Comisión Arbitral',
+            'Árbitro en Campo',
+            'Presidente del Club',
+            'Delegado del Club',
+            'Jugador',
+        ];
 
-        $this->actingAs($this->usuarioSinPermiso)
-            ->postJson(route('grupos.asignar-horarios', $this->grupo))
-            ->assertForbidden()
-            ->assertJsonFragment(['mensaje' => 'No cuenta con privilegios para crear jornadas.']);
+        foreach ($rolesSinPermiso as $indice => $rol) {
+            $usuario = $this->crearUsuario("sin_permiso_{$indice}@ligatest.com", $rol);
 
-        $this->actingAs($this->usuarioSinPermiso)
-            ->postJson(route('temporadas.asignar-horarios-masivo', $this->temporada))
-            ->assertForbidden()
-            ->assertJsonFragment(['mensaje' => 'No cuenta con privilegios para ejecutar la programación automática masiva.']);
+            $this->actingAs($usuario)
+                ->postJson(route('jornadas.asignar-horarios', $jornada))
+                ->assertForbidden()
+                ->assertJsonFragment(['mensaje' => 'No cuenta con privilegios para modificar jornadas.']);
+
+            $this->actingAs($usuario)
+                ->postJson(route('grupos.asignar-horarios', $this->grupo))
+                ->assertForbidden()
+                ->assertJsonFragment(['mensaje' => 'No cuenta con privilegios para crear jornadas.']);
+
+            $this->actingAs($usuario)
+                ->postJson(route('temporadas.asignar-horarios-masivo', $this->temporada))
+                ->assertForbidden()
+                ->assertJsonFragment(['mensaje' => 'No cuenta con privilegios para ejecutar la programación automática masiva.']);
+        }
 
         // Temporada cerrada -> rechazo en endpoint (403 en español) y servicio
         $this->temporada->update(['estado' => 'cerrada']);
@@ -685,6 +882,60 @@ class ProgramacionAutomaticaYConflictosTest extends TestCase
 
         $this->expectException(ValidationException::class);
         $this->programacionService->asignarHorariosMasivoTemporada($this->temporada->fresh());
+    }
+
+    public function test_mensajes_de_validacion_422_estan_en_espanol_para_todos_los_parametros(): void
+    {
+        $jornada = Jornada::create([
+            'grupo_id' => $this->grupo->id,
+            'numero_jornada' => 1,
+            'fecha_inicio' => '2026-10-10',
+            'fecha_fin' => '2026-10-11',
+            'estado' => Jornada::ESTADO_BORRADOR,
+        ]);
+
+        // Errores de tipo, límites, arreglos y enteros deben responder en español sin cadenas genéricas en inglés
+        $respuestaJornada = $this->actingAs($this->programador)
+            ->postJson(route('jornadas.asignar-horarios', $jornada), [
+                'cancha_ids' => 'no-es-arreglo',
+                'horarios' => array_fill(0, 15, '09:00'),
+                'reemplazar_existentes' => 'si-claro',
+                'en_segundo_plano' => 'invalido',
+            ])
+            ->assertUnprocessable();
+
+        $erroresJornada = json_encode($respuestaJornada->json('errors'), JSON_UNESCAPED_UNICODE);
+        $this->assertStringNotContainsString('must be', (string) $erroresJornada);
+        $this->assertStringNotContainsString('field is', (string) $erroresJornada);
+        $respuestaJornada
+            ->assertJsonValidationErrors(['cancha_ids', 'horarios', 'reemplazar_existentes', 'en_segundo_plano']);
+
+        // Elementos internos inválidos en cancha_ids y número de jornada inválido en previsualizar-rol
+        $respuestaCanchaItem = $this->actingAs($this->programador)
+            ->postJson(route('jornadas.asignar-horarios', $jornada), [
+                'cancha_ids' => ['abc'],
+                'horarios' => '09:00',
+            ])
+            ->assertUnprocessable();
+
+        $erroresItem = json_encode($respuestaCanchaItem->json('errors'), JSON_UNESCAPED_UNICODE);
+        $this->assertStringNotContainsString('must be', (string) $erroresItem);
+        $this->assertStringNotContainsString('field is', (string) $erroresItem);
+        $respuestaCanchaItem->assertJsonValidationErrors(['cancha_ids.0', 'horarios']);
+
+        $respuestaPrevisualizar = $this->actingAs($this->programador)
+            ->postJson(route('grupos.previsualizar-rol', $this->grupo), [
+                'fecha_inicio' => 'no-fecha',
+                'intervalo_dias' => 0,
+                'dias_duracion' => 45,
+                'vueltas' => 5,
+            ])
+            ->assertUnprocessable();
+
+        $erroresPrevisualizar = json_encode($respuestaPrevisualizar->json('errors'), JSON_UNESCAPED_UNICODE);
+        $this->assertStringNotContainsString('must be', (string) $erroresPrevisualizar);
+        $this->assertStringNotContainsString('field is', (string) $erroresPrevisualizar);
+        $respuestaPrevisualizar->assertJsonValidationErrors(['fecha_inicio', 'intervalo_dias', 'dias_duracion', 'vueltas']);
     }
 
     public function test_reasignacion_total_limpia_horarios_previos_de_partidos_conflictivos_para_evitar_empalmes(): void

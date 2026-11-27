@@ -140,9 +140,9 @@
 
         <div class="rounded-xl border border-indigo-500/30 bg-indigo-950/20 p-4 space-y-4">
             <div class="flex flex-col gap-1">
-                <h3 class="text-sm font-semibold text-indigo-300">Programación automática de cancha, fecha y hora (HU-074 / RF-07.2)</h3>
+                <h3 class="text-sm font-semibold text-indigo-300">Programación automática de cancha, fecha y hora</h3>
                 <p class="text-xs text-gray-400">
-                    Asigna sedes y horarios respetando bloqueos, capacidad diaria, sanciones vigentes y preferencias de equipo. Si algún partido no tiene espacio, se informará la causa sin bloquear el rol (HU-033).
+                    Asigna sedes y horarios respetando bloqueos, capacidad diaria, empalmes y preferencias de equipo. Si algún partido no tiene espacio, se informará la causa sin bloquear el rol.
                 </p>
             </div>
 
@@ -183,7 +183,7 @@
                                         {{ in_array($canchaItem->id, $canchasOld) ? 'checked' : '' }}
                                         class="rounded bg-gray-800 border-gray-600 text-indigo-500 focus:ring-indigo-400"
                                     >
-                                    <span>{{ $canchaItem->nombre }} (cap. {{ $canchaItem->capacidad_partidos_consecutivos }}/día)</span>
+                                    <span>{{ $canchaItem->nombre }} (cap. {{ $canchaItem->capacidad_partidos_consecutivos }})</span>
                                 </label>
                             @endforeach
                         </div>
@@ -192,18 +192,6 @@
                     @endif
                 </div>
             </div>
-
-            <label class="flex items-center gap-3 text-xs text-gray-300 cursor-pointer">
-                <input
-                    type="checkbox"
-                    id="respetar_capacidad_cancha"
-                    name="respetar_capacidad_cancha"
-                    value="1"
-                    {{ ($errors->any() ? old('respetar_capacidad_cancha') : true) ? 'checked' : '' }}
-                    class="rounded bg-gray-900 border-gray-600 text-indigo-500 focus:ring-indigo-400 w-4 h-4"
-                >
-                <span>Respetar el límite máximo de partidos consecutivos por cancha y día</span>
-            </label>
         </div>
 
         <div class="space-y-3 pt-2">

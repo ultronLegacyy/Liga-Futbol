@@ -121,18 +121,17 @@
             </div>
         @endif
 
-        {{-- Alerta y explicación estructurada de conflictos de programación (HU-030 / HU-033 / RNF-19) --}}
+        {{-- Alerta y explicación estructurada de conflictos de programación --}}
         @if (! empty($conflictosDetallados) || ! empty($conflictos) || session('programacion_conflictos'))
             @php
-                $listaConflictosDetallados = ! empty($conflictosDetallados)
-                    ? $conflictosDetallados
-                    : (session('programacion_conflictos') ?? []);
+                $listaConflictosDetallados = session('programacion_conflictos')
+                    ?: ($conflictosDetallados ?? []);
             @endphp
             <div class="mt-4 bg-red-950/40 border border-red-600/50 rounded-xl p-4 space-y-3">
                 <div class="flex items-start gap-3">
                     <div class="flex-shrink-0 text-red-400 font-bold text-base mt-0.5">!</div>
                     <div class="space-y-1 flex-1">
-                        <h4 class="text-sm font-bold text-red-200">Conflictos y déficits de programación detectados (HU-033 / RNF-19):</h4>
+                        <h4 class="text-sm font-bold text-red-200">Conflictos y déficits de programación detectados:</h4>
                         <p class="text-xs text-red-300">Detalle por regla de origen, causa específica y acción sugerida para resolverlos:</p>
                         @if (! empty($listaConflictosDetallados))
                             <div class="space-y-2 mt-2">
@@ -244,7 +243,7 @@
                                 <span>Reasignar todos</span>
                             </label>
                             <button type="submit" class="px-3 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-medium text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-400 transition">
-                                Auto-asignar canchas y horarios (HU-074)
+                                Auto-asignar canchas y horarios
                             </button>
                         </form>
                     @endcan

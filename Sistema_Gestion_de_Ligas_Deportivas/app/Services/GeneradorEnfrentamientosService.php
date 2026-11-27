@@ -754,9 +754,33 @@ class GeneradorEnfrentamientosService
                 ];
 
                 if ($asignarHorarios) {
+                    $slotsPropuesta = [];
+                    foreach ($propuesta['jornadas'] as $itemJornada) {
+                        $numJ = (int) $itemJornada['numero_jornada'];
+                        foreach ($itemJornada['partidos'] as $itemPartido) {
+                            if (
+                                ! empty($itemPartido['cancha_id'])
+                                && ! empty($itemPartido['fecha_partido'])
+                                && ! empty($itemPartido['hora_partido'])
+                            ) {
+                                $clavePar = (int) $itemPartido['equipo_local_id'].'-'.(int) $itemPartido['equipo_visitante_id'];
+                                $slotsPropuesta[$numJ][$clavePar] = [
+                                    'cancha_id' => (int) $itemPartido['cancha_id'],
+                                    'fecha_partido' => (string) $itemPartido['fecha_partido'],
+                                    'hora_partido' => (string) $itemPartido['hora_partido'],
+                                ];
+                            }
+                        }
+                    }
+
+                    $opcionesConPropuesta = $opcionesHorarios;
+                    if ($slotsPropuesta !== []) {
+                        $opcionesConPropuesta['slots_preferidos_propuesta'] = $slotsPropuesta;
+                    }
+
                     $resumen['resumen_horarios'] = $this->programacionAutomaticaService->asignarHorariosAGrupo(
                         $grupoBloqueado,
-                        $opcionesHorarios
+                        $opcionesConPropuesta
                     );
                 }
 
