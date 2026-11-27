@@ -8,7 +8,9 @@
  * HAB-S7 · S7-T01 (SCRUM-234): base visual del nuevo diseño, compilada con Vite en lugar del CDN.
  * Paleta «Azul eléctrico» aprobada por el Product Owner (21/11/2026). La escala gray se redefine en tonos
  * azul marino para que las 71 vistas del panel tomen el nuevo color sin reescribirlas; cada módulo se migra
- * después a los componentes (S7-T06). Todos los pares de texto y fondo usados conservan contraste ≥ 4.5:1.
+ * después a los componentes (S7-T06). Texto gris sobre fondos del panel (revisión del #110): gray-500 da 4.69:1
+ * sobre gray-800 y 5.58:1 sobre gray-900; gray-400 da 4.67:1 sobre gray-700. gray-500 sobre gray-700 (3.42:1)
+ * no se usa para texto.
  */
 @theme {
     --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, ui-sans-serif, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
@@ -18,8 +20,8 @@
     --color-gray-100: #e6ecf7;
     --color-gray-200: #cdd8ec;
     --color-gray-300: #b3c1dd;
-    --color-gray-400: #8b9cc2;
-    --color-gray-500: #64779f;
+    --color-gray-400: #9aabd0;
+    --color-gray-500: #8091b8;
     --color-gray-600: #435683;
     --color-gray-700: #2b3c68;
     --color-gray-750: #21305a;
@@ -45,7 +47,8 @@
     --color-marino-900: #071a4f;
     --color-marino-800: #082a86;
     --color-electrico: #1f5eff;
-    --color-electrico-claro: #4d7fff;
+    /* Hover del botón primario: más oscuro que el eléctrico para que el texto blanco conserve 5:1 */
+    --color-electrico-claro: #2a63f0;
     --color-celeste: #7cc6ff;
     --color-foco: #ffb020;
 }

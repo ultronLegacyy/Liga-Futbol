@@ -94,6 +94,26 @@ class PanelInicioTest extends TestCase
         $this->assertMatchesRegularExpression('/href="'.preg_quote(route('panel.inicio'), '/').'"[^>]*aria-current="page"/', $html);
     }
 
+    // Revisión del #110: el menú no pierde opciones que ya existían en develop
+    public function test_el_menu_conserva_resultados_por_validar_y_asambleas(): void
+    {
+        $textos = fn (User $usuario): array => collect(MenuPanel::para($usuario))->flatMap(fn (array $area) => collect($area['opciones'])->pluck('texto'))->all();
+
+        $this->assertContains('Resultados por validar', $textos($this->usuario('Administrador General')));
+        $this->assertContains('Asambleas', $textos($this->usuario('Secretario')));
+        $this->assertContains('Asambleas', $textos($this->usuario('Presidente')));
+        $this->assertNotContains('Resultados por validar', $textos($this->usuario('Tesorero')));
+    }
+
+    // Revisión del #110: con Árbitro en Campo y Comisión Arbitral, el inicio es el de la Comisión
+    public function test_la_cuenta_con_los_dos_roles_arbitrales_empieza_en_el_padron(): void
+    {
+        $usuario = $this->usuario('Árbitro en Campo');
+        $usuario->assignRole('Comisión Arbitral');
+
+        $this->assertSame(route('arbitros.index'), $usuario->fresh()->rutaInicio());
+    }
+
     private function usuario(string $rol, ?string $nombre = null): User
     {
         $usuario = User::query()->create([
