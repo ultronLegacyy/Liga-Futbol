@@ -137,6 +137,19 @@ class TablaPosicionesService
     }
 
     /**
+     * HU-042: nombres de los criterios de desempate en el orden en que se aplican después de los puntos,
+     * para mostrarlos con la tabla: primero los de la temporada y luego los de respaldo.
+     *
+     * @return list<string>
+     */
+    public function criteriosDeDesempate(ReglaTemporada $regla): array
+    {
+        $nombres = ['dg' => 'Diferencia de goles', 'gf' => 'Goles a favor'];
+
+        return array_map(fn (string $campo): string => $nombres[$campo], $this->desempates($regla));
+    }
+
+    /**
      * Versión de las reglas con la que se calculó la tabla guardada del grupo, para mostrarla.
      */
     public function reglaDeLaTabla(Grupo $grupo, ?int $version): ?ReglaTemporada
@@ -177,6 +190,17 @@ class TablaPosicionesService
         return $regla;
     }
 
+    // Versión vigente de las reglas con puntos, o null si la temporada todavía no las tiene
+    public function reglaVigenteOpcional(Grupo $grupo): ?ReglaTemporada
+    {
+        $regla = ReglaTemporada::query()
+            ->where('temporada_id', $grupo->temporada_id)
+            ->orderByDesc('version')
+            ->first();
+
+        return $regla !== null && $this->puntos($regla) !== null ? $regla : null;
+    }
+
     private function sinReglas(): ValidationException
     {
         return ValidationException::withMessages([
@@ -193,7 +217,8 @@ class TablaPosicionesService
     {
         return Partido::query()
             ->whereHas('jornada', function ($jornada) use ($grupo, $hastaJornada): void {
-                $jornada->where('grupo_id', $grupo->id);
+                // HU-056: las jornadas de liguilla no cuentan para la tabla de la fase regular
+                $jornada->where('grupo_id', $grupo->id)->whereNull('fase_id');
 
                 if ($hastaJornada !== null) {
                     $jornada->where('numero_jornada', '<=', $hastaJornada);

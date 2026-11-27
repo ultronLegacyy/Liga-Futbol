@@ -12,10 +12,11 @@ use App\Models\Partido;
 use App\Models\ReglaTemporada;
 use App\Models\Temporada;
 use App\Models\User;
+use App\Services\TablaPosicionesService;
 use App\Services\ValidacionResultadoService;
 use Illuminate\Support\Facades\Hash;
 
-// Grupo con reglas de puntos y resultados capturados para las pruebas de HU-040, HU-041, HU-043 y HU-055
+// Grupo con reglas de puntos y resultados capturados para las pruebas de HU-040, HU-041, HU-043, HU-055 y HU-056
 trait CreaGrupoConResultados
 {
     private int $numeroFixture = 0;
@@ -100,6 +101,26 @@ trait CreaGrupoConResultados
         }
 
         return $cedula;
+    }
+
+    /**
+     * Juega el rol completo de «Todos contra todos»: gana 1-0 el que va antes en la lista, o todos empatan 0-0.
+     * Se marcan validadas directamente y se recalcula una sola vez, para que la prueba sea rápida.
+     *
+     * @param  list<\App\Models\Equipo>  $equipos
+     */
+    private function jugarRolCompleto(Grupo $grupo, array $equipos, bool $empates = false): void
+    {
+        $jornada = 1;
+        foreach ($equipos as $i => $local) {
+            foreach (array_slice($equipos, $i + 1) as $visitante) {
+                $cedula = $this->resultado($grupo, $jornada, $local, $empates ? 0 : 1, 0, $visitante, validar: false);
+                $cedula->forceFill(['validada_en' => now(), 'validada_por_id' => $this->validador()->id])->save();
+                $jornada++;
+            }
+        }
+
+        app(TablaPosicionesService::class)->recalcular($grupo);
     }
 
     private function validador(): User
