@@ -29,6 +29,7 @@
             Partido {{ $partido->id }} · {{ $partido->fecha_partido?->format('d/m/Y') ?? 'Sin fecha' }}
             {{ $partido->hora_partido ? '· '.substr((string) $partido->hora_partido, 0, 5) : '' }}
             · {{ $partido->cancha?->nombre ?? 'Sin cancha' }}
+            · Árbitro: {{ $partido->arbitro?->persona ? $partido->arbitro->persona->nombre.' '.$partido->arbitro->persona->apellidos : 'Sin asignar' }}
         </p>
     </div>
 
