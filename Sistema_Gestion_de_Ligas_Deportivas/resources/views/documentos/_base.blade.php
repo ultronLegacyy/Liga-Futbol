@@ -41,7 +41,7 @@
     </style>
 </head>
 <body>
-    <div class="pie">Documento generado por el Sistema de Gestión de la Liga el {{ $generado }} h (hora de México) · Folio {{ $folio }} · Válido para impresión en cualquier impresora (IH-03).</div>
+    <div class="pie">Documento generado por el Sistema de Gestión de la Liga el {{ $generado }} h (hora de México) · Folio {{ $folio }}.</div>
 
     <table class="membrete">
         <tr>

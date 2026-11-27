@@ -8,7 +8,7 @@
 
 @section('documento')
     <h1>Constancia de registro</h1>
-    <p class="sub">Constancia de que la persona está registrada como jugador de la liga (HU-069).</p>
+    <p class="sub">Constancia de que la persona está registrada como jugador de la liga.</p>
 
     <p style="font-size: 12px; margin: 18px 0;">
         La Liga Municipal de Fútbol Amateur de Morelia hace constar que <b>{{ $nombreCompleto }}</b> está registrado
@@ -30,7 +30,7 @@
         @endif
     </table>
 
-    <p>Se extiende a petición de la persona interesada para los fines que le convengan. Para verificarla, consulte el folio en la Secretaría de la liga.</p>
+    <p>Se extiende a petición de la persona interesada para los fines que le convengan.</p>
 
     <table class="firmas" style="margin-top: 60px;">
         <tr>

@@ -7,6 +7,9 @@
         'local' => ['equipo' => $partido->local, 'id' => $partido->equipo_local_id],
         'visitante' => ['equipo' => $partido->visitante, 'id' => $partido->equipo_visitante_id],
     ];
+    // Cada gol o tarjeta se atribuye al equipo de la fila del jugador en la alineación de esta cédula, como hace
+    // ValidacionCedulaService (HU-040), no al equipo que el jugador tiene hoy
+    $equipoEnAlineacion = $cedula->alineaciones->whereNotNull('jugador_id')->mapWithKeys(fn ($fila) => [(int) $fila->jugador_id => (int) $fila->equipo_id]);
     $equipoDe = fn (?int $equipoId): string => $equipoId === (int) $partido->equipo_local_id
         ? ($partido->local->nombre ?? 'Local')
         : ($equipoId === (int) $partido->equipo_visitante_id ? ($partido->visitante->nombre ?? 'Visitante') : '—');
@@ -72,7 +75,7 @@
                         <td class="num">{{ $evento->minuto !== null ? $evento->minuto."'" : '—' }}</td>
                         <td>{{ $evento->tipo === 'Amarilla' ? 'Tarjeta amarilla' : ($evento->tipo === 'Roja' ? 'Tarjeta roja' : 'Gol') }}{{ $evento->autogol ? ' (autogol)' : '' }}</td>
                         <td>{{ $nombre($evento->jugador) }}</td>
-                        <td>{{ $equipoDe($evento->jugador?->equipo_id) }}</td>
+                        <td>{{ $equipoDe($evento->jugador_id !== null ? $equipoEnAlineacion->get((int) $evento->jugador_id) : null) }}</td>
                     </tr>
                 @endforeach
             </tbody>

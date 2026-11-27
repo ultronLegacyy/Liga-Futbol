@@ -68,9 +68,10 @@ class DocumentoOficialService
     {
         $cedula = $partido->cedula()->first();
 
-        if ($cedula === null || ! $cedula->estaCerrada()) {
+        // HU-040: una cédula cerrada no es oficial hasta que el resultado se valida
+        if ($cedula === null || ! $cedula->esOficial()) {
             throw ValidationException::withMessages([
-                'cedula' => 'La cédula oficial solo se genera cuando la cédula del partido está cerrada.',
+                'cedula' => 'La cédula oficial solo se genera cuando el resultado ya fue validado.',
             ]);
         }
 
@@ -118,7 +119,39 @@ class DocumentoOficialService
         ]);
     }
 
-    // Folio legible y verificable contra la base: tipo, identificador y fecha de emisión
+    /**
+     * Pantalla «Documentos oficiales» del Tesorero y el Presidente: partidos con resultado oficial, clubes y una
+     * búsqueda de jugadores por nombre.
+     *
+     * @return array{partidos: Collection<int, Partido>, clubes: Collection<int, Club>, jugadores: Collection<int, Jugador>}
+     */
+    public function listado(string $buscar): array
+    {
+        $texto = '%'.addcslashes($buscar, '%_\\').'%';
+
+        return [
+            'partidos' => Partido::query()
+                ->whereHas('cedula', fn ($cedula) => $cedula->oficiales())
+                ->with('local:id,nombre', 'visitante:id,nombre', 'cedula:id,partido_id,goles_local,goles_visitante')
+                ->orderByDesc('fecha_partido')
+                ->orderByDesc('id')
+                ->limit(30)
+                ->get(),
+            'clubes' => Club::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'jugadores' => mb_strlen($buscar) >= 2
+                ? Jugador::query()
+                    ->where('estado_elegibilidad', '!=', 'Baja')
+                    ->whereHas('persona', fn ($persona) => $persona
+                        ->where('nombre', 'like', $texto)
+                        ->orWhere('apellidos', 'like', $texto))
+                    ->with('persona:id,nombre,apellidos', 'equipo:id,nombre')
+                    ->limit(20)
+                    ->get()
+                : new Collection(),
+        ];
+    }
+
+    // Folio legible: tipo, identificador y fecha de emisión
     public static function folio(string $tipo, int $id): string
     {
         return strtoupper($tipo).'-'.str_pad((string) $id, 5, '0', STR_PAD_LEFT).'-'.now('America/Mexico_City')->format('Ymd');

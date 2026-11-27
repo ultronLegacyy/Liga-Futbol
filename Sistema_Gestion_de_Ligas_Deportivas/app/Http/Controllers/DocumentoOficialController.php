@@ -16,6 +16,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Illuminate\View\View;
 
 /**
  * Documentos oficiales en PDF (HU-069, RF-16.2, IH-03). Tamaño carta con márgenes de impresora,
@@ -27,13 +28,30 @@ class DocumentoOficialController extends Controller
     {
     }
 
+    // Punto de entrada del Tesorero y el Presidente (HU-069): partidos con resultado oficial, clubes y jugadores
+    public function index(Request $request): View
+    {
+        Gate::authorize('verReporte', CargoFinanciero::class);
+
+        $buscar = $request->query('jugador');
+        $buscar = is_string($buscar) ? mb_substr(trim($buscar), 0, 60) : '';
+
+        return view('documentos.index', [...$this->documentos->listado($buscar), 'buscar' => $buscar]);
+    }
+
     // Estado de cuenta de un club, de una temporada o de todas (Tesorero y Presidente)
     public function estadoDeCuenta(Request $request, Club $club): Response
     {
         Gate::authorize('verReporte', CargoFinanciero::class);
 
-        $temporadaId = $request->integer('temporada_id');
-        $temporada = $temporadaId > 0 ? Temporada::query()->find($temporadaId) : null;
+        // Sin temporada_id es el de todas las temporadas; un valor que no existe o no es número no se toma como «todas»
+        $temporada = null;
+        if ($request->filled('temporada_id')) {
+            $temporadaId = $request->query('temporada_id');
+            abort_unless(is_string($temporadaId) && ctype_digit($temporadaId), 404, 'La temporada indicada no existe.');
+            $temporada = Temporada::query()->find((int) $temporadaId);
+            abort_if($temporada === null, 404, 'La temporada indicada no existe.');
+        }
 
         return $this->pdf('documentos.estado-cuenta', [
             'club' => $club,
@@ -51,7 +69,13 @@ class DocumentoOficialController extends Controller
         try {
             $datos = $this->documentos->cedulaOficial($partido);
         } catch (ValidationException $error) {
-            return redirect()->route('cedulas.show', $partido)->withErrors($error->errors());
+            // Regresa a una pantalla que esa persona sí puede abrir: «Documentos oficiales» para Tesorería y
+            // Presidencia, la cédula del partido para el árbitro asignado
+            $destino = Gate::allows('verReporte', CargoFinanciero::class)
+                ? route('documentos.index')
+                : route('cedulas.show', $partido);
+
+            return redirect()->to($destino)->withErrors($error->errors());
         }
 
         return $this->pdf('documentos.cedula', [
@@ -82,6 +106,8 @@ class DocumentoOficialController extends Controller
 
         return Pdf::loadView($vista, $datos)
             ->setPaper('letter', 'portrait')
+            // Solo los caracteres usados de DejaVu: el PDF pesa menos para enviarlo por correo
+            ->setOption('isFontSubsettingEnabled', true)
             ->download($archivo);
     }
 }

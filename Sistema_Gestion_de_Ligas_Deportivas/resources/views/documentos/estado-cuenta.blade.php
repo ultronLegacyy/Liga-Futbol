@@ -7,7 +7,7 @@
 
 @section('documento')
     <h1>Estado de cuenta</h1>
-    <p class="sub">Cargos y pagos registrados del club (HU-051). El saldo de cada cargo nunca es negativo.</p>
+    <p class="sub">Cargos y pagos registrados del club. El saldo de cada cargo nunca es negativo.</p>
 
     <table class="datos">
         <tr><td class="et">Club</td><td>{{ $club->nombre }}</td></tr>

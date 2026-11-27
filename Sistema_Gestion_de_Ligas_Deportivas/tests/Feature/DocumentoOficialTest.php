@@ -144,9 +144,10 @@ class DocumentoOficialTest extends TestCase
 
         $abierto = $this->partidoConArbitro();
         CedulaArbitral::create(['partido_id' => $abierto->id, 'estado' => CedulaArbitral::ABIERTA, 'goles_local' => 0, 'goles_visitante' => 0]);
+        // Tesorería regresa a «Documentos oficiales», que sí puede abrir
         $this->actingAs($this->tesorero)->get(route('documentos.cedula', $abierto))
-            ->assertRedirect(route('cedulas.show', $abierto))
-            ->assertSessionHasErrors(['cedula' => 'La cédula oficial solo se genera cuando la cédula del partido está cerrada.']);
+            ->assertRedirect(route('documentos.index'))
+            ->assertSessionHasErrors(['cedula' => 'La cédula oficial solo se genera cuando el resultado ya fue validado.']);
 
         $sinCedula = $this->partidoConArbitro();
         $this->actingAs($this->tesorero)->get(route('documentos.cedula', $sinCedula))->assertSessionHasErrors('cedula');
@@ -181,7 +182,69 @@ class DocumentoOficialTest extends TestCase
         $this->actingAs($this->usuario('Capturista'))->get($ruta)->assertForbidden();
     }
 
-    private function partidoCerrado(): Partido
+    // Revisión del #107: una cédula cerrada sin validar no es oficial (HU-040) y no muestra el botón
+    public function test_una_cedula_cerrada_sin_validar_no_genera_la_cedula_oficial(): void
+    {
+        $partido = $this->partidoCerrado(validada: false);
+
+        $this->actingAs($this->tesorero)->get(route('documentos.cedula', $partido))
+            ->assertRedirect(route('documentos.index'))
+            ->assertSessionHasErrors(['cedula' => 'La cédula oficial solo se genera cuando el resultado ya fue validado.']);
+
+        $this->actingAs($this->usuario('Capturista'))->get(route('cedulas.show', $partido))
+            ->assertOk()
+            ->assertDontSee('Descargar cédula oficial (PDF)');
+    }
+
+    // Revisión del #107: el Tesorero y el Presidente tienen una pantalla para llegar a los tres documentos
+    public function test_documentos_oficiales_es_el_punto_de_entrada_de_tesoreria(): void
+    {
+        $oficial = $this->partidoCerrado();
+        $sinValidar = $this->partidoCerrado(validada: false);
+        $jugador = Jugador::query()->where('equipo_id', $oficial->equipo_local_id)->where('estado_elegibilidad', 'Activo')->with('persona')->orderBy('id')->firstOrFail();
+
+        foreach ([$this->tesorero, $this->usuario('Presidente')] as $usuario) {
+            $this->actingAs($usuario)->get(route('documentos.index', ['jugador' => $jugador->persona->apellidos]))
+                ->assertOk()
+                ->assertSee(route('documentos.cedula', $oficial), false)
+                ->assertDontSee(route('documentos.cedula', $sinValidar), false)
+                ->assertSee(route('documentos.estado-cuenta', $this->club), false)
+                ->assertSee(route('documentos.constancia', $jugador), false);
+        }
+
+        $this->actingAs($this->tesorero)->get(route('reportes.financiero'))->assertOk()->assertSee(route('documentos.index'), false);
+        $this->actingAs($this->usuario('Capturista'))->get(route('documentos.index'))->assertForbidden();
+    }
+
+    // Revisión del #107: cada gol o tarjeta va al equipo de la alineación, aunque el jugador se haya transferido
+    public function test_los_eventos_se_atribuyen_al_equipo_de_la_alineacion(): void
+    {
+        $partido = $this->partidoCerrado();
+        $goleador = Jugador::query()->where('equipo_id', $partido->equipo_local_id)->orderBy('id')->firstOrFail();
+        // Después del partido se transfiere al rival
+        Jugador::query()->whereKey($goleador->id)->update(['equipo_id' => $partido->equipo_visitante_id]);
+
+        $datos = app(DocumentoOficialService::class)->cedulaOficial($partido->fresh());
+        $html = view('documentos.cedula', [
+            'partido' => $partido, 'cedula' => $datos['cedula'], 'firmas' => $datos['firmas'],
+            'folio' => 'CED-00001-20261114', 'generado' => '14/11/2026 12:00',
+        ])->render();
+
+        $this->assertMatchesRegularExpression("/".preg_quote(e("12'"), '/')."<\/td>\s*<td>Gol<\/td>\s*<td>[^<]+<\/td>\s*<td>".preg_quote(e($partido->local->nombre), '/')."<\/td>/", $html);
+    }
+
+    // Revisión del #107: una temporada inexistente no se toma como «todas»
+    public function test_el_estado_de_cuenta_con_una_temporada_inexistente_da_404(): void
+    {
+        foreach (['99999', 'abc'] as $temporada) {
+            $this->actingAs($this->tesorero)
+                ->get(route('documentos.estado-cuenta', ['club' => $this->club, 'temporada_id' => $temporada]))
+                ->assertNotFound();
+        }
+    }
+
+    // Cédula cerrada; por omisión también validada (oficial, HU-040)
+    private function partidoCerrado(bool $validada = true): Partido
     {
         $partido = $this->partidoConArbitro();
         $cedula = CedulaArbitral::create([
@@ -191,6 +254,8 @@ class DocumentoOficialTest extends TestCase
             'goles_visitante' => 1,
             'informe_arbitral' => 'Partido sin novedades graves.',
             'cerrada_en' => now(),
+            'validada_por_id' => $validada ? $this->usuario('Administrador General')->id : null,
+            'validada_en' => $validada ? now() : null,
         ]);
 
         $jugadores = Jugador::query()->where('equipo_id', $partido->equipo_local_id)->orderBy('id')->get();

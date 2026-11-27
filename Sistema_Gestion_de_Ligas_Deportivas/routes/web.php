@@ -341,6 +341,8 @@ Route::middleware(['auth'])->group(function () {
             ->name('reportes.financiero.pdf');
 
         // Documentos oficiales en PDF (HU-069, RF-16.2, IH-03)
+        Route::get('/documentos', [DocumentoOficialController::class, 'index'])
+            ->name('documentos.index');
         Route::get('/documentos/clubes/{club}/estado-de-cuenta', [DocumentoOficialController::class, 'estadoDeCuenta'])
             ->name('documentos.estado-cuenta');
         Route::get('/documentos/partidos/{partido}/cedula', [DocumentoOficialController::class, 'cedula'])
