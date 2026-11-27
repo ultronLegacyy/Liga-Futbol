@@ -390,4 +390,15 @@ class PortalProgramacionTest extends TestCase
             'estatus' => 'activo',
         ]);
     }
+
+    // Revisión del #105: foco de dos tonos con contraste ≥ 3:1 y sin cinta que corra sin pausa (RNF-13, WCAG 2.2.2)
+    public function test_el_foco_es_de_dos_tonos_y_la_cinta_no_corre_sin_fin(): void
+    {
+        $respuesta = $this->get(route('portal.programacion'))->assertOk();
+
+        $respuesta->assertSee('--foco: var(--navy);', false);
+        $respuesta->assertSee('--foco-halo: 0 0 0 6px #fff;', false);
+        $respuesta->assertDontSee('#ff9f1c', false);
+        $this->assertStringNotContainsString('animation: correr ', $respuesta->getContent());
+    }
 }
