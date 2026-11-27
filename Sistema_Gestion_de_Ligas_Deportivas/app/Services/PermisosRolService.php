@@ -36,7 +36,6 @@ class PermisosRolService
         'roles.ver', 'roles.crear', 'roles.editar', 'roles.eliminar', 'roles.asignar_permiso',
         'auditoria.ver',
         'disciplina.ver',
-        'resultados.validar',
     ];
 
     public function __construct(

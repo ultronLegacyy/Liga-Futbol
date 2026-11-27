@@ -249,6 +249,73 @@ class PortalCastigadosTest extends TestCase
             ->assertNotFound();
     }
 
+    // Revisión del #106: la fecha del comunicado se muestra en la hora de la liga, no en UTC
+    public function test_la_fecha_del_comunicado_sale_en_la_hora_de_mexico(): void
+    {
+        // 20:00 en México son las 02:00 UTC del día siguiente
+        Carbon::setTestNow(Carbon::parse('2026-11-24 20:00:00', Sancion::ZONA_HORARIA));
+        $secretario = $this->usuarioConRol('Secretario');
+        $comunicado = $this->comunicado('Aviso nocturno');
+
+        $this->actingAs($secretario)
+            ->put(route('asambleas.comunicados.portal', [$comunicado->asamblea_id, $comunicado]), ['publicar' => '1'])
+            ->assertSessionHasNoErrors();
+
+        $this->actingAs($secretario)->get(route('asambleas.show', $comunicado->asamblea_id))
+            ->assertOk()
+            ->assertSee('Publicado en el portal · 24/11/2026 20:00');
+
+        auth()->logout();
+        $this->get(route('portal.castigados'))->assertOk()
+            ->assertSee('<time datetime="2026-11-24">24 de noviembre de 2026</time>', false)
+            ->assertDontSee('25 de noviembre de 2026');
+    }
+
+    // Revisión del #106: «publicar» se valida; un valor raro no retira un comunicado publicado
+    public function test_un_valor_invalido_de_publicar_no_retira_el_comunicado(): void
+    {
+        $secretario = $this->usuarioConRol('Secretario');
+        $comunicado = $this->comunicado('Aviso firme');
+        $ruta = route('asambleas.comunicados.portal', [$comunicado->asamblea_id, $comunicado]);
+        $this->actingAs($secretario)->put($ruta, ['publicar' => '1'])->assertSessionHasNoErrors();
+
+        foreach ([['publicar' => 'si'], ['publicar' => ['1']], []] as $datos) {
+            $this->actingAs($secretario)->put($ruta, $datos)
+                ->assertSessionHasErrors(['publicar' => 'Indica si el comunicado se publica o se retira del portal.']);
+        }
+
+        $this->assertTrue($comunicado->fresh()->publicado_en_portal);
+    }
+
+    // Revisión del #106: el equipo del sancionado es su inscripción vigente, no una baja posterior
+    public function test_el_sancionado_sale_en_su_equipo_vigente_aunque_tenga_una_baja_posterior(): void
+    {
+        $jugador = $this->jugador(0);
+        Jugador::create([
+            'persona_id' => $jugador->persona_id,
+            'equipo_id' => $this->partido->equipo_visitante_id,
+            'dorsal' => 99,
+            'estado_elegibilidad' => 'Baja',
+        ]);
+        $this->sancion($jugador);
+
+        $this->get(route('portal.castigados'))->assertOk()
+            ->assertSeeInOrder([$this->partido->local->nombre, trim($jugador->persona->nombre.' '.$jugador->persona->apellidos)])
+            ->assertDontSee($this->partido->visitante->nombre);
+    }
+
+    // Revisión del #106: el resumen cuenta personas distintas, no sanciones
+    public function test_una_persona_con_dos_sanciones_cuenta_una_vez(): void
+    {
+        $jugador = $this->jugador(0);
+        $this->sancion($jugador);
+        $this->sancion($jugador, ['partidos_suspendidos' => 3]);
+
+        $this->get(route('portal.castigados'))->assertOk()
+            ->assertSee('1 persona suspendida')
+            ->assertDontSee('2 personas suspendidas');
+    }
+
     private function jugador(int $indice): Jugador
     {
         return Jugador::query()

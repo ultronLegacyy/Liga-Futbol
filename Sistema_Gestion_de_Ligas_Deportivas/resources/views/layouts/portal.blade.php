@@ -33,7 +33,10 @@
             --acento: var(--royal-oscuro);
             --celeste: var(--lima);
             --oscuro: var(--navy);
-            --foco: #ff9f1c;
+            /* Foco de dos tonos (RNF-13, WCAG 1.4.11): anillo marino de 3 px y halo blanco por fuera. El marino da
+               más de 10:1 sobre el fondo claro y el blanco más de 5:1 sobre el azul de la portada y del pie. */
+            --foco: var(--navy);
+            --foco-halo: 0 0 0 6px #fff;
             --sombra: 0 12px 32px -14px rgba(11, 26, 92, .22);
             --display: "Barlow Condensed", "Roboto Condensed", "sans-serif-condensed", "Arial Narrow", "Helvetica Neue Condensed", Impact, sans-serif;
         }
@@ -55,7 +58,8 @@
 
         a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visible, select:focus-visible {
             outline: 3px solid var(--foco);
-            outline-offset: 2px;
+            outline-offset: 0;
+            box-shadow: var(--foco-halo);
         }
 
         .saltar {
@@ -257,7 +261,8 @@
             padding: .875rem 1.125rem;
             border: 1px solid rgba(255, 255, 255, .3);
             border-radius: 1.25rem;
-            background: rgba(255, 255, 255, .14);
+            /* Fondo marino translúcido: el texto blanco se lee aunque la tarjeta pase sobre el balón */
+            background: rgba(8, 26, 82, .62);
             color: var(--blanco);
             box-shadow: 0 20px 40px -22px rgba(0, 0, 0, .5);
             pointer-events: auto;
@@ -265,7 +270,7 @@
 
         .vidrio p { margin: 0; }
         .vidrio b { display: block; font-size: .9375rem; }
-        .vidrio span { font-size: .8125rem; color: #e1e9ff; }
+        .vidrio span { font-size: .8125rem; color: #fff; }
         .vidrio .icono { display: grid; place-items: center; flex: none; width: 2.5rem; height: 2.5rem; border-radius: .875rem; background: var(--lima); color: var(--tinta); font-weight: 900; }
         .vidrio-1 { left: 0; bottom: 8%; }
         .vidrio-2 { right: 0; bottom: 34%; }
@@ -279,9 +284,10 @@
 
         .cifras div { padding: 1rem 0 1.25rem; }
         .cifras dd { margin: 0; font-family: var(--display); font-weight: 900; font-style: italic; font-size: 2.25rem; line-height: 1; }
-        .cifras dt { margin-top: .375rem; font-size: .75rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #cfe0ff; }
+        .cifras dt { margin-top: .375rem; font-size: .75rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #fff; }
 
-        /* Cinta de partidos que corre (se pausa al pasar el cursor o con el foco) */
+        /* Cinta fija con los partidos de la semana (decorativa, aria-hidden). No se anima para no tener movimiento
+           de más de 5 s sin forma de pausarlo con teclado (WCAG 2.2.2). */
         .cinta {
             overflow: hidden;
             margin-top: 1rem;
@@ -290,6 +296,7 @@
             color: var(--tinta);
             font-weight: 800;
             white-space: nowrap;
+            mask-image: linear-gradient(90deg, #000 88%, transparent);
         }
 
         .cinta ul { display: inline-flex; gap: 2.5rem; margin: 0; padding: .75rem 1.25rem; list-style: none; }
@@ -305,10 +312,8 @@
             .balon { animation: flotar 5s ease-in-out infinite; }
             .camiseta { animation: flotar-camiseta 6s ease-in-out infinite; }
             .estelas { animation: correr-estelas 2.4s linear infinite; }
-            .cinta ul { animation: correr 38s linear infinite; }
-            .cinta:hover ul, .cinta:focus-within ul { animation-play-state: paused; }
             .punto { position: relative; }
-            .punto::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--lima); animation: latido 1.8s ease-out infinite; }
+            .punto::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--lima); animation: latido 1.8s ease-out 2; }
 
             /* La portada solo se desliza (sin opacidad) para no retrasar el LCP */
             .hero-texto > * { animation: deslizar .7s cubic-bezier(.2, .8, .2, 1) both; }
@@ -327,7 +332,6 @@
         @keyframes flotar-camiseta { 50% { transform: rotate(9deg) translateY(-10px); } }
         @keyframes correr-estelas { from { translate: -6% 0; } to { translate: 4% 0; } }
         @keyframes girar { to { transform: rotate(360deg); } }
-        @keyframes correr { to { transform: translateX(-50%); } }
         @keyframes latido { from { transform: scale(1); opacity: .7; } to { transform: scale(3); opacity: 0; } }
         /* Solo transform: el contenido nunca queda invisible si el navegador no anima */
         @keyframes subir { from { transform: translateY(28px) scale(.97); } to { transform: none; } }

@@ -30,7 +30,8 @@ class PortalResultadosTest extends TestCase
         parent::setUp();
 
         $this->seed(RoleAndPermissionSeeder::class);
-        $validador = $this->usuario('Programador de Partidos');
+        // Decisión del 23/11: solo el Administrador General valida resultados
+        $validador = $this->usuario('Administrador General');
 
         $this->oficial = $this->partidoConArbitro();
         $this->cedula($this->oficial, 2, 1, $validador);
@@ -72,6 +73,22 @@ class PortalResultadosTest extends TestCase
 
         $this->assertStringNotContainsString('7 – 0', $html);
         $this->assertSame(1, substr_count($html, 'class="resultado tarjeta"'));
+    }
+
+    // Revisión del #108: misma regla que HU-043; la doble amarilla en un partido cuenta como 1 amarilla y 1 roja,
+    // y el tipo de tarjeta va escrito, no solo en el color (WCAG 1.4.1)
+    public function test_la_doble_amarilla_cuenta_como_roja_y_el_tipo_va_escrito(): void
+    {
+        $jugador = $this->jugador($this->oficial->equipo_local_id);
+        $cedula = CedulaArbitral::query()->where('partido_id', $this->oficial->id)->firstOrFail();
+        EventoPartido::create(['cedula_id' => $cedula->id, 'jugador_id' => $jugador->id, 'tipo' => 'Amarilla', 'minuto' => 70]);
+
+        $html = $this->get(route('portal.resultados'))->assertOk()
+            ->assertSeeInOrder(['Tarjetas', 'Calculado', trim($jugador->persona->nombre.' '.$jugador->persona->apellidos), '>1</span> amarilla<', '>1</span> roja<'], false)
+            ->getContent();
+
+        $this->assertStringNotContainsString('>2</span> amarillas', $html);
+        $this->assertStringNotContainsString('aria-label="1 amarillas"', $html);
     }
 
     // RNF-31: de los jugadores solo nombre y equipo; sin CURP, fecha de nacimiento ni formularios

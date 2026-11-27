@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\EventoPartido;
 use App\Models\Grupo;
+use App\Models\Jugador;
 use App\Models\Partido;
 use App\Models\TablaPosicion;
 use Illuminate\Database\Eloquent\Collection;
@@ -15,8 +15,10 @@ use Illuminate\Support\Collection as ColeccionBase;
  */
 class PortalResultadosService
 {
-    public function __construct(private readonly TablaPosicionesService $tablas)
-    {
+    public function __construct(
+        private readonly TablaPosicionesService $tablas,
+        private readonly EstadisticasGrupoService $estadisticasGrupo,
+    ) {
     }
 
     /**
@@ -68,48 +70,38 @@ class PortalResultadosService
     }
 
     /**
-     * Goleo y tarjetas por jugador con los eventos de las cédulas oficiales del grupo. Los autogoles no suman.
+     * Goleo y tarjetas del grupo con la regla de HU-043 (EstadisticasGrupoService, #101): sin autogoles, solo cédulas
+     * oficiales, la doble amarilla en un partido cuenta como roja (decisión de Daniel, 23/11) y los empates se
+     * ordenan por apellidos. Aquí solo se recorta a $limite y se deja nombre y equipo para la vista (RNF-31).
      *
      * @return array{goleo: ColeccionBase<int, array{nombre: string, equipo: string, total: int}>, tarjetas: ColeccionBase<int, array{nombre: string, equipo: string, amarillas: int, rojas: int}>}
      */
     public function estadisticas(Grupo $grupo, int $limite = 10): array
     {
-        $eventos = EventoPartido::query()
-            ->whereNotNull('jugador_id')
-            ->whereIn('tipo', ['Gol', 'Amarilla', 'Roja'])
-            ->whereHas('cedula', fn ($cedula) => $cedula
-                ->oficiales()
-                ->whereHas('partido.jornada', fn ($jornada) => $jornada->where('grupo_id', $grupo->getKey())))
-            ->with('jugador:id,persona_id,equipo_id', 'jugador.persona:id,nombre,apellidos', 'jugador.equipo:id,nombre')
-            ->get(['id', 'cedula_id', 'jugador_id', 'tipo', 'autogol']);
+        return [
+            'goleo' => $this->estadisticasGrupo->goleadores($grupo)
+                ->take($limite)
+                ->map(fn (array $fila): array => [...$this->publico($fila['jugador']), 'total' => $fila['goles']])
+                ->values(),
+            'tarjetas' => $this->estadisticasGrupo->tarjetas($grupo)
+                ->take($limite)
+                ->map(fn (array $fila): array => [...$this->publico($fila['jugador']), 'amarillas' => $fila['amarillas'], 'rojas' => $fila['rojas']])
+                ->values(),
+        ];
+    }
 
-        $porJugador = $eventos->groupBy('jugador_id')->map(function ($suyos): array {
-            /** @var EventoPartido $primero */
-            $primero = $suyos->first();
-            $persona = $primero->jugador?->persona;
-
-            return [
-                'nombre' => $persona !== null ? trim($persona->nombre.' '.$persona->apellidos) : 'Jugador',
-                'equipo' => $primero->jugador->equipo->nombre ?? 'Sin equipo',
-                'goles' => $suyos->where('tipo', 'Gol')->where('autogol', false)->count(),
-                'amarillas' => $suyos->where('tipo', 'Amarilla')->count(),
-                'rojas' => $suyos->where('tipo', 'Roja')->count(),
-            ];
-        })->values();
+    /**
+     * Solo nombre y equipo del jugador (RNF-31).
+     *
+     * @return array{nombre: string, equipo: string}
+     */
+    private function publico(Jugador $jugador): array
+    {
+        $persona = $jugador->persona;
 
         return [
-            'goleo' => $porJugador
-                ->filter(fn (array $fila): bool => $fila['goles'] > 0)
-                ->sortBy([['goles', 'desc'], ['nombre', 'asc']])
-                ->take($limite)
-                ->map(fn (array $fila): array => ['nombre' => $fila['nombre'], 'equipo' => $fila['equipo'], 'total' => $fila['goles']])
-                ->values(),
-            'tarjetas' => $porJugador
-                ->filter(fn (array $fila): bool => $fila['amarillas'] + $fila['rojas'] > 0)
-                ->sortBy([['rojas', 'desc'], ['amarillas', 'desc'], ['nombre', 'asc']])
-                ->take($limite)
-                ->map(fn (array $fila): array => ['nombre' => $fila['nombre'], 'equipo' => $fila['equipo'], 'amarillas' => $fila['amarillas'], 'rojas' => $fila['rojas']])
-                ->values(),
+            'nombre' => $persona !== null ? trim($persona->nombre.' '.$persona->apellidos) : 'Jugador',
+            'equipo' => $jugador->equipo->nombre ?? 'Sin equipo',
         ];
     }
 }
