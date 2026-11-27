@@ -171,7 +171,7 @@
                 {{-- HU-078 (PA-15): solo los comunicados publicados de forma expresa se ven en el portal público --}}
                 <div class="mt-3 flex flex-wrap items-center gap-3">
                     @if ($comunicado->publicado_en_portal)
-                        <span class="rounded-full border border-sky-500/40 bg-sky-500/15 px-2 py-1 text-xs font-semibold text-sky-200">Publicado en el portal · {{ $comunicado->publicado_en?->format('d/m/Y H:i') }}</span>
+                        <span class="rounded-full border border-sky-500/40 bg-sky-500/15 px-2 py-1 text-xs font-semibold text-sky-200">Publicado en el portal · {{ $comunicado->publicado_en?->copy()->timezone(\App\Models\Sancion::ZONA_HORARIA)->format('d/m/Y H:i') }}</span>
                     @else
                         <span class="rounded-full border border-gray-600 px-2 py-1 text-xs text-gray-300">Solo interno</span>
                     @endif
