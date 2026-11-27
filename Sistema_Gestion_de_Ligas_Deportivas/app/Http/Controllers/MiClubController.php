@@ -57,7 +57,11 @@ class MiClubController extends Controller
         }
 
         if ($club === null) {
-            return view('mi-club.show', ['club' => null, 'esDirectivo' => $esDirectivo, 'usuario' => $usuario]);
+            // Sin club: el Presidente o el Delegado que no es Jugador ve el aviso de ligar la cuenta a un club con la
+            // Secretaría; el Jugador (aunque también tenga un rol de club sin club_id), el de vincular su registro
+            $avisoDeClub = $esDirectivo || ($usuario->hasAnyRole(['Presidente del Club', 'Delegado del Club']) && ! $usuario->hasRole('Jugador'));
+
+            return view('mi-club.show', ['club' => null, 'esDirectivo' => $avisoDeClub, 'usuario' => $usuario]);
         }
 
         // El jugador ve solo su equipo; los directivos, todos los equipos del club
