@@ -37,6 +37,11 @@ use Illuminate\Support\Facades\DB;
  *
  * Uso, después de DatabaseSeeder: php artisan db:seed --class=LigaDemoSeeder
  * Se puede ejecutar varias veces; también retira la demostración anterior del portal («Local 1 vs. Visitante 1»).
+ *
+ * SOLO PARA BASES DE REVISIÓN O DESARROLLO. No se ejecuta en la base real de la liga:
+ * - crea una temporada «activa» más (si DatabaseSeeder ya creó una, quedan dos activas);
+ * - borra en masa la demostración anterior con ->delete() sobre consultas, sin auditoría;
+ * - usa factories, que dependen de fakerphp/faker (require-dev): no corre en un servidor instalado con --no-dev.
  */
 class LigaDemoSeeder extends Seeder
 {

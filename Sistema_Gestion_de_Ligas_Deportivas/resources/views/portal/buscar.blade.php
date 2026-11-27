@@ -175,7 +175,10 @@
                 <ul class="lista-resultados">
                     @foreach ($comunicados as $comunicado)
                         <li class="fila tarjeta">
-                            <p class="secundario"><time datetime="{{ $comunicado->publicado_en?->toDateString() }}">{{ $comunicado->publicado_en?->format('d/m/Y') }}</time></p>
+                            @php
+                                $publicadoLocal = $comunicado->publicado_en?->copy()->timezone(\App\Models\Sancion::ZONA_HORARIA);
+                            @endphp
+                            <p class="secundario"><time datetime="{{ $publicadoLocal?->toDateString() }}">{{ $publicadoLocal?->format('d/m/Y') }}</time></p>
                             <p class="principal">{{ $comunicado->titulo }}</p>
                             <p>{{ \Illuminate\Support\Str::limit($comunicado->contenido, 180) }}</p>
                         </li>

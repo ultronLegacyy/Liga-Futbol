@@ -9,6 +9,7 @@ use App\Models\Temporada;
 use App\Models\User;
 use App\Http\Requests\AutorizarAcuerdoAsambleaRequest;
 use App\Http\Requests\GuardarAsistenciaAsambleaRequest;
+use App\Http\Requests\PublicarComunicadoAsambleaRequest;
 use App\Http\Requests\StoreAcuerdoAsambleaRequest;
 use App\Http\Requests\StoreAsambleaRequest;
 use App\Http\Requests\StoreComunicadoAsambleaRequest;
@@ -156,10 +157,9 @@ class AsambleaController extends Controller
     }
 
     // Publicar o retirar un comunicado del portal público (HU-078, PA-15)
-    public function publicarComunicado(Request $request, Asamblea $asamblea, ComunicadoAsamblea $comunicado): RedirectResponse
+    public function publicarComunicado(PublicarComunicadoAsambleaRequest $request, Asamblea $asamblea, ComunicadoAsamblea $comunicado): RedirectResponse
     {
         abort_unless((int) $comunicado->asamblea_id === (int) $asamblea->getKey(), 404);
-        Gate::authorize('publicarComunicado', $asamblea);
         $usuario = $request->user();
         abort_unless($usuario instanceof User, 401);
 

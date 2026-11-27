@@ -3,13 +3,18 @@
 namespace Tests\Feature;
 
 use App\Models\Asamblea;
+use App\Models\CatalogoArticulo;
 use App\Models\CedulaArbitral;
 use App\Models\ComunicadoAsamblea;
 use App\Models\Equipo;
+use App\Models\ExpedienteDisciplinario;
 use App\Models\Jornada;
+use App\Models\Jugador;
 use App\Models\Partido;
+use App\Models\Sancion;
 use App\Models\User;
 use Database\Seeders\RoleAndPermissionSeeder;
+use Illuminate\Support\Carbon;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\Concerns\CreaPartidoConCedula;
 use Tests\TestCase;
@@ -150,6 +155,115 @@ class PortalBusquedaTest extends TestCase
         $this->assertStringContainsString('value="Tigres"', $html);
         $this->assertStringNotContainsString('<script', $html);
         $this->assertMatchesRegularExpression('/href="'.preg_quote(route('portal.buscar'), '/').'"\s+aria-current="page"/', $html);
+    }
+
+    // Revisión del #109: un parámetro en forma de arreglo no da 500
+    public function test_equipo_o_fecha_como_arreglo_se_ignoran_sin_error(): void
+    {
+        foreach (['?equipo[]=x', '?fecha[]=2026-11-14', '?equipo[a][b]=x'] as $consulta) {
+            $this->get(route('portal.buscar').$consulta)
+                ->assertOk()
+                ->assertSee('Escribe el nombre de un equipo, elige una categoría o una fecha para empezar.');
+        }
+    }
+
+    // Revisión del #109: la fecha de un comunicado es la de México; publicado a las 21:00 del 26/11 (03:00 UTC del 27)
+    public function test_el_filtro_de_fecha_usa_la_hora_de_mexico_en_los_comunicados(): void
+    {
+        $asamblea = Asamblea::query()->create([
+            'tipo' => 'Ordinaria', 'fecha' => '2026-11-20', 'hora' => '18:00', 'lugar' => 'Sala',
+            'orden_del_dia' => 'Asuntos', 'estado' => Asamblea::ESTADO_CELEBRADA,
+        ]);
+        $comunicado = ComunicadoAsamblea::query()->create(['asamblea_id' => $asamblea->id, 'titulo' => 'Aviso de noche', 'contenido' => 'Cambio de horario.', 'registrado_por_usuario_id' => $this->programador->id]);
+        $comunicado->forceFill(['publicado_en_portal' => true, 'publicado_por_usuario_id' => $this->programador->id, 'publicado_en' => Carbon::parse('2026-11-27 03:00:00', 'UTC')])->save();
+
+        $this->get(route('portal.buscar', ['fecha' => '2026-11-26']))
+            ->assertOk()
+            ->assertSee('Aviso de noche')
+            ->assertSee('<time datetime="2026-11-26">26/11/2026</time>', false);
+
+        $this->get(route('portal.buscar', ['fecha' => '2026-11-27']))
+            ->assertOk()
+            ->assertDontSee('Aviso de noche');
+    }
+
+    // Revisión del #109: el boletín dentro del buscador respeta la categoría del equipo del sancionado
+    public function test_los_castigados_se_filtran_por_equipo_y_por_categoria(): void
+    {
+        $halcon = $this->jugadorDe($this->primero->equipo_local_id);
+        $tigre = $this->jugadorDe($this->segundo->equipo_local_id);
+        $this->sancionPublicada($halcon);
+        $this->sancionPublicada($tigre);
+        $nombreHalcon = trim($halcon->persona->nombre.' '.$halcon->persona->apellidos);
+        $nombreTigre = trim($tigre->persona->nombre.' '.$tigre->persona->apellidos);
+
+        $this->get(route('portal.buscar', ['equipo' => 'Búsqueda', 'categoria' => $this->segundo->jornada->grupo->categoria_id]))
+            ->assertOk()
+            ->assertSeeInOrder(['Castigados', $nombreTigre, 'Tigres Búsqueda'])
+            ->assertDontSee($nombreHalcon);
+
+        // Solo con la categoría también aparece el boletín de esa categoría
+        $this->get(route('portal.buscar', ['categoria' => $this->primero->jornada->grupo->categoria_id]))
+            ->assertOk()
+            ->assertSeeInOrder(['Castigados', $nombreHalcon, 'Halcones Búsqueda'])
+            ->assertDontSee($nombreTigre);
+
+        $this->get(route('portal.buscar', ['equipo' => 'Tigres']))
+            ->assertOk()
+            ->assertSee($nombreTigre)
+            ->assertDontSee($nombreHalcon);
+    }
+
+    // Revisión del #109: una inscripción en «Baja» no cambia el equipo del sancionado
+    public function test_el_sancionado_no_aparece_en_un_equipo_donde_esta_de_baja(): void
+    {
+        $jugador = $this->jugadorDe($this->primero->equipo_local_id);
+        Jugador::create(['persona_id' => $jugador->persona_id, 'equipo_id' => $this->segundo->equipo_local_id, 'dorsal' => 98, 'estado_elegibilidad' => 'Baja']);
+        $this->sancionPublicada($jugador);
+        $nombre = trim($jugador->persona->nombre.' '.$jugador->persona->apellidos);
+
+        $this->get(route('portal.buscar', ['equipo' => 'Tigres']))->assertOk()->assertDontSee($nombre);
+        $this->get(route('portal.buscar', ['equipo' => 'Halcones']))->assertOk()->assertSeeInOrder(['Castigados', $nombre, 'Halcones Búsqueda']);
+    }
+
+    private function jugadorDe(int $equipoId): Jugador
+    {
+        return Jugador::query()->where('equipo_id', $equipoId)->with('persona')->orderBy('id')->firstOrFail();
+    }
+
+    private function sancionPublicada(Jugador $jugador): Sancion
+    {
+        $tribunal = $this->usuario('Tribunal de Penas');
+        $articulo = CatalogoArticulo::query()->firstOrCreate(['codigo' => 'ART-BUSQ'], ['descripcion' => 'Conducta antideportiva', 'castigo_base_partidos' => 2]);
+        $expediente = ExpedienteDisciplinario::create([
+            'folio' => 'EXP-BUSQ-'.$jugador->id,
+            'partido_id' => $this->primero->id,
+            'articulo_id' => $articulo->id,
+            'titulo' => 'Expediente de búsqueda',
+            'descripcion_hechos' => 'Hechos de prueba',
+            'origen' => 'cedula_arbitral',
+            'estado' => ExpedienteDisciplinario::ESTADO_ABIERTO,
+            'fecha_apertura' => now(),
+            'generado_automaticamente' => true,
+        ]);
+
+        return Sancion::create([
+            'expediente_id' => $expediente->id,
+            'persona_id' => $jugador->persona_id,
+            'articulo_id' => $articulo->id,
+            'tipo_sancion' => Sancion::TIPO_PARTIDOS,
+            'descripcion_sancion' => 'Suspensión',
+            'partidos_suspendidos' => 2,
+            'partidos_cumplidos' => 0,
+            'fecha_inicio' => now(Sancion::ZONA_HORARIA)->subDay()->toDateString(),
+            'estado' => Sancion::ESTADO_VIGENTE,
+            'publicada_en_boletin' => true,
+            'validado_por_usuario_id' => $tribunal->id,
+            'fecha_validacion' => now(),
+            'autorizado_por_usuario_id' => $tribunal->id,
+            'autorizado_por_cargo' => 'Tribunal de Penas',
+            'fecha_publicacion' => now(),
+        ]);
     }
 
     private function publicado(string $local, string $visitante, string $fecha, string $estado = Jornada::ESTADO_PUBLICADA): Partido

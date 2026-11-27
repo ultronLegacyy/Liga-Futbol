@@ -73,6 +73,13 @@ class GestionEstadoPartidoService
                 ]);
             }
 
+            // HU-056 (decisión a confirmar con Medina): sin resultado, la llave de liguilla no se resolvería
+            if ($nuevoEstado === Partido::ESTADO_CANCELADO && $partidoBloqueado->llaveLiguilla()->exists()) {
+                throw ValidationException::withMessages([
+                    'nuevo_estado' => 'Es un partido de liguilla: no se cancela porque su llave quedaría sin resolverse. Puedes suspenderlo o reprogramarlo.',
+                ]);
+            }
+
             if ($nuevoEstado === Partido::ESTADO_PROGRAMADO && ($partidoBloqueado->cancha_id === null || $partidoBloqueado->fecha_partido === null || $partidoBloqueado->hora_partido === null)) {
                 throw ValidationException::withMessages([
                     'nuevo_estado' => 'No es posible pasar un partido a estado programado sin tener asignada cancha, fecha y horario completo.',
@@ -80,6 +87,11 @@ class GestionEstadoPartidoService
             }
 
             $this->registrarTransicion($partidoBloqueado, $nuevoEstado, $usuarioId, $motivoLimpio);
+
+            // HU-043: cancelar el último partido pendiente puede cerrar la jornada; se guarda su copia de la tabla
+            if ($nuevoEstado === Partido::ESTADO_CANCELADO) {
+                app(EstadisticasGrupoService::class)->conservarHistoricos($jornadaBloqueada->grupo);
+            }
 
             // Revertir la jornada a borrador si estaba en revisión o aprobada (Obligatorio 4 / HU-030)
             $jornadaBloqueada->revertirABorradorPorModificacion(false);

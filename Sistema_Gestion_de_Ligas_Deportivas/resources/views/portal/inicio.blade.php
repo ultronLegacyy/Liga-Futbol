@@ -12,7 +12,6 @@
 @php
     $partidosSemana = $partidos;
     $enJuego = $partidosSemana->firstWhere('estado', 'en juego');
-    $proximo = $partidosSemana->first(fn ($p) => ! in_array($p->estado, ['finalizado', 'cancelado', 'en juego'], true));
     $jornadaNumero = $partidosSemana->pluck('jornada.numero_jornada')->filter()->min();
     $primeraTabla = $grupos->isNotEmpty() ? ($tablas[$grupos->first()->id] ?? collect()) : collect();
     $etiquetaEstado = ['en juego' => 'En juego', 'finalizado' => 'Final', 'cancelado' => 'Cancelado', 'suspendido' => 'Suspendido', 'reprogramado' => 'Reprogramado'];
@@ -123,7 +122,7 @@
     .pestanas input:checked + label { background: var(--lima); color: var(--tinta); opacity: 1; }
     .pestanas input:focus-visible + label { outline: 3px solid var(--foco); }
     .fila { display: grid; grid-template-columns: 1.75rem minmax(0, 1fr) 2.25rem 2.75rem 2.75rem; align-items: center; gap: .5rem; padding: .625rem .625rem; border-radius: .875rem; font-size: .875rem; }
-    .fila.cabeza { font-size: .6875rem; font-weight: 800; letter-spacing: .12em; opacity: .6; }
+    .fila.cabeza { font-size: .6875rem; font-weight: 800; letter-spacing: .12em; opacity: .8; }
     .fila.lider { background: rgba(255, 255, 255, .1); }
     .fila .p { font-family: var(--display); font-style: italic; font-weight: 900; font-size: 1.375rem; }
     .fila.lider .p { color: var(--lima); }
@@ -290,7 +289,7 @@
                                     @endif
                                     <x-portal.escudo :nombre="$partido->local?->nombre" :tamano="70" />
                                     @if ($marcador)
-                                        <b class="display gol" aria-label="{{ $marcador->goles_local }} a {{ $marcador->goles_visitante }}">{{ $marcador->goles_local }}–{{ $marcador->goles_visitante }}</b>
+                                        <b class="display gol"><span aria-hidden="true">{{ $marcador->goles_local }}–{{ $marcador->goles_visitante }}</span><span class="saltar">{{ $marcador->goles_local }} a {{ $marcador->goles_visitante }}</span></b>
                                     @else
                                         <b class="display vs">vs</b>
                                     @endif

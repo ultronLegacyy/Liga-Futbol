@@ -2,12 +2,17 @@
 
 namespace Tests\Feature;
 
+use App\Models\Categoria;
 use App\Models\CedulaArbitral;
+use App\Models\Equipo;
 use App\Models\EventoPartido;
+use App\Models\Grupo;
 use App\Models\Jornada;
 use App\Models\Jugador;
 use App\Models\Partido;
+use App\Models\Persona;
 use App\Models\TablaPosicion;
+use App\Models\Temporada;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Carbon;
@@ -93,6 +98,66 @@ class PortalInicioTest extends TestCase
         // RNF-31: del goleador solo nombre y equipo
         $persona = $goleador->persona()->firstOrFail();
         $this->assertStringNotContainsString((string) $persona->curp, $html);
+    }
+
+    // Revisión del #112: la portada es de la temporada en curso; una temporada cerrada no entra en goleo, tablas ni cifras
+    public function test_una_temporada_cerrada_no_entra_en_la_portada(): void
+    {
+        $vieja = Temporada::factory()->cerrada()->create(['nombre' => 'Temporada Vieja 2025']);
+        $grupo = Grupo::factory()->create([
+            'categoria_id' => Categoria::factory()->create(['temporada_id' => $vieja->id, 'nombre' => 'Categoría Vieja'])->id,
+            'nombre' => 'Grupo Viejo',
+        ]);
+        $jornada = Jornada::create(['grupo_id' => $grupo->id, 'numero_jornada' => 1, 'fecha_inicio' => '2025-05-10', 'fecha_fin' => '2025-05-11', 'estado' => Jornada::ESTADO_PUBLICADA]);
+        $local = $this->equipo($grupo);
+        $partido = Partido::create([
+            'jornada_id' => $jornada->id, 'equipo_local_id' => $local->id, 'equipo_visitante_id' => $this->equipo($grupo)->id,
+            'arbitro_id' => $this->arbitro()->id, 'fecha_partido' => '2025-05-10', 'hora_partido' => '10:00:00', 'estado' => 'finalizado',
+        ]);
+        $cedula = CedulaArbitral::create([
+            'partido_id' => $partido->id, 'estado' => CedulaArbitral::CERRADA, 'goles_local' => 20, 'goles_visitante' => 0,
+            'cerrada_en' => now(), 'validada_por_id' => $this->usuario('Administrador General')->id, 'validada_en' => now(),
+        ]);
+        $goleador = Jugador::query()->where('equipo_id', $local->id)->orderBy('id')->firstOrFail();
+        Persona::query()->whereKey($goleador->persona_id)->update(['nombre' => 'Goleador', 'apellidos' => 'Temporada Vieja']);
+        for ($gol = 1; $gol <= 20; $gol++) {
+            EventoPartido::create(['cedula_id' => $cedula->id, 'jugador_id' => $goleador->id, 'tipo' => 'Gol', 'minuto' => $gol]);
+        }
+        TablaPosicion::create(['grupo_id' => $grupo->id, 'equipo_id' => $local->id, 'posicion' => 1, 'pj' => 1, 'pg' => 1, 'pe' => 0, 'pp' => 0, 'gf' => 20, 'gc' => 0, 'dg' => 20, 'puntos' => 3]);
+
+        $html = $this->get(route('portal.inicio'))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('Goleador Temporada Vieja', $html);
+        $this->assertStringNotContainsString('Categoría Vieja · Grupo Viejo', $html);
+        $this->assertStringNotContainsString('20–0', $html);
+        // Cifras: la categoría y los equipos de la temporada cerrada no se cuentan
+        $this->assertStringNotContainsString('Categoría Vieja', $html);
+        $equiposEnCurso = Equipo::query()->whereHas('grupo.temporada', fn ($temporada) => $temporada->where('estado', 'activa'))->count();
+        $this->assertLessThan(Equipo::query()->count(), $equiposEnCurso);
+        $this->assertMatchesRegularExpression('/<dd>'.$equiposEnCurso.'<\/dd>\s*<dt>Equipos<\/dt>/', $html);
+        $oficialesEnCurso = CedulaArbitral::query()->oficiales()
+            ->whereHas('partido.jornada.grupo.temporada', fn ($temporada) => $temporada->where('estado', 'activa'))->count();
+        $this->assertMatchesRegularExpression('/<dd>'.$oficialesEnCurso.'<\/dd>\s*<dt>Partidos oficiales<\/dt>/', $html);
+    }
+
+    // Revisión del #112: «Próximo» es el primer partido posterior a ahora en hora de México, no uno pendiente que ya pasó
+    public function test_proximo_no_muestra_un_partido_que_ya_paso(): void
+    {
+        // Ahora es jueves 12/11 a las 09:00; el lunes 9 quedó un partido «programado» sin cédula
+        Partido::create([
+            'jornada_id' => $this->partido->jornada_id,
+            'equipo_local_id' => $this->partido->equipo_visitante_id,
+            'equipo_visitante_id' => $this->partido->equipo_local_id,
+            'arbitro_id' => $this->partido->arbitro_id,
+            'fecha_partido' => '2026-11-09',
+            'hora_partido' => '08:00:00',
+            'estado' => 'programado',
+        ]);
+
+        $this->get(route('portal.inicio'))
+            ->assertOk()
+            ->assertSee('Próximo: sáb')
+            ->assertDontSee('Próximo: lun');
     }
 
     public function test_es_accesible_sin_javascript_y_esta_en_el_menu(): void
