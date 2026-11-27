@@ -21,10 +21,13 @@ class TablaPosicionesController extends Controller
         $grupo->load('categoria:id,nombre', 'temporada:id,nombre,estado');
         $tabla = $this->tablas->tabla($grupo);
 
+        $regla = $this->tablas->reglaDeLaTabla($grupo, $tabla->first()?->regla_version);
+
         return view('tablas.show', [
             'grupo' => $grupo,
             'tabla' => $tabla,
-            'regla' => $this->tablas->reglaDeLaTabla($grupo, $tabla->first()?->regla_version),
+            'regla' => $regla,
+            'criterios' => $regla === null ? [] : $this->tablas->criteriosDeDesempate($regla),
         ]);
     }
 }

@@ -197,6 +197,13 @@ class Partido extends Model
         return $this->hasMany(ReprogramacionPartido::class, 'partido_id')->latest();
     }
 
+    // HU-056: la llave de liguilla que se decide en este partido, si lo es
+    /** @return HasOne<LlaveLiguilla, $this> */
+    public function llaveLiguilla(): HasOne
+    {
+        return $this->hasOne(LlaveLiguilla::class);
+    }
+
     /** @return HasOne<CedulaArbitral, $this> */
     public function cedula(): HasOne
     {

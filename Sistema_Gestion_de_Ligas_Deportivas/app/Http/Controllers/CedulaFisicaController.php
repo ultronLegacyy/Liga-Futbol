@@ -41,7 +41,8 @@ class CedulaFisicaController extends Controller
     {
         Gate::authorize('capturarFisica', CedulaArbitral::class);
 
-        $partido->load(['local:id,nombre', 'visitante:id,nombre', 'cancha:id,nombre', 'jornada.grupo.categoria:id,nombre']);
+        // HU-038: el árbitro asignado sale en el encabezado, solo con su nombre
+        $partido->load(['local:id,nombre', 'visitante:id,nombre', 'cancha:id,nombre', 'jornada.grupo.categoria:id,nombre', 'arbitro.persona:id,nombre,apellidos']);
         $cedula = $partido->cedula()->first();
         $motivo = $this->captura->motivoNoDisponible($partido, $cedula);
 

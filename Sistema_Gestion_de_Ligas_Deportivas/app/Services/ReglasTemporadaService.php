@@ -44,13 +44,22 @@ class ReglasTemporadaService
 
                 $version = ((int) $versionAnterior) + 1;
 
-                return ReglaTemporada::create([
+                $regla = ReglaTemporada::create([
                     'temporada_id' => $bloqueada->id,
                     'version' => $version,
                     'reglas' => $reglas,
                     'usuario_id' => auth()->id(),
                     'motivo' => $motivo,
                 ]);
+
+                // HU-042 CA2: un cambio en los puntos o en el orden de desempate se refleja en las tablas ya calculadas
+                // de la temporada, en la misma transacción y sin tocar código
+                $tablas = app(TablaPosicionesService::class);
+                foreach ($bloqueada->grupos()->whereHas('tablaPosiciones')->get() as $grupo) {
+                    $tablas->recalcular($grupo);
+                }
+
+                return $regla;
             }
         );
     }

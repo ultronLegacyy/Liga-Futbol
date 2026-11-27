@@ -35,6 +35,7 @@
         <style>
             .display { font-family: 'Barlow Condensed', 'Roboto Condensed', 'Arial Narrow', Impact, sans-serif; font-weight: 900; font-style: italic; font-stretch: condensed; text-transform: uppercase; letter-spacing: -0.01em; line-height: 0.92; }
             :focus-visible { outline: 3px solid #ffb020; outline-offset: 2px; }
+            @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
         </style>
     @endif
 </head>
