@@ -185,6 +185,16 @@
                     Consultar reglas e historial
                 </a>
             @endcan
+
+            {{-- HU-060 CA3 --}}
+            @can('verGoleo', $temporada)
+                <a
+                    href="{{ route('temporadas.goleo', $temporada) }}"
+                    class="inline-flex items-center px-4 py-2 bg-gray-700 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition"
+                >
+                    {{ $temporada->estado === 'cerrada' ? 'Campeones de goleo' : 'Líderes de goleo' }}
+                </a>
+            @endcan
         </div>
 
         {{-- Aviso de consulta histórica --}}

@@ -16,6 +16,7 @@ use App\Http\Controllers\ClubController;
 use App\Http\Controllers\ComunicadoController;
 use App\Http\Controllers\EquipoController;
 use App\Http\Controllers\EstadisticasGrupoController;
+use App\Http\Controllers\GoleoTemporadaController;
 use App\Http\Controllers\ExpedienteDisciplinarioController;
 use App\Http\Controllers\ForcePasswordChangeController;
 use App\Http\Controllers\GeneradorEnfrentamientosController;
@@ -40,6 +41,7 @@ use App\Http\Controllers\TarjetonDigitalController;
 use App\Http\Controllers\TemporadaController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\ForcePasswordChange;
+use App\Models\FaseTorneo;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -94,6 +96,11 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/temporadas/{temporada}/convocatoria', [TemporadaController::class, 'convocatoria'])
             ->name('temporadas.convocatoria');
+
+        // Campeón de goleo de cada categoría de la temporada (HU-060 CA3, RF-11.6)
+        Route::get('/temporadas/{temporada}/goleo', [GoleoTemporadaController::class, 'show'])
+            ->whereNumber('temporada')
+            ->name('temporadas.goleo');
 
         Route::post('/temporadas/{temporada}/convocatoria', [TemporadaController::class, 'versionarConvocatoria'])
             ->name('temporadas.convocatoria.versionar');
@@ -156,6 +163,21 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/grupos/{grupo}/liguilla/rondas', [LiguillaController::class, 'crearRonda'])
             ->whereNumber('grupo')
             ->name('grupos.liguilla.rondas');
+        // Liguilla de consolación y Campeón de Campeones: mismas llaves y rondas, cada una en su fase (HU-060, RF-11.6)
+        foreach (['consolacion' => FaseTorneo::CONSOLACION, 'campeon-de-campeones' => FaseTorneo::CAMPEON_DE_CAMPEONES] as $ruta => $fase) {
+            Route::get("/grupos/{grupo}/{$ruta}", [LiguillaController::class, 'show'])
+                ->whereNumber('grupo')
+                ->defaults('fase', $fase)
+                ->name("grupos.{$ruta}");
+            Route::post("/grupos/{grupo}/{$ruta}", [LiguillaController::class, 'store'])
+                ->whereNumber('grupo')
+                ->defaults('fase', $fase)
+                ->name("grupos.{$ruta}.store");
+            Route::post("/grupos/{grupo}/{$ruta}/rondas", [LiguillaController::class, 'crearRonda'])
+                ->whereNumber('grupo')
+                ->defaults('fase', $fase)
+                ->name("grupos.{$ruta}.rondas");
+        }
 
         // Generación automática de rol regular y enfrentamientos (HU-032, RF-07.1)
         Route::get('/grupos/{grupo}/generar-rol', [GeneradorEnfrentamientosController::class, 'configurar'])

@@ -2,21 +2,24 @@
 
 namespace App\Http\Requests;
 
+use App\Models\FaseTorneo;
 use App\Models\Grupo;
 use App\Models\LlaveLiguilla;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 
-// HU-056: crear la siguiente ronda de la liguilla con las fechas de su jornada (Presidente y Administrador General)
+// HU-056: crear la siguiente ronda de la liguilla con las fechas de su jornada (Presidente y Administrador General).
+// HU-060: también la de la consolación y el partido de Campeón de Campeones; la fase viene de la ruta.
 class CrearRondaLiguillaRequest extends FormRequest
 {
     public function authorize(): Response
     {
         $grupo = $this->route('grupo');
+        $fase = $this->route('fase', FaseTorneo::LIGUILLA);
 
         return $grupo instanceof Grupo
-            ? Gate::forUser($this->user())->inspect('crearRonda', [LlaveLiguilla::class, $grupo])
+            ? Gate::forUser($this->user())->inspect('crearRonda', [LlaveLiguilla::class, $grupo, is_string($fase) ? $fase : FaseTorneo::LIGUILLA])
             : Response::deny('El grupo no existe.');
     }
 

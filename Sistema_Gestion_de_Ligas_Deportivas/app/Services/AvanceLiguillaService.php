@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\CedulaArbitral;
 use App\Models\Equipo;
+use App\Models\FaseTorneo;
 use App\Models\Grupo;
 use App\Models\Jornada;
 use App\Models\LlaveLiguilla;
@@ -21,6 +22,7 @@ use Illuminate\Validation\ValidationException;
  * - Cada ronda la crea el Presidente o el Administrador General (decisión 4): una jornada de liguilla con un partido
  *   en borrador por llave, que el Programador de Partidos programa como cualquier otro.
  * - Desde la segunda ronda se re-siembra: el mejor ubicado de los que avanzaron contra el peor (decisión de Daniel, 25/11).
+ * HU-060: la liguilla de consolación y el Campeón de Campeones avanzan igual, cada uno con las llaves de su fase.
  */
 class AvanceLiguillaService
 {
@@ -77,13 +79,13 @@ class AvanceLiguillaService
     /**
      * La ronda que se puede crear ahora o, si no se puede, por qué.
      *
-     * @param  Collection<int, LlaveLiguilla>  $llaves  todas las llaves del grupo
+     * @param  Collection<int, LlaveLiguilla>  $llaves  todas las llaves del grupo en la fase
      * @return array{ronda: int|null, aviso: string|null}
      */
-    public function proximaRonda(Collection $llaves): array
+    public function proximaRonda(Collection $llaves, string $tipo = FaseTorneo::LIGUILLA): array
     {
         if ($llaves->isEmpty()) {
-            return ['ronda' => null, 'aviso' => 'Primero se generan las llaves de liguilla del grupo.'];
+            return ['ronda' => null, 'aviso' => 'Primero se generan las llaves de '.FaseTorneo::EN_TEXTO[$tipo].' del grupo.'];
         }
 
         $ultima = (int) $llaves->max('ronda');
@@ -99,7 +101,11 @@ class AvanceLiguillaService
         }
 
         if ($deLaRonda->count() === 1) {
-            return ['ronda' => null, 'aviso' => 'La liguilla terminó: la final ya tiene resultado oficial.'];
+            return ['ronda' => null, 'aviso' => match ($tipo) {
+                FaseTorneo::CAMPEON_DE_CAMPEONES => 'El Campeón de Campeones ya está definido.',
+                FaseTorneo::CONSOLACION => 'La liguilla de consolación terminó: la final ya tiene resultado oficial.',
+                default => 'La liguilla terminó: la final ya tiene resultado oficial.',
+            }];
         }
 
         return ['ronda' => $ultima + 1, 'aviso' => null];
@@ -109,16 +115,21 @@ class AvanceLiguillaService
      * Crea la jornada de la ronda con un partido en borrador por llave. Desde la segunda ronda, antes crea las llaves
      * con los que avanzaron. Todo en una transacción con el grupo bloqueado: dos envíos a la vez crean una sola ronda.
      */
-    public function crearRonda(Grupo $grupo, string $fechaInicio, string $fechaFin, User $usuario): int
+    public function crearRonda(Grupo $grupo, string $fechaInicio, string $fechaFin, User $usuario, string $tipo = FaseTorneo::LIGUILLA): int
     {
         try {
             return $this->auditoria->conMotivo(
-                'Creación de una ronda de liguilla del grupo '.$grupo->id,
-                function () use ($grupo, $fechaInicio, $fechaFin, $usuario): int {
+                'Creación de una ronda de '.FaseTorneo::EN_TEXTO[$tipo].' del grupo '.$grupo->id,
+                function () use ($grupo, $fechaInicio, $fechaFin, $usuario, $tipo): int {
                     $bloqueado = Grupo::query()->whereKey($grupo->getKey())->lockForUpdate()->firstOrFail();
-                    $llaves = LlaveLiguilla::query()->where('grupo_id', $bloqueado->id)->orderBy('orden')->lockForUpdate()->get();
+                    $llaves = LlaveLiguilla::query()
+                        ->where('grupo_id', $bloqueado->id)
+                        ->whereHas('fase', fn ($fase) => $fase->where('tipo', $tipo))
+                        ->orderBy('orden')
+                        ->lockForUpdate()
+                        ->get();
 
-                    ['ronda' => $ronda, 'aviso' => $aviso] = $this->proximaRonda($llaves);
+                    ['ronda' => $ronda, 'aviso' => $aviso] = $this->proximaRonda($llaves, $tipo);
                     if ($ronda === null) {
                         throw ValidationException::withMessages(['ronda' => $aviso]);
                     }
@@ -153,7 +164,7 @@ class AvanceLiguillaService
                 }
             );
         } catch (UniqueConstraintViolationException) {
-            throw ValidationException::withMessages(['ronda' => 'Esta ronda de liguilla ya se creó. Recarga la página para verla.']);
+            throw ValidationException::withMessages(['ronda' => 'Esta ronda de '.FaseTorneo::EN_TEXTO[$tipo].' ya se creó. Recarga la página para verla.']);
         }
     }
 
@@ -228,8 +239,12 @@ class AvanceLiguillaService
      *
      * @param  Collection<int, LlaveLiguilla>  $deLaRonda
      */
-    public function nombreRonda(Collection $deLaRonda, int $ronda): string
+    public function nombreRonda(Collection $deLaRonda, int $ronda, string $tipo = FaseTorneo::LIGUILLA): string
     {
+        if ($tipo === FaseTorneo::CAMPEON_DE_CAMPEONES) {
+            return FaseTorneo::NOMBRES[$tipo];
+        }
+
         $equipos = $deLaRonda->sum(fn (LlaveLiguilla $llave): int => $llave->esPaseDirecto() ? 1 : 2);
         $tienePaseDirecto = $deLaRonda->contains(fn (LlaveLiguilla $llave): bool => $llave->esPaseDirecto());
 

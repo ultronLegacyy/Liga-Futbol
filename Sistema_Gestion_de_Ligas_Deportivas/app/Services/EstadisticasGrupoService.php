@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Categoria;
 use App\Models\CedulaArbitral;
 use App\Models\EventoPartido;
 use App\Models\Grupo;
@@ -10,6 +11,7 @@ use App\Models\Jugador;
 use App\Models\Partido;
 use App\Models\Sancion;
 use App\Models\TablaPosicionJornada;
+use App\Models\Temporada;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -32,10 +34,7 @@ class EstadisticasGrupoService
      */
     public function goleadores(Grupo $grupo): Coleccion
     {
-        $conteo = $this->eventosOficiales($grupo)
-            ->where('eventos_partido.tipo', 'Gol')
-            ->where('eventos_partido.autogol', false)
-            ->whereNotNull('eventos_partido.jugador_id')
+        $conteo = $this->golesOficiales([$grupo->id])
             ->groupBy('eventos_partido.jugador_id')
             ->selectRaw('eventos_partido.jugador_id, COUNT(*) AS goles')
             ->toBase()
@@ -58,6 +57,74 @@ class EstadisticasGrupoService
     }
 
     /**
+     * HU-060 CA3 (RF-11.6): campeón de goleo de cada categoría de la temporada (convocatoria, base VIII: «en el torneo de
+     * liga»). Decisión 6 de Daniel: solo cuentan los goles de la fase regular, sin autogoles, de todos los grupos de la
+     * categoría; si empatan, gana el jugador cuyo equipo quedó mejor en la tabla de su grupo, y si siguen empatados, el
+     * título se comparte. Una categoría sin goles aparece sin campeón.
+     *
+     * @return list<array{categoria: Categoria, goles: int, jugadores: list<Jugador>}>
+     */
+    public function campeonesDeGoleo(Temporada $temporada): array
+    {
+        $grupos = Grupo::query()->where('temporada_id', $temporada->id)->with('categoria:id,nombre')->get()->keyBy('id');
+        $conteo = $this->golesOficiales($grupos->modelKeys())
+            ->whereNull('jornadas.fase_id')
+            ->groupBy('eventos_partido.jugador_id', 'jornadas.grupo_id')
+            ->selectRaw('eventos_partido.jugador_id, jornadas.grupo_id, COUNT(*) AS goles')
+            ->toBase()
+            ->get();
+
+        /** @var array<int, list<array{jugador_id: int, grupo: Grupo, goles: int}>> $porCategoria */
+        $porCategoria = [];
+        foreach ($conteo as $fila) {
+            $grupo = $grupos->get((int) $fila->grupo_id);
+            if ($grupo !== null) {
+                $porCategoria[$grupo->categoria_id][] = ['jugador_id' => (int) $fila->jugador_id, 'grupo' => $grupo, 'goles' => (int) $fila->goles];
+            }
+        }
+
+        $campeones = [];
+        $lugares = [];
+        foreach ($grupos->pluck('categoria')->filter()->unique('id')->sortBy('nombre') as $categoria) {
+            $filas = $porCategoria[$categoria->id] ?? [];
+            $goles = $filas === [] ? 0 : max(array_column($filas, 'goles'));
+            $empatados = array_values(array_filter($filas, fn (array $fila): bool => $fila['goles'] === $goles));
+            $jugadores = $this->jugadores(array_column($empatados, 'jugador_id'));
+
+            // Desempate: el lugar del equipo del jugador en la tabla de su grupo; sin reglas de puntos no hay lugar
+            $candidatos = [];
+            foreach ($empatados as $fila) {
+                $jugador = $jugadores->get($fila['jugador_id']);
+                if ($jugador !== null) {
+                    $grupoId = $fila['grupo']->id;
+                    $lugares[$grupoId] ??= $this->lugaresDelGrupo($fila['grupo']);
+                    $candidatos[] = ['jugador' => $jugador, 'lugar' => $lugares[$grupoId][(int) $jugador->equipo_id] ?? PHP_INT_MAX];
+                }
+            }
+
+            $mejor = $candidatos === [] ? null : min(array_column($candidatos, 'lugar'));
+            $ganadores = array_values(array_filter($candidatos, fn (array $candidato): bool => $candidato['lugar'] === $mejor));
+            usort($ganadores, fn (array $a, array $b): int => $this->nombre($a['jugador']) <=> $this->nombre($b['jugador']));
+
+            $campeones[] = ['categoria' => $categoria, 'goles' => $goles, 'jugadores' => array_column($ganadores, 'jugador')];
+        }
+
+        return $campeones;
+    }
+
+    /**
+     * Lugar de cada equipo en la tabla general del grupo, con las reglas vigentes.
+     *
+     * @return array<int, int>
+     */
+    private function lugaresDelGrupo(Grupo $grupo): array
+    {
+        $regla = $this->tablas->reglaVigenteOpcional($grupo);
+
+        return $regla === null ? [] : array_column($this->tablas->calcular($grupo, $regla), 'posicion', 'equipo_id');
+    }
+
+    /**
      * Tarjetas acumuladas de cada jugador del grupo. Decisión de Daniel (23/11): la doble amarilla en un mismo
      * partido es una roja; la expulsión cuenta una sola vez y la segunda amarilla ya no suma como amarilla.
      *
@@ -65,7 +132,7 @@ class EstadisticasGrupoService
      */
     public function tarjetas(Grupo $grupo): Coleccion
     {
-        $porPartido = $this->eventosOficiales($grupo)
+        $porPartido = $this->eventosOficiales([$grupo->id])
             ->whereIn('eventos_partido.tipo', ['Amarilla', 'Roja'])
             ->whereNotNull('eventos_partido.jugador_id')
             ->groupBy('eventos_partido.jugador_id', 'eventos_partido.cedula_id')
@@ -248,17 +315,32 @@ class EstadisticasGrupoService
     }
 
     /**
-     * Eventos de cédulas oficiales de partidos del grupo.
+     * Goles de jugadores en cédulas oficiales de los grupos, sin autogoles.
      *
+     * @param  list<int>  $grupoIds
      * @return Builder<EventoPartido>
      */
-    private function eventosOficiales(Grupo $grupo): Builder
+    private function golesOficiales(array $grupoIds): Builder
+    {
+        return $this->eventosOficiales($grupoIds)
+            ->where('eventos_partido.tipo', 'Gol')
+            ->where('eventos_partido.autogol', false)
+            ->whereNotNull('eventos_partido.jugador_id');
+    }
+
+    /**
+     * Eventos de cédulas oficiales de partidos de los grupos.
+     *
+     * @param  list<int>  $grupoIds
+     * @return Builder<EventoPartido>
+     */
+    private function eventosOficiales(array $grupoIds): Builder
     {
         return EventoPartido::query()
             ->join('cedulas_arbitrales', 'cedulas_arbitrales.id', '=', 'eventos_partido.cedula_id')
             ->join('partidos', 'partidos.id', '=', 'cedulas_arbitrales.partido_id')
             ->join('jornadas', 'jornadas.id', '=', 'partidos.jornada_id')
-            ->where('jornadas.grupo_id', $grupo->id)
+            ->whereIn('jornadas.grupo_id', $grupoIds)
             ->where('cedulas_arbitrales.estado', CedulaArbitral::CERRADA)
             ->whereNotNull('cedulas_arbitrales.validada_en');
     }
