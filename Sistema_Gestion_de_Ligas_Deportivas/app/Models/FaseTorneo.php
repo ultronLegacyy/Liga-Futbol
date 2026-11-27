@@ -20,6 +20,24 @@ class FaseTorneo extends Model
 
     public const LIGUILLA = 'Liguilla';
 
+    public const CONSOLACION = 'Consolacion';
+
+    public const CAMPEON_DE_CAMPEONES = 'CampeonDeCampeones';
+
+    // HU-060: nombre de cada fase final en pantalla y en los mensajes
+    public const NOMBRES = [
+        self::LIGUILLA => 'Liguilla',
+        self::CONSOLACION => 'Liguilla de consolación',
+        self::CAMPEON_DE_CAMPEONES => 'Campeón de Campeones',
+    ];
+
+    // La misma fase dentro de una frase: «las llaves de liguilla de consolación»
+    public const EN_TEXTO = [
+        self::LIGUILLA => 'liguilla',
+        self::CONSOLACION => 'liguilla de consolación',
+        self::CAMPEON_DE_CAMPEONES => 'Campeón de Campeones',
+    ];
+
     protected $table = 'fases_torneo';
 
     protected $fillable = ['temporada_id', 'tipo'];

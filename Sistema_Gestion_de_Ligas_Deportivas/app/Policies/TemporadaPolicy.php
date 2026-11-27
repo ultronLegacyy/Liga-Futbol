@@ -35,6 +35,14 @@ class TemporadaPolicy
         return $usuario->can('temporadas.ver');
     }
 
+    // HU-060 CA3: campeón de goleo de cada categoría, para quien consulta temporadas
+    public function verGoleo(User $usuario, Temporada $temporada): Response
+    {
+        return $usuario->can('temporadas.ver')
+            ? Response::allow()
+            : Response::deny('No cuenta con privilegios para consultar el campeón de goleo de la temporada.');
+    }
+
     // Autorizacion para crear una nueva temporada deportiva
     public function create(User $usuario): bool
     {
