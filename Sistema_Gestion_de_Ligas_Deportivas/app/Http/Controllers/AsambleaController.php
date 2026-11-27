@@ -15,7 +15,6 @@ use App\Http\Requests\StoreAsambleaRequest;
 use App\Http\Requests\StoreComunicadoAsambleaRequest;
 use App\Services\AsambleaService;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
