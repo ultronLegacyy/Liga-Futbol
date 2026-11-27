@@ -2,9 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\CatalogoArticulo;
 use App\Models\Equipo;
+use App\Models\ExpedienteDisciplinario;
+use App\Models\Jornada;
 use App\Models\Jugador;
 use App\Models\Partido;
+use App\Models\Sancion;
 use App\Models\User;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -30,6 +34,8 @@ class MiClubTest extends TestCase
         Carbon::setTestNow(Carbon::parse('2026-11-10 09:00:00', 'America/Mexico_City'));
         $this->seed(RoleAndPermissionSeeder::class);
         $this->partido = $this->partidoConArbitro();
+        // «Mi club» muestra solo jornadas publicadas, como el portal
+        Jornada::query()->whereKey($this->partido->jornada_id)->update(['estado' => Jornada::ESTADO_PUBLICADA]);
     }
 
     protected function tearDown(): void
@@ -90,6 +96,98 @@ class MiClubTest extends TestCase
 
         $presidenteClub = $this->cuenta('Presidente del Club', ['club_id' => $this->partido->local->club_id]);
         $this->actingAs($presidenteClub)->get(route('panel.inicio'))->assertOk()->assertSee(route('mi-club'), false);
+    }
+
+    // Revisión del #111: una persona cuya única inscripción está en «Baja» ya no ve su antiguo equipo
+    public function test_el_jugador_dado_de_baja_no_ve_su_antiguo_equipo(): void
+    {
+        $baja = Jugador::query()->where('equipo_id', $this->partido->equipo_local_id)->where('estado_elegibilidad', 'Baja')->firstOrFail();
+
+        $this->actingAs($this->cuenta('Jugador', ['persona_id' => $baja->persona_id]))->get(route('mi-club'))
+            ->assertOk()
+            ->assertSee('Vincula tu cuenta con tu registro de jugador')
+            ->assertDontSee($this->partido->local->nombre);
+    }
+
+    // Revisión del #111: el castigo de quien se fue del club (inscripción en «Baja») ya no sale en el club
+    public function test_los_castigos_del_club_no_incluyen_a_quien_esta_de_baja(): void
+    {
+        $local = $this->partido->local;
+        $activo = Jugador::query()->where('equipo_id', $local->id)->where('estado_elegibilidad', 'Activo')->with('persona')->orderBy('id')->firstOrFail();
+        $baja = Jugador::query()->where('equipo_id', $local->id)->where('estado_elegibilidad', 'Baja')->with('persona')->firstOrFail();
+        $this->sancionPublicada($activo);
+        $this->sancionPublicada($baja);
+
+        $this->actingAs($this->cuenta('Delegado del Club', ['club_id' => $local->club_id]))->get(route('mi-club'))
+            ->assertOk()
+            ->assertSee(trim($activo->persona->nombre.' '.$activo->persona->apellidos))
+            ->assertDontSee(trim($baja->persona->nombre.' '.$baja->persona->apellidos));
+    }
+
+    // Revisión del #111: un Delegado sin club que también es Jugador ve solo su equipo, como jugador
+    public function test_delegado_sin_club_que_es_jugador_ve_solo_su_equipo(): void
+    {
+        $jugador = Jugador::query()->where('equipo_id', $this->partido->equipo_local_id)->where('estado_elegibilidad', 'Activo')->orderBy('id')->firstOrFail();
+        $otroEquipo = Equipo::query()->create([
+            'club_id' => $this->partido->local->club_id,
+            'grupo_id' => $this->partido->local->grupo_id,
+            'nombre' => 'Otro equipo del club',
+        ]);
+        $cuenta = $this->cuenta('Delegado del Club', ['persona_id' => $jugador->persona_id]);
+        $cuenta->assignRole('Jugador');
+
+        $this->actingAs($cuenta)->get(route('mi-club'))
+            ->assertOk()
+            ->assertSee('Tu equipo')
+            ->assertSee($this->partido->local->nombre)
+            ->assertDontSee($otroEquipo->nombre)
+            ->assertDontSee(route('jugadores.create'), false);
+    }
+
+    // Revisión del #111: un partido de una jornada en revisión todavía no se muestra
+    public function test_no_muestra_partidos_de_jornadas_sin_publicar(): void
+    {
+        Jornada::query()->whereKey($this->partido->jornada_id)->update(['estado' => Jornada::ESTADO_EN_REVISION]);
+        $local = $this->partido->local;
+
+        $this->actingAs($this->cuenta('Delegado del Club', ['club_id' => $local->club_id]))->get(route('mi-club'))
+            ->assertOk()
+            ->assertDontSee($this->partido->visitante->nombre);
+    }
+
+    private function sancionPublicada(Jugador $jugador): Sancion
+    {
+        $tribunal = $this->cuenta('Tribunal de Penas');
+        $articulo = CatalogoArticulo::query()->firstOrCreate(['codigo' => 'ART-MICLUB'], ['descripcion' => 'Conducta antideportiva', 'castigo_base_partidos' => 2]);
+        $expediente = ExpedienteDisciplinario::create([
+            'folio' => 'EXP-MICLUB-'.$jugador->id,
+            'partido_id' => $this->partido->id,
+            'articulo_id' => $articulo->id,
+            'titulo' => 'Expediente de Mi club',
+            'descripcion_hechos' => 'Hechos de prueba',
+            'origen' => 'cedula_arbitral',
+            'estado' => ExpedienteDisciplinario::ESTADO_ABIERTO,
+            'fecha_apertura' => now(),
+            'generado_automaticamente' => true,
+        ]);
+
+        return Sancion::create([
+            'expediente_id' => $expediente->id,
+            'persona_id' => $jugador->persona_id,
+            'articulo_id' => $articulo->id,
+            'tipo_sancion' => Sancion::TIPO_PARTIDOS,
+            'descripcion_sancion' => 'Suspensión',
+            'partidos_suspendidos' => 2,
+            'partidos_cumplidos' => 0,
+            'fecha_inicio' => '2026-11-08',
+            'estado' => Sancion::ESTADO_VIGENTE,
+            'publicada_en_boletin' => true,
+            'validado_por_usuario_id' => $tribunal->id,
+            'fecha_validacion' => now(),
+            'autorizado_por_usuario_id' => $tribunal->id,
+            'autorizado_por_cargo' => 'Tribunal de Penas',
+            'fecha_publicacion' => now(),
+        ]);
     }
 
     /**

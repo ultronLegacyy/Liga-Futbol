@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Club;
 use App\Models\Equipo;
+use App\Models\Jornada;
 use App\Models\Jugador;
 use App\Models\Partido;
 use App\Models\Sancion;
@@ -29,23 +30,31 @@ class MiClubController extends Controller
         $usuario = $request->user();
         abort_unless($usuario instanceof User, 401);
 
-        $esDirectivo = $usuario->hasAnyRole(['Presidente del Club', 'Delegado del Club']);
+        abort_unless(
+            $usuario->hasAnyRole(['Presidente del Club', 'Delegado del Club', 'Jugador']),
+            403,
+            '«Mi club» es para el Presidente del Club, el Delegado y el Jugador.'
+        );
+
+        // Directivo es quien tiene el rol y un club asignado. Un Delegado sin club que también es Jugador entra como
+        // jugador y ve solo su equipo (RNF-29; HU-080 permite varios roles por cuenta).
+        $esDirectivo = $usuario->hasAnyRole(['Presidente del Club', 'Delegado del Club']) && $usuario->club_id !== null;
+        // La inscripción vigente más reciente; una baja ya no da acceso a los datos del equipo
         $jugador = $usuario->persona_id !== null
-            ? Jugador::query()->where('persona_id', $usuario->persona_id)->with('equipo:id,nombre,club_id')->orderByDesc('id')->first()
+            ? Jugador::query()
+                ->where('persona_id', $usuario->persona_id)
+                ->where('estado_elegibilidad', '!=', 'Baja')
+                ->with('equipo:id,nombre,club_id')
+                ->orderByDesc('id')
+                ->first()
             : null;
 
         $club = null;
-        if ($esDirectivo && $usuario->club_id !== null) {
+        if ($esDirectivo) {
             $club = Club::query()->find($usuario->club_id);
         } elseif ($usuario->hasRole('Jugador') && $jugador?->equipo !== null) {
             $club = Club::query()->find($jugador->equipo->club_id);
         }
-
-        abort_if(
-            ! $esDirectivo && ! $usuario->hasRole('Jugador'),
-            403,
-            '«Mi club» es para el Presidente del Club, el Delegado y el Jugador.'
-        );
 
         if ($club === null) {
             return view('mi-club.show', ['club' => null, 'esDirectivo' => $esDirectivo, 'usuario' => $usuario]);
@@ -55,6 +64,8 @@ class MiClubController extends Controller
         $equipos = Equipo::query()
             ->where('club_id', $club->id)
             ->when(! $esDirectivo && $jugador !== null, fn ($consulta) => $consulta->whereKey($jugador?->equipo_id))
+            // Solo la temporada en curso: los equipos de temporadas cerradas no entran en el resumen
+            ->whereHas('grupo.temporada', fn ($temporada) => $temporada->where('estado', 'activa'))
             ->with('grupo:id,categoria_id,nombre', 'grupo.categoria:id,nombre,rama')
             ->withCount([
                 'jugadores as activos' => fn ($consulta) => $consulta->where('estado_elegibilidad', 'Activo'),
@@ -68,6 +79,8 @@ class MiClubController extends Controller
         $partidos = Partido::query()
             ->where(fn ($consulta) => $consulta->whereIn('equipo_local_id', $ids)->orWhereIn('equipo_visitante_id', $ids))
             ->where('estado', '!=', Partido::ESTADO_BORRADOR)
+            // Igual que el portal: solo jornadas publicadas, porque la programación en revisión todavía puede cambiar
+            ->whereHas('jornada', fn ($jornada) => $jornada->where('estado', Jornada::ESTADO_PUBLICADA))
             ->whereDate('fecha_partido', '>=', $hoy->toDateString())
             ->whereDate('fecha_partido', '<=', $hoy->copy()->addDays(14)->toDateString())
             ->with('local:id,nombre', 'visitante:id,nombre', 'cancha:id,nombre')
@@ -76,10 +89,17 @@ class MiClubController extends Controller
             ->limit(20)
             ->get();
 
-        // Sanciones vigentes publicadas de las personas del club: el mismo boletín del portal
-        $personas = Jugador::query()->whereIn('equipo_id', $ids)->pluck('persona_id')->filter()->all();
+        // Sanciones vigentes publicadas de las personas del club: el mismo boletín del portal. Igual que el boletín del
+        // Delegado (VigenciaSancionService), las inscripciones en «Baja» no cuentan como del club.
+        $personas = Jugador::query()
+            ->whereIn('equipo_id', $ids)
+            ->where('estado_elegibilidad', '!=', 'Baja')
+            ->pluck('persona_id')
+            ->filter()
+            ->map(fn ($id): int => (int) $id)
+            ->all();
         $castigados = $this->vigencia->obtenerBoletinCastigados()
-            ->filter(fn (Sancion $sancion): bool => in_array($sancion->equipo_id, $ids->all(), true) || in_array($sancion->persona_id, $personas, true))
+            ->filter(fn (Sancion $sancion): bool => in_array($sancion->equipo_id, $ids->all(), true) || in_array((int) $sancion->persona_id, $personas, true))
             ->values();
 
         return view('mi-club.show', compact('club', 'equipos', 'partidos', 'castigados', 'esDirectivo', 'usuario', 'jugador'));
