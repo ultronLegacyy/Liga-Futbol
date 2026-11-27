@@ -68,7 +68,7 @@
     <h1 class="display">Boletín de castigados</h1>
     <span class="linea" aria-hidden="true"></span>
     <p class="periodo">Vigente al {{ $hoy->locale('es')->translatedFormat('j \d\e F \d\e Y') }}</p>
-    <p class="resumen">{{ $total === 1 ? '1 persona suspendida' : $total.' personas suspendidas' }} · solo sanciones validadas por la Comisión Disciplinaria.</p>
+    <p class="resumen">{{ $personas === 1 ? '1 persona suspendida' : $personas.' personas suspendidas' }}@if ($equiposSancionados > 0) · {{ $equiposSancionados === 1 ? '1 sanción de equipo' : $equiposSancionados.' sanciones de equipo' }}@endif · solo sanciones validadas por la Comisión Disciplinaria.</p>
 @endsection
 
 @section('content')
@@ -141,7 +141,11 @@
                 @foreach ($comunicados as $comunicado)
                     <li class="comunicado tarjeta">
                         <article>
-                            <time datetime="{{ $comunicado->publicado_en?->toDateString() }}">{{ $comunicado->publicado_en?->locale('es')->translatedFormat('j \d\e F \d\e Y') }}</time>
+                            @php
+                                // publicado_en se guarda en UTC; se muestra en la hora de la liga
+                                $publicadoLocal = $comunicado->publicado_en?->copy()->timezone(\App\Models\Sancion::ZONA_HORARIA);
+                            @endphp
+                            <time datetime="{{ $publicadoLocal?->toDateString() }}">{{ $publicadoLocal?->locale('es')->translatedFormat('j \d\e F \d\e Y') }}</time>
                             <h3>{{ $comunicado->titulo }}</h3>
                             <p>{{ $comunicado->contenido }}</p>
                         </article>
