@@ -14,6 +14,7 @@ use App\Models\Persona;
 use App\Models\Sancion;
 use App\Models\Temporada;
 use App\Models\User;
+use Illuminate\Support\Facades\Route;
 
 /**
  * Menú del panel por área (HAB-S7 · S7-T02, IU-02, RNF-29). Cada opción se muestra solo si el rol tiene el permiso
@@ -92,6 +93,8 @@ class MenuPanel
                 [$usuario->can('viewAny', CargoFinanciero::class), 'Cuotas y cargos', 'cargos.index', 'cargos.*', 'monedas', 'Cuotas, cargos y pagos.'],
                 [$usuario->can('viewAny', CargoFinanciero::class), 'Adeudos por club', 'adeudos.index', 'adeudos.*', 'cartera', 'Quién está al corriente.'],
                 [$usuario->can('verReporte', CargoFinanciero::class), 'Reporte financiero', 'reportes.financiero', 'reportes.financiero*', 'grafica', 'Cargado, cobrado y saldo por periodo.'],
+                // HU-069 (#107): la ruta existe cuando se fusiona ese PR; antes la opción no aparece
+                [$usuario->can('verReporte', CargoFinanciero::class) && Route::has('documentos.index'), 'Documentos oficiales', 'documentos.index', 'documentos.*', 'papel', 'Cédulas, estados de cuenta y constancias en PDF.'],
             ],
         ];
 
