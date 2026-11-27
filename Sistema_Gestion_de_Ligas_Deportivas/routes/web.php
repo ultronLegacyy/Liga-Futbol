@@ -16,12 +16,14 @@ use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\ComunicadoController;
 use App\Http\Controllers\EquipoController;
+use App\Http\Controllers\EstadisticasGrupoController;
 use App\Http\Controllers\ExpedienteDisciplinarioController;
 use App\Http\Controllers\ForcePasswordChangeController;
 use App\Http\Controllers\GeneradorEnfrentamientosController;
 use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\HistorialEquipoController;
 use App\Http\Controllers\JornadaController;
+use App\Http\Controllers\LiguillaController;
 use App\Http\Controllers\JugadorController;
 use App\Http\Controllers\PagoController;
 use App\Http\Controllers\PartidoController;
@@ -31,8 +33,10 @@ use App\Http\Controllers\RecuperacionContrasenaController;
 use App\Http\Controllers\RegistroCorreoController;
 use App\Http\Controllers\ReporteFinancieroController;
 use App\Http\Controllers\ReglaTemporadaController;
+use App\Http\Controllers\ResultadoController;
 use App\Http\Controllers\RolPermisoController;
 use App\Http\Controllers\SancionController;
+use App\Http\Controllers\TablaPosicionesController;
 use App\Http\Controllers\TarjetonDigitalController;
 use App\Http\Controllers\TemporadaController;
 use App\Http\Controllers\UserController;
@@ -133,6 +137,26 @@ Route::middleware(['auth'])->group(function () {
             ->name('jornadas.publicar');
         Route::get('/jornadas/{jornada}/conflictos', [JornadaController::class, 'conflictos'])
             ->name('jornadas.conflictos');
+
+        // Tabla de posiciones calculada con los resultados oficiales (HU-041, RF-09.1)
+        Route::get('/grupos/{grupo}/tabla', [TablaPosicionesController::class, 'show'])
+            ->whereNumber('grupo')
+            ->name('grupos.tabla');
+        // Goleo, tarjetas, sanciones y tabla histórica por jornada (HU-043, RF-09.3)
+        Route::get('/grupos/{grupo}/estadisticas', [EstadisticasGrupoController::class, 'show'])
+            ->whereNumber('grupo')
+            ->name('grupos.estadisticas');
+        // Clasificación a la liguilla y llaves desde la tabla final (HU-055, RF-11.1)
+        Route::get('/grupos/{grupo}/liguilla', [LiguillaController::class, 'show'])
+            ->whereNumber('grupo')
+            ->name('grupos.liguilla');
+        Route::post('/grupos/{grupo}/liguilla', [LiguillaController::class, 'store'])
+            ->whereNumber('grupo')
+            ->name('grupos.liguilla.store');
+        // Rondas de la liguilla: avances, eliminaciones, campeón y subcampeón (HU-056, RF-11.2)
+        Route::post('/grupos/{grupo}/liguilla/rondas', [LiguillaController::class, 'crearRonda'])
+            ->whereNumber('grupo')
+            ->name('grupos.liguilla.rondas');
 
         // Generación automática de rol regular y enfrentamientos (HU-032, RF-07.1)
         Route::get('/grupos/{grupo}/generar-rol', [GeneradorEnfrentamientosController::class, 'configurar'])
@@ -243,6 +267,14 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/disciplina/expedientes/{expediente}/articulos/{articulo}', [ExpedienteDisciplinarioController::class, 'desasociarArticulo'])
             ->whereNumber(['expediente', 'articulo'])
             ->name('disciplina.expedientes.articulos.destroy');
+
+        // Validación oficial de resultados: sin validar no cuentan para la tabla (HU-040, RF-08.4).
+        // Autoriza CedulaArbitralPolicy::validarResultados, que responde el 403 en español
+        Route::get('/resultados', [ResultadoController::class, 'index'])
+            ->name('resultados.index');
+        Route::post('/resultados/{cedula}/validar', [ResultadoController::class, 'validar'])
+            ->whereNumber('cedula')
+            ->name('resultados.validar');
 
         // Audiencias disciplinarias (HU-045 / RF-10.2)
         Route::post('/disciplina/expedientes/{expediente}/audiencias', [AudienciaDisciplinariaController::class, 'store'])

@@ -363,6 +363,13 @@ class ProgramacionJornadaService
         $localId = isset($datos['equipo_local_id']) ? (int) $datos['equipo_local_id'] : $partido->equipo_local_id;
         $visitanteId = isset($datos['equipo_visitante_id']) ? (int) $datos['equipo_visitante_id'] : $partido->equipo_visitante_id;
 
+        // HU-056: los equipos de un partido de liguilla los define su llave
+        if (($localId !== $partido->equipo_local_id || $visitanteId !== $partido->equipo_visitante_id) && $partido->llaveLiguilla()->exists()) {
+            throw ValidationException::withMessages([
+                'equipo_local_id' => 'Es un partido de liguilla: sus equipos los define la llave y no se cambian.',
+            ]);
+        }
+
         if ($localId === $visitanteId) {
             throw ValidationException::withMessages([
                 'equipo_visitante_id' => 'El equipo local y el equipo visitante deben ser distintos.',
@@ -638,6 +645,13 @@ class ProgramacionJornadaService
                 ]);
             }
 
+            // HU-056: sin su partido, la llave de liguilla no se podría resolver
+            if ($partidoBloqueado->llaveLiguilla()->exists()) {
+                throw ValidationException::withMessages([
+                    'estado' => 'Es un partido de liguilla: no se elimina porque su llave quedaría sin resolverse.',
+                ]);
+            }
+
             $jornadaBloqueada->revertirABorradorPorModificacion(true);
 
             $partidoBloqueado->delete();
@@ -655,6 +669,13 @@ class ProgramacionJornadaService
 
         DB::transaction(function () use ($jornada): void {
             $jornadaBloqueada = Jornada::query()->whereKey($jornada->id)->lockForUpdate()->firstOrFail();
+
+            // HU-056: la jornada de una ronda de liguilla lleva los partidos de sus llaves
+            if ($jornadaBloqueada->fase_id !== null) {
+                throw ValidationException::withMessages([
+                    'jornada_id' => 'Es una jornada de liguilla: no se elimina porque sus llaves quedarían sin resolverse.',
+                ]);
+            }
 
             // HU-036: igual que al eliminar un partido, una cédula con datos capturados no se borra en cascada
             if ($jornadaBloqueada->partidos()->conCedulaCapturada()->exists()) {
