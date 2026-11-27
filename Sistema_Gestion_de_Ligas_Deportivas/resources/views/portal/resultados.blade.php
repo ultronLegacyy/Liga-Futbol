@@ -53,6 +53,9 @@
     .tarjeta-amarilla, .tarjeta-roja { display: inline-block; min-width: 1.75rem; padding: .125rem .375rem; border-radius: .25rem; font-weight: 800; text-align: center; }
     .tarjeta-amarilla { background: #ffd43b; color: #3d2f00; }
     .tarjeta-roja { background: #c4121b; color: #fff; }
+    .conteo-tarjetas { display: grid; gap: .25rem; font-size: .8125rem; font-weight: 700; color: var(--texto-secundario); text-align: right; }
+    /* Igual que en el panel (HU-043, RF-09.4): el goleo y las tarjetas son datos calculados, no oficiales */
+    .calculado { margin-left: .375rem; padding: .125rem .5rem; border-radius: 999px; background: #e8eefc; color: var(--navy); font-family: system-ui, sans-serif; font-size: .6875rem; font-style: normal; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; vertical-align: middle; }
 
     @media (min-width: 40rem) {
         .solo-ancho { display: table-cell; }
@@ -145,7 +148,7 @@
                         @endphp
                         <li class="resultado tarjeta">
                             <span class="equipo {{ $golesLocal > $golesVisitante ? 'gana' : '' }}">{{ $partido->local?->nombre }}</span>
-                            <span class="marcador" aria-label="{{ $golesLocal }} a {{ $golesVisitante }}">{{ $golesLocal }} – {{ $golesVisitante }}</span>
+                            <span class="marcador"><span aria-hidden="true">{{ $golesLocal }} – {{ $golesVisitante }}</span><span class="saltar">{{ $golesLocal }} a {{ $golesVisitante }}</span></span>
                             <span class="equipo visitante {{ $golesVisitante > $golesLocal ? 'gana' : '' }}">{{ $partido->visitante?->nombre }}</span>
                             <p class="datos">
                                 Jornada {{ $partido->jornada?->numero_jornada }}@if ($partido->fecha_partido) · <time datetime="{{ $partido->fecha_partido->toDateString() }}">{{ $partido->fecha_partido->format('d/m/Y') }}</time>@endif
@@ -161,7 +164,7 @@
             <h2 class="display seccion-titulo" id="estadisticas-titulo"><span>Estadísticas</span></h2>
             <div class="lideres">
                 <div class="tarjeta">
-                    <h3>Goleo</h3>
+                    <h3>Goleo <span class="calculado">Calculado</span></h3>
                     @if ($estadisticas['goleo']->isEmpty())
                         <p class="vacio" style="margin: 0 1rem 1rem;">Aún no hay goles registrados.</p>
                     @else
@@ -177,7 +180,7 @@
                     @endif
                 </div>
                 <div class="tarjeta">
-                    <h3>Tarjetas</h3>
+                    <h3>Tarjetas <span class="calculado">Calculado</span></h3>
                     @if ($estadisticas['tarjetas']->isEmpty())
                         <p class="vacio" style="margin: 0 1rem 1rem;">Aún no hay tarjetas registradas.</p>
                     @else
@@ -186,9 +189,10 @@
                                 <li>
                                     <span class="n">{{ $loop->iteration }}</span>
                                     <span class="quien"><b>{{ $fila['nombre'] }}</b><span>{{ $fila['equipo'] }}</span></span>
-                                    <span>
-                                        <span class="tarjeta-amarilla" aria-label="{{ $fila['amarillas'] }} amarillas">{{ $fila['amarillas'] }}</span>
-                                        <span class="tarjeta-roja" aria-label="{{ $fila['rojas'] }} rojas">{{ $fila['rojas'] }}</span>
+                                    {{-- El tipo va escrito, no solo en el color (WCAG 1.4.1) --}}
+                                    <span class="conteo-tarjetas">
+                                        <span><span class="tarjeta-amarilla">{{ $fila['amarillas'] }}</span> {{ $fila['amarillas'] === 1 ? 'amarilla' : 'amarillas' }}</span>
+                                        <span><span class="tarjeta-roja">{{ $fila['rojas'] }}</span> {{ $fila['rojas'] === 1 ? 'roja' : 'rojas' }}</span>
                                     </span>
                                 </li>
                             @endforeach
