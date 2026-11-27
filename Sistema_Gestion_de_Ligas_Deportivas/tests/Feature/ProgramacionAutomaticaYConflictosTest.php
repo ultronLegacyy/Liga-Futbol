@@ -55,6 +55,8 @@ class ProgramacionAutomaticaYConflictosTest extends TestCase
 
     private int $secuenciaClub = 0;
 
+    private static ?string $passwordHashCache = null;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -1113,10 +1115,12 @@ class ProgramacionAutomaticaYConflictosTest extends TestCase
 
     private function crearUsuario(string $email, string $rol): User
     {
+        self::$passwordHashCache ??= Hash::make('password123');
+
         $user = User::create([
             'name' => 'Usuario '.$rol,
             'email' => $email,
-            'password' => Hash::make('password123'),
+            'password' => self::$passwordHashCache,
             'activo' => true,
         ]);
         $user->assignRole($rol);
