@@ -125,7 +125,9 @@
         .marca small { display: block; font-size: .6875rem; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: #cfe0ff; }
 
         /* En el celular el menú es una sola fila que se desliza, para no amontonar la cabecera */
-        .navegacion { display: flex; gap: .25rem; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+        /* overflow-x: auto también recorta en vertical: el padding de 8 px (con margen negativo para no mover nada)
+           deja espacio al anillo de 3 px y al halo de 6 px del foco, que se dibujan por fuera del enlace (RNF-13) */
+        .navegacion { display: flex; gap: .25rem; max-width: calc(100% + 16px); margin: -8px; padding: 8px; overflow-x: auto; scrollbar-width: none; }
         .navegacion::-webkit-scrollbar { display: none; }
         .navegacion a { flex: none; }
 
@@ -142,6 +144,9 @@
         }
 
         .navegacion a:hover { background: rgba(255, 255, 255, .14); }
+        /* El menú va sobre el encabezado marino: ahí el foco es un contorno blanco (más de 10:1), separado 2 px del
+           enlace. Así no depende del halo, que el subrayado de la página actual (box-shadow) taparía. */
+        .navegacion a:focus-visible { outline: 3px solid #fff; outline-offset: 2px; box-shadow: none; }
         .navegacion a[aria-current="page"] { background: rgba(255, 255, 255, .16); box-shadow: inset 0 -3px 0 var(--lima); }
 
         .navegacion .cuenta {
@@ -296,6 +301,7 @@
             color: var(--tinta);
             font-weight: 800;
             white-space: nowrap;
+            -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent);
             mask-image: linear-gradient(90deg, #000 88%, transparent);
         }
 

@@ -62,6 +62,10 @@
                             <a href="{{ route('cargos.index', ['temporada_id' => $temporada?->id, 'club_id' => $adeudo['club']->id]) }}" class="text-blue-400 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-400 rounded">
                                 Ver cargos<span class="sr-only"> de {{ $adeudo['club']->nombre }}</span>
                             </a>
+                            {{-- HU-069: estado de cuenta del club en PDF, de la temporada elegida --}}
+                            <a href="{{ route('documentos.estado-cuenta', ['club' => $adeudo['club']->id, 'temporada_id' => $temporada?->id]) }}" class="ml-3 text-blue-400 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-400 rounded">
+                                Estado de cuenta (PDF)<span class="sr-only"> de {{ $adeudo['club']->nombre }}</span>
+                            </a>
                         </td>
                     </tr>
                 @empty
