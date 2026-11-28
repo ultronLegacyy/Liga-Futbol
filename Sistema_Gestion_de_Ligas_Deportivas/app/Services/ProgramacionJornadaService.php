@@ -704,8 +704,8 @@ class ProgramacionJornadaService
     }
 
     /**
-     * Evalúa si un equipo cuenta con una sanción disciplinaria vigente que le impida jugar (HU-027 CA2 / HU-074 CA1 / PO):
-     * 3 o más partidos perdidos por default acumulados, o sanción vigente de suspensión/desafiliación en `sanciones_equipos` (excluyendo multas).
+     * Evalúa si un equipo cuenta con una sanción disciplinaria vigente que le impida jugar (HU-027 CA2 / HU-074 CA1):
+     * 3 o más partidos perdidos por default acumulados, o sanción vigente registrada en `sanciones_equipos` (si existe la tabla).
      */
     public function equipoTieneSancionVigente(Equipo $equipo): bool
     {
@@ -741,7 +741,7 @@ class ProgramacionJornadaService
         }
 
         foreach (self::idsEquiposConTablaSancionesVigente($ids) as $equipoId) {
-            $motivos[$equipoId] ??= 'cuenta con sanción disciplinaria vigente de suspensión o desafiliación en sanciones_equipos (HU-027)';
+            $motivos[$equipoId] ??= 'cuenta con sanción disciplinaria vigente que le impide jugar (HU-027)';
         }
 
         return $motivos;
@@ -757,18 +757,10 @@ class ProgramacionJornadaService
             return [];
         }
 
-        $query = DB::table('sanciones_equipos')
+        return DB::table('sanciones_equipos')
             ->whereIn('equipo_id', $equipoIds)
-            ->where('estado', 'Vigente');
-
-        // Según definición del PO: una multa sola no impide programar; solo suspensión o desafiliación
-        foreach (['tipo', 'tipo_sancion'] as $columnaTipo) {
-            if (Schema::hasColumn('sanciones_equipos', $columnaTipo)) {
-                $query->whereRaw("LOWER({$columnaTipo}) != ?", ['multa']);
-            }
-        }
-
-        return $query->pluck('equipo_id')
+            ->where('estado', 'Vigente')
+            ->pluck('equipo_id')
             ->map(static fn ($id): int => (int) $id)
             ->unique()
             ->values()

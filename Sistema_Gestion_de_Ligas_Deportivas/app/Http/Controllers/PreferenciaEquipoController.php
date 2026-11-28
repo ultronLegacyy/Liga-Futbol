@@ -6,7 +6,6 @@ use App\Http\Requests\StorePreferenciasGrupoRequest;
 use App\Models\Cancha;
 use App\Models\Equipo;
 use App\Models\Grupo;
-use App\Models\Jornada;
 use App\Models\PreferenciaEquipo;
 use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
@@ -21,7 +20,7 @@ class PreferenciaEquipoController extends Controller
 {
     public function edit(Grupo $grupo): View
     {
-        Gate::authorize('create', [Jornada::class, $grupo]);
+        Gate::authorize('gestionarPreferencias', $grupo);
 
         $grupo->loadMissing([
             'categoria.temporada',

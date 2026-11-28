@@ -215,7 +215,7 @@
             </div>
         @endif
 
-        @can('programarMasivo', $temporada)
+        @can('verResumenProgramacionMasiva', $temporada)
             @php
                 $conflictosTemporada = session('programacion_conflictos') ?? ($resumenProgramacionMasiva['conflictos'] ?? []);
             @endphp

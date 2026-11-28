@@ -78,4 +78,15 @@ class TemporadaPolicy
             ? Response::allow()
             : Response::deny('No cuenta con privilegios para ejecutar la programación automática masiva.');
     }
+
+    /**
+     * Autorización para consultar el resumen y estado (completado/cancelado/fallido) de la programación masiva,
+     * incluso si la temporada fue cerrada posteriormente (HU-033 / HU-074).
+     */
+    public function verResumenProgramacionMasiva(User $usuario, Temporada $temporada): Response
+    {
+        return ($usuario->hasRole('Administrador General') || $usuario->can('partidos.programar'))
+            ? Response::allow()
+            : Response::deny('No cuenta con privilegios para consultar el resumen de programación masiva.');
+    }
 }

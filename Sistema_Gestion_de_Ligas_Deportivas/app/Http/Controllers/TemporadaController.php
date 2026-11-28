@@ -139,7 +139,7 @@ class TemporadaController extends Controller
             ->get()
             ->keyBy('registro_id');
 
-        $puedeVerProgramacionMasiva = $request->user()?->can('programarMasivo', $temporada) ?? false;
+        $puedeVerProgramacionMasiva = $request->user()?->can('verResumenProgramacionMasiva', $temporada) ?? false;
         $resumenProgramacionMasiva = $puedeVerProgramacionMasiva
             ? Cache::get("programacion_masiva_temporada_{$temporada->id}")
             : null;

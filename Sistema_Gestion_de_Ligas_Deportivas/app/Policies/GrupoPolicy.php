@@ -47,4 +47,18 @@ class GrupoPolicy
             ? Response::allow()
             : Response::deny('No cuenta con privilegios para administrar grupos.');
     }
+
+    /**
+     * Autorización para consultar y capturar preferencias de horario por equipo del grupo (PO / HU-074).
+     */
+    public function gestionarPreferencias(User $usuario, Grupo $grupo): Response
+    {
+        if ($grupo->temporada?->estado === 'cerrada') {
+            return Response::deny('Una temporada cerrada no admite cambios en las preferencias de sus equipos.');
+        }
+
+        return ($usuario->hasRole('Administrador General') || $usuario->can('partidos.programar'))
+            ? Response::allow()
+            : Response::deny('No cuenta con privilegios para gestionar preferencias de equipos.');
+    }
 }

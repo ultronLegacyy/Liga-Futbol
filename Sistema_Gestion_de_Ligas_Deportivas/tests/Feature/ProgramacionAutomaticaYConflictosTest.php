@@ -1137,11 +1137,14 @@ class ProgramacionAutomaticaYConflictosTest extends TestCase
             ->assertOk()
             ->json();
 
-        // Alterar payload oculto con fecha fuera de temporada, fecha inexistente, hora no permitida y arreglo malicioso
+        // Alterar payload oculto con fecha fuera de temporada, fecha inexistente, arreglo malicioso y fecha válida con hora no permitida
         $preview['jornadas'][0]['partidos'][0]['fecha_partido'] = '2030-01-01';
         $preview['jornadas'][0]['partidos'][0]['hora_partido'] = '03:17';
         $preview['jornadas'][0]['partidos'][1]['fecha_partido'] = '2026-02-30';
         $preview['jornadas'][1]['partidos'][0]['fecha_partido'] = ['x'];
+        // Fecha válida dentro de la jornada 3 pero con hora '13:00' fuera de las franjas permitidas ['09:00', '11:00']
+        $preview['jornadas'][2]['partidos'][0]['fecha_partido'] = $preview['jornadas'][2]['fecha_inicio'];
+        $preview['jornadas'][2]['partidos'][0]['hora_partido'] = '13:00';
 
         $this->actingAs($this->programador)
             ->post(route('grupos.confirmar-rol', $this->grupo), [
@@ -1375,12 +1378,19 @@ class ProgramacionAutomaticaYConflictosTest extends TestCase
         $eq2 = $this->crearEquipo('Pref Visita');
         $cancha1 = Cancha::factory()->create(['nombre' => 'Cancha Uno', 'estado' => 'Disponible']);
         $cancha2 = Cancha::factory()->create(['nombre' => 'Cancha Dos', 'estado' => 'Disponible']);
+        $canchaMantenimiento = Cancha::factory()->create(['nombre' => 'Cancha Mant', 'estado' => 'Mantenimiento']);
 
-        // Un delegado o jugador no puede acceder todavía en este sprint (403)
+        // Un delegado o jugador no puede acceder todavía en este sprint (403 con mensaje propio)
         $delegado = $this->crearUsuario('delegado_pref@liga.com', 'Delegado del Club');
         $this->actingAs($delegado)
-            ->get(route('grupos.preferencias.edit', $this->grupo))
-            ->assertForbidden();
+            ->getJson(route('grupos.preferencias.edit', $this->grupo))
+            ->assertForbidden()
+            ->assertJsonFragment(['mensaje' => 'No cuenta con privilegios para gestionar preferencias de equipos.']);
+
+        $this->actingAs($delegado)
+            ->putJson(route('grupos.preferencias.update', $this->grupo), ['preferencias' => []])
+            ->assertForbidden()
+            ->assertJsonFragment(['mensaje' => 'No cuenta con privilegios para gestionar preferencias de equipos.']);
 
         // El Programador de Partidos registra las preferencias solicitadas por los clubes
         $this->actingAs($this->programador)
@@ -1412,18 +1422,23 @@ class ProgramacionAutomaticaYConflictosTest extends TestCase
         $this->assertSame(40, config('programacion.pesos_preferencias.local.cancha'));
         $this->assertSame(15, config('programacion.pesos_preferencias.visitante.cancha'));
 
-        // Validación en español
+        // Validación en español: rechaza día inválido, hora inválida y cancha no disponible (Mantenimiento/Inactiva)
         $this->actingAs($this->programador)
             ->putJson(route('grupos.preferencias.update', $this->grupo), [
                 'preferencias' => [
                     $eq2->id => [
+                        'cancha_id_preferida' => $canchaMantenimiento->id,
                         'dia_preferido' => 'Feriado',
                         'hora_preferida' => '25:99',
                     ],
                 ],
             ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['preferencias.'.$eq2->id.'.dia_preferido', 'preferencias.'.$eq2->id.'.hora_preferida']);
+            ->assertJsonValidationErrors([
+                'preferencias.'.$eq2->id.'.cancha_id_preferida',
+                'preferencias.'.$eq2->id.'.dia_preferido',
+                'preferencias.'.$eq2->id.'.hora_preferida',
+            ]);
     }
 
     public function test_job_masivo_marca_cancelado_si_temporada_cierra_y_oculta_resumen_a_jugador(): void
@@ -1440,6 +1455,13 @@ class ProgramacionAutomaticaYConflictosTest extends TestCase
         $estado = Cache::get("programacion_masiva_temporada_{$this->temporada->id}");
         $this->assertIsArray($estado);
         $this->assertSame('cancelado', $estado['estado']);
+
+        // Incluso estando la temporada cerrada, el Programador sí ve el aviso de cancelación del segundo plano
+        $this->actingAs($this->programador)
+            ->get(route('temporadas.show', $this->temporada))
+            ->assertOk()
+            ->assertSee('Programación masiva en segundo plano cancelada')
+            ->assertSee('La temporada fue cerrada antes de iniciar la programación automática masiva.');
 
         // Un jugador con temporadas.ver NO debe ver el resumen ni los conflictos internos del motor
         $jugador = $this->crearUsuario('jugador_resumen@liga.com', 'Jugador');
