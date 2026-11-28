@@ -10,6 +10,7 @@ use App\Http\Controllers\CedulaController;
 use App\Http\Controllers\AudienciaDisciplinariaController;
 use App\Http\Controllers\BoletinCastigadosController;
 use App\Http\Controllers\CedulaFisicaController;
+use App\Http\Controllers\DocumentoOficialController;
 use App\Http\Controllers\CierreCedulaController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ClubController;
@@ -338,6 +339,17 @@ Route::middleware(['auth'])->group(function () {
             ->name('reportes.financiero.csv');
         Route::get('/reportes/financiero/pdf', [ReporteFinancieroController::class, 'pdf'])
             ->name('reportes.financiero.pdf');
+
+        // Documentos oficiales en PDF (HU-069, RF-16.2, IH-03)
+        Route::get('/documentos', [DocumentoOficialController::class, 'index'])
+            ->name('documentos.index');
+        Route::get('/documentos/clubes/{club}/estado-de-cuenta', [DocumentoOficialController::class, 'estadoDeCuenta'])
+            ->name('documentos.estado-cuenta');
+        Route::get('/documentos/partidos/{partido}/cedula', [DocumentoOficialController::class, 'cedula'])
+            ->whereNumber('partido')
+            ->name('documentos.cedula');
+        Route::get('/documentos/jugadores/{jugador}/constancia', [DocumentoOficialController::class, 'constancia'])
+            ->name('documentos.constancia');
 
         // HU-067: registro de cada correo del sistema, solo para quien tiene correos.ver
         Route::get('/correos', [RegistroCorreoController::class, 'index'])

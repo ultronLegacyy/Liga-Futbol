@@ -25,6 +25,8 @@
     <div class="mb-6">
         <h2 class="text-xl font-bold text-white">Reporte financiero</h2>
         <p class="text-sm text-gray-400">Lo cargado, lo cobrado y el saldo de un club por concepto. El periodo toma en cuenta la fecha de vencimiento de cada cargo.</p>
+        {{-- HU-069: el Tesorero y el Presidente llegan desde aquí a los PDF oficiales --}}
+        <p class="mt-3"><a href="{{ route('documentos.index') }}" class="inline-flex min-h-11 items-center rounded-lg border border-gray-600 px-4 py-2 text-sm font-bold text-white hover:border-blue-400">Documentos oficiales: cédulas, estados de cuenta y constancias</a></p>
     </div>
 
     <form method="GET" action="{{ route('reportes.financiero') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6" aria-label="Filtros del reporte financiero" novalidate>
