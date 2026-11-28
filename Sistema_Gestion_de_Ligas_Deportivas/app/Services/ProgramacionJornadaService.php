@@ -13,7 +13,6 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 // Programación de jornadas, alta manual de partidos y gestión de descansos (HU-027, RF-06.1; HU-028, RF-06.2)
@@ -704,16 +703,12 @@ class ProgramacionJornadaService
     }
 
     /**
-     * Evalúa si un equipo cuenta con una sanción disciplinaria vigente que le impida jugar (HU-027 CA2 / HU-074 CA1):
-     * 3 o más partidos perdidos por default acumulados, o sanción vigente registrada en `sanciones_equipos` (si existe la tabla).
+     * Evalúa si un equipo cuenta con una sanción disciplinaria vigente que le impida jugar (HU-027 CA2 / HU-074 CA1 / PO):
+     * 3 o más partidos perdidos por default acumulados.
      */
     public function equipoTieneSancionVigente(Equipo $equipo): bool
     {
-        if ($equipo->partidos_default_acumulados >= 3) {
-            return true;
-        }
-
-        return in_array($equipo->id, self::idsEquiposConTablaSancionesVigente([$equipo->id]), true);
+        return $equipo->partidos_default_acumulados >= 3;
     }
 
     /**
@@ -740,31 +735,7 @@ class ProgramacionJornadaService
             $motivos[$equipo->id] = "acumula {$equipo->partidos_default_acumulados} partidos perdidos por default (límite 3, HU-027)";
         }
 
-        foreach (self::idsEquiposConTablaSancionesVigente($ids) as $equipoId) {
-            $motivos[$equipoId] ??= 'cuenta con sanción disciplinaria vigente que le impide jugar (HU-027)';
-        }
-
         return $motivos;
-    }
-
-    /**
-     * @param  array<int, int>  $equipoIds
-     * @return array<int, int>
-     */
-    private static function idsEquiposConTablaSancionesVigente(array $equipoIds): array
-    {
-        if ($equipoIds === [] || ! Schema::hasTable('sanciones_equipos')) {
-            return [];
-        }
-
-        return DB::table('sanciones_equipos')
-            ->whereIn('equipo_id', $equipoIds)
-            ->where('estado', 'Vigente')
-            ->pluck('equipo_id')
-            ->map(static fn ($id): int => (int) $id)
-            ->unique()
-            ->values()
-            ->all();
     }
 
     private function validarTemporadaGrupo(Grupo $grupo): void
