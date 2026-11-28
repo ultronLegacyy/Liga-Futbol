@@ -73,7 +73,8 @@ class PortalController extends Controller
     // HU-077: resultados oficiales, tabla de posiciones y estadísticas de un grupo, sin cuenta (RF-12.3, IU-01)
     public function resultados(Request $request): View
     {
-        $grupos = $this->resultados->grupos();
+        // Decisión del PO (27/11/2026, pregunta del #108): el portal muestra solo la temporada en curso
+        $grupos = $this->resultados->grupos(soloTemporadaEnCurso: true);
         $solicitado = $request->integer('grupo');
 
         // Un grupo inexistente o sin resultados muestra el primero disponible, sin error

@@ -19,7 +19,7 @@ class ComponentesReutilizablesTest extends TestCase
             $html
         );
         $this->assertStringContainsString('role="status"', $html);
-        $this->assertStringContainsString('bg-green-500/10', $html);
+        $this->assertStringContainsString('bg-emerald-500/10', $html);
     }
 
     public function test_el_componente_de_alerta_muestra_errores_accesibles(): void

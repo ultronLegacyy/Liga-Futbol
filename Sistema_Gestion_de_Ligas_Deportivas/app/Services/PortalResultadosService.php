@@ -6,6 +6,7 @@ use App\Models\Grupo;
 use App\Models\Jugador;
 use App\Models\Partido;
 use App\Models\TablaPosicion;
+use App\Models\Temporada;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Collection as ColeccionBase;
 
@@ -15,6 +16,9 @@ use Illuminate\Support\Collection as ColeccionBase;
  */
 class PortalResultadosService
 {
+    /** @var list<int>|null */
+    private ?array $temporadasEnCurso = null;
+
     public function __construct(
         private readonly TablaPosicionesService $tablas,
         private readonly EstadisticasGrupoService $estadisticasGrupo,
@@ -26,10 +30,11 @@ class PortalResultadosService
      *
      * @return Collection<int, Grupo>
      */
-    public function grupos(): Collection
+    public function grupos(bool $soloTemporadaEnCurso = false): Collection
     {
         return Grupo::query()
             ->whereIn('id', TablaPosicion::query()->select('grupo_id'))
+            ->when($soloTemporadaEnCurso, fn ($consulta) => $consulta->whereIn('temporada_id', $this->temporadasEnCurso()))
             ->with('categoria:id,nombre,rama', 'temporada:id,nombre')
             ->orderByDesc('temporada_id')
             ->orderBy('categoria_id')
@@ -103,5 +108,20 @@ class PortalResultadosService
             'nombre' => $persona !== null ? trim($persona->nombre.' '.$persona->apellidos) : 'Jugador',
             'equipo' => $jugador->equipo->nombre ?? 'Sin equipo',
         ];
+    }
+
+    /**
+     * Temporadas en curso (estado «activa»). Las cerradas no entran en la portada.
+     *
+     * @return list<int>
+     */
+    public function temporadasEnCurso(): array
+    {
+        return $this->temporadasEnCurso ??= Temporada::query()
+            ->where('estado', 'activa')
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->values()
+            ->all();
     }
 }

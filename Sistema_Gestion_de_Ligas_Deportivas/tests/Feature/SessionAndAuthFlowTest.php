@@ -403,7 +403,7 @@ class SessionAndAuthFlowTest extends TestCase
             'Capturista' => ['Capturista', 'temporadas.index', false],
             'Tribunal de Penas' => ['Tribunal de Penas', 'temporadas.index', false],
             'Comisión Arbitral' => ['Comisión Arbitral', 'arbitros.index', false],
-            'Árbitro en Campo' => ['Árbitro en Campo', 'arbitros.index', false],
+            'Árbitro en Campo' => ['Árbitro en Campo', 'cedulas.mis-partidos', false],
             'Presidente del Club' => ['Presidente del Club', 'temporadas.index', true],
             'Delegado del Club (con club)' => ['Delegado del Club', 'jugadores.create', true],
             'Jugador' => ['Jugador', 'jugadores.vincular.form', false],
