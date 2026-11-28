@@ -10,6 +10,7 @@ use App\Http\Controllers\CedulaController;
 use App\Http\Controllers\AudienciaDisciplinariaController;
 use App\Http\Controllers\BoletinCastigadosController;
 use App\Http\Controllers\CedulaFisicaController;
+use App\Http\Controllers\DocumentoOficialController;
 use App\Http\Controllers\CierreCedulaController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ClubController;
@@ -27,6 +28,7 @@ use App\Http\Controllers\JugadorController;
 use App\Http\Controllers\PagoController;
 use App\Http\Controllers\PartidoController;
 use App\Http\Controllers\PersonaController;
+use App\Http\Controllers\PanelController;
 use App\Http\Controllers\PortalController;
 use App\Http\Controllers\RecuperacionContrasenaController;
 use App\Http\Controllers\RegistroCorreoController;
@@ -83,6 +85,9 @@ Route::middleware(['auth'])->group(function () {
 
     // 2. Rutas del sistema PROTEGIDAS por el bloqueo temporal
     Route::middleware([ForcePasswordChange::class])->group(function () {
+
+        // HAB-S7 (S7-T02): inicio del panel por rol, con las tarjetas de lo que cada rol puede hacer (IU-02)
+        Route::get('/panel', [PanelController::class, 'inicio'])->name('panel.inicio');
 
         // Rutas de temporadas deportivas y reglas (Merge de develop)
         Route::resource('temporadas', TemporadaController::class);
@@ -343,6 +348,17 @@ Route::middleware(['auth'])->group(function () {
             ->name('reportes.financiero.csv');
         Route::get('/reportes/financiero/pdf', [ReporteFinancieroController::class, 'pdf'])
             ->name('reportes.financiero.pdf');
+
+        // Documentos oficiales en PDF (HU-069, RF-16.2, IH-03)
+        Route::get('/documentos', [DocumentoOficialController::class, 'index'])
+            ->name('documentos.index');
+        Route::get('/documentos/clubes/{club}/estado-de-cuenta', [DocumentoOficialController::class, 'estadoDeCuenta'])
+            ->name('documentos.estado-cuenta');
+        Route::get('/documentos/partidos/{partido}/cedula', [DocumentoOficialController::class, 'cedula'])
+            ->whereNumber('partido')
+            ->name('documentos.cedula');
+        Route::get('/documentos/jugadores/{jugador}/constancia', [DocumentoOficialController::class, 'constancia'])
+            ->name('documentos.constancia');
 
         // HU-067: registro de cada correo del sistema, solo para quien tiene correos.ver
         Route::get('/correos', [RegistroCorreoController::class, 'index'])

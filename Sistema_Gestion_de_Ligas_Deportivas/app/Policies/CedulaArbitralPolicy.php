@@ -46,6 +46,18 @@ class CedulaArbitralPolicy
         return $this->accesoDelArbitro($usuario, $partido);
     }
 
+    // Cédula oficial en PDF (HU-069): quien consulta cédulas y, para entregarla impresa, el Tesorero y el Presidente
+    public function descargarOficial(User $usuario, Partido $partido): Response
+    {
+        if ($usuario->can('finanzas.reportes')) {
+            return Response::allow();
+        }
+
+        return $usuario->can('cedulas.ver')
+            ? $this->accesoDelArbitro($usuario, $partido)
+            : Response::deny('No cuenta con privilegios para descargar la cédula oficial.');
+    }
+
     // Abrir la cédula: solo el Árbitro en Campo asignado al partido, con una acción explícita (POST)
     public function abrir(User $usuario, Partido $partido): Response
     {

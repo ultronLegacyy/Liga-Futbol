@@ -2,8 +2,77 @@
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
+@source '../../app/Support/*.php';
 
+/*
+ * HAB-S7 · S7-T01 (SCRUM-234): base visual del nuevo diseño, compilada con Vite en lugar del CDN.
+ * Paleta «Azul eléctrico» aprobada por el Product Owner (21/11/2026). La escala gray se redefine en tonos
+ * azul marino para que las 71 vistas del panel tomen el nuevo color sin reescribirlas; cada módulo se migra
+ * después a los componentes (S7-T06). Texto gris sobre fondos del panel (revisión del #110): gray-500 da 4.69:1
+ * sobre gray-800 y 5.58:1 sobre gray-900; gray-400 da 4.67:1 sobre gray-700. gray-500 sobre gray-700 (3.42:1)
+ * no se usa para texto.
+ */
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, ui-sans-serif, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+    --font-display: 'Barlow Condensed', 'Roboto Condensed', 'Arial Narrow', 'Helvetica Neue Condensed', Impact, sans-serif;
+
+    --color-gray-50: #f3f6fc;
+    --color-gray-100: #e6ecf7;
+    --color-gray-200: #cdd8ec;
+    --color-gray-300: #b3c1dd;
+    --color-gray-400: #9aabd0;
+    --color-gray-500: #8091b8;
+    --color-gray-600: #435683;
+    --color-gray-700: #2b3c68;
+    --color-gray-750: #21305a;
+    --color-gray-800: #18264c;
+    --color-gray-900: #0d1736;
+    --color-gray-950: #070e24;
+
+    /* S7-T06: el verde era el color de acción del panel (botones, enlaces y foco). Se remapea al azul eléctrico
+       para que las 91 vistas usen la nueva paleta sin reescribirse; el emerald sigue siendo el color de éxito. */
+    --color-green-50: #eef3ff;
+    --color-green-100: #dbe6ff;
+    --color-green-200: #bccfff;
+    --color-green-300: #8fb0ff;
+    --color-green-400: #6b9bff;
+    --color-green-500: #3d74ff;
+    --color-green-600: #1f5eff;
+    --color-green-700: #1849d1;
+    --color-green-800: #143ba6;
+    --color-green-900: #112f7f;
+    --color-green-950: #0b1d4f;
+
+    --color-marino-950: #040b22;
+    --color-marino-900: #071a4f;
+    --color-marino-800: #082a86;
+    --color-electrico: #1f5eff;
+    /* Hover del botón primario: más oscuro que el eléctrico para que el texto blanco conserve 5:1 */
+    --color-electrico-claro: #2a63f0;
+    --color-celeste: #7cc6ff;
+    --color-foco: #ffb020;
+}
+
+@layer base {
+    :focus-visible {
+        outline: 3px solid var(--color-foco);
+        outline-offset: 2px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
+}
+
+@utility display {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-style: italic;
+    font-stretch: condensed;
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    line-height: 0.92;
 }
