@@ -57,4 +57,12 @@ class AsambleaPolicy
             ? Response::allow()
             : Response::deny('No cuenta con autorización para convertir un acuerdo en regla permanente.');
     }
+
+    // Publicar o retirar un comunicado de asamblea del portal público (HU-078, PA-15): Secretario y Presidente
+    public function publicarComunicado(User $usuario, Asamblea $asamblea): Response
+    {
+        return $usuario->can('asambleas.acuerdos.registrar') || $usuario->can('asambleas.acuerdos.autorizar')
+            ? Response::allow()
+            : Response::deny('Solo el Secretario o el Presidente pueden publicar comunicados en el portal.');
+    }
 }
