@@ -185,6 +185,22 @@ class PortalProgramacionTest extends TestCase
         $this->assertStringNotContainsString('noindex', $html);
     }
 
+    // HAB-S7 (SCRUM-236): el diseño nuevo no carga hojas de estilo, fuentes, imágenes ni scripts externos (RNF-04)
+    // y respeta prefers-reduced-motion (RNF-13)
+    public function test_el_diseno_del_portal_no_carga_recursos_externos(): void
+    {
+        $this->partido(Jornada::ESTADO_PUBLICADA, '2026-11-21', '10:00:00', 'Águilas', 'Halcones');
+
+        $html = $this->get(route('portal.programacion'))->assertOk()->getContent();
+
+        $this->assertDoesNotMatchRegularExpression('/<link\b/i', $html);
+        $this->assertDoesNotMatchRegularExpression('/\bsrc=/i', $html);
+        $this->assertDoesNotMatchRegularExpression('/@import|url\(\s*[\'"]?https?:/i', $html);
+        $this->assertStringContainsString('prefers-reduced-motion: no-preference', $html);
+        $this->assertStringContainsString('1 partido publicado', $html);
+        $this->assertLessThan(40 * 1024, strlen($html));
+    }
+
     public function test_una_persona_con_sesion_tambien_la_consulta_y_el_login_la_enlaza(): void
     {
         $this->seed(RoleAndPermissionSeeder::class);
@@ -373,5 +389,23 @@ class PortalProgramacionTest extends TestCase
             'rol' => 'Consultor',
             'estatus' => 'activo',
         ]);
+    }
+
+    // Revisión del #105: foco de dos tonos con contraste ≥ 3:1 y sin cinta que corra sin pausa (RNF-13, WCAG 2.2.2)
+    public function test_el_foco_es_de_dos_tonos_y_la_cinta_no_corre_sin_fin(): void
+    {
+        $respuesta = $this->get(route('portal.programacion'))->assertOk();
+
+        $respuesta->assertSee('--foco: var(--navy);', false);
+        $respuesta->assertSee('--foco-halo: 0 0 0 6px #fff;', false);
+        $respuesta->assertDontSee('#ff9f1c', false);
+        $this->assertStringNotContainsString('animation: correr ', $respuesta->getContent());
+
+        // Revisión 2 del #105: el menú deja 8 px para el foco (overflow-x también recorta en vertical) y, sobre el
+        // encabezado marino, el foco es un contorno blanco separado 2 px
+        $respuesta->assertSee('.navegacion { display: flex; gap: .25rem; max-width: calc(100% + 16px); margin: -8px; padding: 8px;', false);
+        $respuesta->assertSee('.navegacion a:focus-visible { outline: 3px solid #fff; outline-offset: 2px; box-shadow: none; }', false);
+        // La cinta fija lleva una sola copia de los partidos
+        $this->assertStringNotContainsString('$copia', $respuesta->getContent());
     }
 }

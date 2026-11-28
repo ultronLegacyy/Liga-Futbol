@@ -226,6 +226,35 @@ class AsambleaService
     }
 
     /**
+     * Publica un comunicado de asamblea en el portal público o lo retira (HU-078, PA-15).
+     * Queda auditado con su motivo; publicar dos veces o retirar uno no publicado se rechaza.
+     */
+    public function publicarComunicadoEnPortal(ComunicadoAsamblea $comunicado, bool $publicar, User $usuario): ComunicadoAsamblea
+    {
+        $motivo = $publicar ? 'Comunicado de asamblea publicado en el portal' : 'Comunicado de asamblea retirado del portal';
+
+        return $this->auditoria->conMotivo($motivo, function () use ($comunicado, $publicar, $usuario): ComunicadoAsamblea {
+            $comunicado = ComunicadoAsamblea::query()->whereKey($comunicado->getKey())->lockForUpdate()->firstOrFail();
+
+            if ($comunicado->publicado_en_portal === $publicar) {
+                throw ValidationException::withMessages([
+                    'comunicado' => $publicar
+                        ? 'Este comunicado ya está publicado en el portal.'
+                        : 'Este comunicado no está publicado en el portal.',
+                ]);
+            }
+
+            $comunicado->forceFill([
+                'publicado_en_portal' => $publicar,
+                'publicado_por_usuario_id' => $publicar ? $usuario->getKey() : null,
+                'publicado_en' => $publicar ? now() : null,
+            ])->save();
+
+            return $comunicado;
+        });
+    }
+
+    /**
      * Los acuerdos y comunicados salen de la reunión: la asamblea debe estar «Celebrada».
      * Una asamblea se celebra al registrar su asistencia; las anteriores al sistema, que ya
      * tienen acta, quedan «Celebradas» desde la migración y también admiten acuerdos.
