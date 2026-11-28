@@ -33,6 +33,18 @@ class JugadorPolicy
             : Response::deny('No cuenta con autorización para consultar los datos de este jugador.');
     }
 
+    // Constancia de registro en PDF (HU-069): el Tesorero y el Presidente, y quien puede consultar al jugador
+    public function constancia(User $user, Jugador $jugador): Response
+    {
+        if ($user->can('finanzas.reportes')) {
+            return Response::allow();
+        }
+
+        return $this->view($user, $jugador)->allowed()
+            ? Response::allow()
+            : Response::deny('No cuenta con autorización para descargar la constancia de este jugador.');
+    }
+
     public function update(User $user, Jugador $jugador): Response
     {
         $esElJugador = $user->persona_id !== null
