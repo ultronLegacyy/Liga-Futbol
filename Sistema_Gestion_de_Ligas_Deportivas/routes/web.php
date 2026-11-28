@@ -53,6 +53,18 @@ Route::get('/', function () {
 Route::get('/programacion', [PortalController::class, 'programacion'])
     ->middleware('throttle:300,1')
     ->name('portal.programacion');
+Route::get('/portal', [PortalController::class, 'inicio'])
+    ->middleware('throttle:300,1')
+    ->name('portal.inicio');
+Route::get('/resultados-y-tablas', [PortalController::class, 'resultados'])
+    ->middleware('throttle:300,1')
+    ->name('portal.resultados');
+Route::get('/buscar', [PortalController::class, 'buscar'])
+    ->middleware('throttle:120,1')
+    ->name('portal.buscar');
+Route::get('/castigados', [PortalController::class, 'castigados'])
+    ->middleware('throttle:300,1')
+    ->name('portal.castigados');
 
 // Recuperación de contraseña por correo (HU-003). Cada envío tiene su propio contador de intentos por IP
 Route::middleware(['guest'])->group(function () {
@@ -322,6 +334,8 @@ Route::middleware(['auth'])->group(function () {
             ->name('asambleas.acuerdos.autorizar');
         Route::post('/asambleas/{asamblea}/comunicados', [AsambleaController::class, 'guardarComunicado'])
             ->name('asambleas.comunicados.store');
+        Route::put('/asambleas/{asamblea}/comunicados/{comunicado}/portal', [AsambleaController::class, 'publicarComunicado'])
+            ->name('asambleas.comunicados.portal');
 
         // Adeudos por club y temporada: quién está al corriente (HU-051, RF-13.2)
         Route::get('/adeudos', [AdeudoClubController::class, 'index'])
