@@ -63,6 +63,9 @@ class MenuPanel
         $admin = $usuario->hasRole('Administrador General');
 
         $areas = [
+            'Mi club' => [
+                [$usuario->hasAnyRole(['Presidente del Club', 'Delegado del Club', 'Jugador']), 'Mi club', 'mi-club', 'mi-club', 'escudo', 'Tu club o tu equipo: partidos, jugadores y castigos.'],
+            ],
             'Gobierno' => [
                 [$admin, 'Dashboard', 'admin.dashboard', 'admin.dashboard', 'tablero', 'Resumen general del sistema.'],
                 [$admin, 'Gobernanza', 'admin.gobernanza', 'admin.gobernanza', 'escudo', 'Consejo directivo y cargos.'],
