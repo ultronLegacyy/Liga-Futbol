@@ -97,10 +97,9 @@
     @if ($cinta->isNotEmpty())
         <div class="cinta" aria-hidden="true">
             <ul>
-                @foreach ([1, 2] as $copia)
-                    @foreach ($cinta as $partido)
-                        <li><small>{{ $partido->hora_partido ? substr($partido->hora_partido, 0, 5) : 'Por confirmar' }}</small>{{ $partido->local?->nombre ?? 'Por definir' }} vs. {{ $partido->visitante?->nombre ?? 'Por definir' }}</li>
-                    @endforeach
+                {{-- Una sola copia: la cinta ya no se anima en bucle --}}
+                @foreach ($cinta as $partido)
+                    <li><small>{{ $partido->hora_partido ? substr($partido->hora_partido, 0, 5) : 'Por confirmar' }}</small>{{ $partido->local?->nombre ?? 'Por definir' }} vs. {{ $partido->visitante?->nombre ?? 'Por definir' }}</li>
                 @endforeach
             </ul>
         </div>

@@ -400,5 +400,12 @@ class PortalProgramacionTest extends TestCase
         $respuesta->assertSee('--foco-halo: 0 0 0 6px #fff;', false);
         $respuesta->assertDontSee('#ff9f1c', false);
         $this->assertStringNotContainsString('animation: correr ', $respuesta->getContent());
+
+        // Revisión 2 del #105: el menú deja 8 px para el foco (overflow-x también recorta en vertical) y, sobre el
+        // encabezado marino, el foco es un contorno blanco separado 2 px
+        $respuesta->assertSee('.navegacion { display: flex; gap: .25rem; max-width: calc(100% + 16px); margin: -8px; padding: 8px;', false);
+        $respuesta->assertSee('.navegacion a:focus-visible { outline: 3px solid #fff; outline-offset: 2px; box-shadow: none; }', false);
+        // La cinta fija lleva una sola copia de los partidos
+        $this->assertStringNotContainsString('$copia', $respuesta->getContent());
     }
 }
