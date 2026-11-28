@@ -17,6 +17,7 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\ValidationException;
 use Laravel\Fortify\Actions\RedirectIfTwoFactorAuthenticatable;
 use Laravel\Fortify\Contracts\LoginResponse;
+use Laravel\Fortify\Contracts\TwoFactorLoginResponse;
 use Laravel\Fortify\Contracts\LogoutResponse;
 use Laravel\Fortify\Fortify;
 
@@ -29,6 +30,8 @@ class FortifyServiceProvider extends ServiceProvider
     {
         // Enlace de las respuestas personalizadas de inicio y cierre de sesión
         $this->app->singleton(LoginResponse::class, CustomLoginResponse::class);
+        // HU-082: después del reto del segundo factor, cada quien va a su página de inicio, como en el login normal
+        $this->app->singleton(TwoFactorLoginResponse::class, CustomLoginResponse::class);
         $this->app->singleton(LogoutResponse::class, CustomLogoutResponse::class);
         $this->app->singleton(BruteForceProtectionService::class);
     }
@@ -42,6 +45,10 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::loginView(function () {
             return view('auth.login');
         });
+
+        // HU-082: el reto del segundo factor al iniciar sesión y la confirmación de contraseña, en español
+        Fortify::twoFactorChallengeView(fn () => view('auth.two-factor-challenge'));
+        Fortify::confirmPasswordView(fn () => view('auth.confirm-password'));
 
         // Validación personalizada de autenticación con protección contra fuerza bruta (RNF-28)
         Fortify::authenticateUsing(function (Request $request) {
@@ -128,7 +135,9 @@ class FortifyServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('two-factor', function (Request $request) {
-            return Limit::perMinute(5)->by($request->session()->get('login.id'));
+            return Limit::perMinute(5)->by($request->session()->get('login.id'))->response(function () {
+                return response('Demasiados intentos con el código del segundo factor. Espera un minuto e inténtalo de nuevo.', 429);
+            });
         });
 
         RateLimiter::for('passkeys', function (Request $request) {

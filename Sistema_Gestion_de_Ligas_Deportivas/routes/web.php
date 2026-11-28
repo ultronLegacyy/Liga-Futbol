@@ -30,6 +30,7 @@ use App\Http\Controllers\PersonaController;
 use App\Http\Controllers\PortalController;
 use App\Http\Controllers\RecuperacionContrasenaController;
 use App\Http\Controllers\RegistroCorreoController;
+use App\Http\Controllers\SegundoFactorController;
 use App\Http\Controllers\ReporteFinancieroController;
 use App\Http\Controllers\ReglaTemporadaController;
 use App\Http\Controllers\ResultadoController;
@@ -39,6 +40,7 @@ use App\Http\Controllers\TablaPosicionesController;
 use App\Http\Controllers\TarjetonDigitalController;
 use App\Http\Controllers\TemporadaController;
 use App\Http\Controllers\UserController;
+use App\Http\Middleware\ExigirSegundoFactor;
 use App\Http\Middleware\ForcePasswordChange;
 use Illuminate\Support\Facades\Route;
 
@@ -79,7 +81,13 @@ Route::middleware(['auth'])->group(function () {
         ->name('password.force-change.update');
 
     // 2. Rutas del sistema PROTEGIDAS por el bloqueo temporal
-    Route::middleware([ForcePasswordChange::class])->group(function () {
+    Route::middleware([ForcePasswordChange::class, ExigirSegundoFactor::class])->group(function () {
+
+        // HU-082: activar el segundo factor, ver y regenerar los códigos de recuperación
+        Route::get('/segundo-factor', [SegundoFactorController::class, 'show'])->name('segundo-factor.show');
+        Route::get('/segundo-factor/codigos', [SegundoFactorController::class, 'show'])
+            ->middleware('password.confirm')
+            ->name('segundo-factor.codigos');
 
         // Rutas de temporadas deportivas y reglas (Merge de develop)
         Route::resource('temporadas', TemporadaController::class);
@@ -373,6 +381,8 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/usuarios/{usuario}/estado', [UserController::class, 'estado'])->name('usuarios.estado');
             Route::put('/usuarios/{usuario}', [UserController::class, 'update'])->name('usuarios.update');
             Route::patch('/usuarios/{usuario}/toggle-status', [UserController::class, 'toggleStatus'])->name('usuarios.toggleStatus');
+            // HU-082: el Administrador General reinicia el segundo factor de otra cuenta, con motivo y su contraseña
+            Route::post('/usuarios/{usuario}/segundo-factor/reiniciar', [UserController::class, 'reiniciarSegundoFactor'])->name('usuarios.segundo-factor.reiniciar');
 
             // Permisos de cada rol: consulta (HU-081) y edición (HU-083), RF-12.1; crear, renombrar o borrar roles se rechaza
             Route::get('/roles', [RolPermisoController::class, 'index'])->name('roles.index');

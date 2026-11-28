@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\ReiniciarSegundoFactorRequest;
 use App\Http\Requests\StoreUsuarioRequest;
 use App\Http\Requests\UpdateUsuarioRequest;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\SegundoFactorService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
@@ -114,6 +117,15 @@ class UserController extends Controller
 
         $mensaje = $usuario->estatus === 'activo' ? 'Cuenta reactivada.' : 'Cuenta desactivada.';
         return redirect()->route('admin.usuarios.index')->with('success', $mensaje);
+    }
+
+    // HU-082 (criterio 4): reinicia el segundo factor de otra cuenta; vuelve a activarlo en su siguiente petición
+    public function reiniciarSegundoFactor(ReiniciarSegundoFactorRequest $request, User $usuario, SegundoFactorService $segundoFactor): RedirectResponse
+    {
+        $segundoFactor->reiniciar($usuario, trim((string) $request->validated('motivo')));
+
+        return redirect()->route('admin.usuarios.edit', $usuario)
+            ->with('success', 'Se reinició el segundo factor de la cuenta. Deberá activarlo de nuevo al entrar.');
     }
 
     /**
