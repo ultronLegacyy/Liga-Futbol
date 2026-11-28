@@ -13,7 +13,6 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 // Programación de jornadas, alta manual de partidos y gestión de descansos (HU-027, RF-06.1; HU-028, RF-06.2)
@@ -21,7 +20,8 @@ class ProgramacionJornadaService
 {
     public function __construct(
         private readonly AsignacionCanchaService $canchaService,
-        private readonly ReprogramacionPartidoService $reprogramacionService
+        private readonly ReprogramacionPartidoService $reprogramacionService,
+        private readonly AsignacionArbitroService $arbitroService,
     ) {
     }
 
@@ -308,15 +308,12 @@ class ProgramacionJornadaService
                         ]);
                     }
 
-                    $arbitroOcupado = Partido::query()
-                        ->where('arbitro_id', $arbitroBloqueado->id)
-                        ->where('fecha_partido', $fecha)
-                        ->where('hora_partido', $hora)
-                        ->exists();
+                    $inicioArbitro = Carbon::parse($fecha)->setTimeFromTimeString($hora);
+                    $motivoArbitro = $this->arbitroService->motivoDeRechazoHorario($arbitroBloqueado, $inicioArbitro);
 
-                    if ($arbitroOcupado) {
+                    if ($motivoArbitro !== null) {
                         throw ValidationException::withMessages([
-                            'arbitro_id' => 'El árbitro ya tiene asignado otro partido a la misma fecha y hora.',
+                            'arbitro_id' => $motivoArbitro,
                         ]);
                     }
                 }
@@ -553,16 +550,12 @@ class ProgramacionJornadaService
                         ]);
                     }
 
-                    $arbitroOcupado = Partido::query()
-                        ->where('arbitro_id', $arbitroBloqueado->id)
-                        ->where('fecha_partido', $fecha)
-                        ->where('hora_partido', $hora)
-                        ->whereKeyNot($partido->id)
-                        ->exists();
+                    $inicioArbitro = Carbon::parse($fecha)->setTimeFromTimeString($hora);
+                    $motivoArbitro = $this->arbitroService->motivoDeRechazoHorario($arbitroBloqueado, $inicioArbitro, $partido);
 
-                    if ($arbitroOcupado) {
+                    if ($motivoArbitro !== null) {
                         throw ValidationException::withMessages([
-                            'arbitro_id' => 'El árbitro ya tiene asignado otro partido a la misma fecha y hora.',
+                            'arbitro_id' => $motivoArbitro,
                         ]);
                     }
                 }
@@ -710,22 +703,39 @@ class ProgramacionJornadaService
     }
 
     /**
-     * Evalúa si un equipo cuenta con una sanción disciplinaria vigente que le impida jugar (HU-027 CA2).
+     * Evalúa si un equipo cuenta con una sanción disciplinaria vigente que le impida jugar (HU-027 CA2 / HU-074 CA1 / PO):
+     * 3 o más partidos perdidos por default acumulados.
      */
     public function equipoTieneSancionVigente(Equipo $equipo): bool
     {
-        if ($equipo->partidos_default_acumulados >= 3) {
-            return true;
+        return $equipo->partidos_default_acumulados >= 3;
+    }
+
+    /**
+     * Consulta en lote qué equipos tienen impedimento competitivo vigente según la regla única de HU-027 / HU-074 CA1 (sin N+1).
+     *
+     * @param  array<int, int>  $equipoIds
+     * @return array<int, string> Mapa equipo_id => motivo legible de sanción vigente
+     */
+    public static function motivosSancionVigentePorEquipos(array $equipoIds): array
+    {
+        $ids = array_values(array_unique(array_map('intval', $equipoIds)));
+        if ($ids === []) {
+            return [];
         }
 
-        if (Schema::hasTable('sanciones_equipos')) {
-            return DB::table('sanciones_equipos')
-                ->where('equipo_id', $equipo->id)
-                ->where('estado', 'Vigente')
-                ->exists();
+        $motivos = [];
+
+        $porDefault = Equipo::query()
+            ->whereIn('id', $ids)
+            ->where('partidos_default_acumulados', '>=', 3)
+            ->get(['id', 'nombre', 'partidos_default_acumulados']);
+
+        foreach ($porDefault as $equipo) {
+            $motivos[$equipo->id] = "acumula {$equipo->partidos_default_acumulados} partidos perdidos por default (límite 3, HU-027)";
         }
 
-        return false;
+        return $motivos;
     }
 
     private function validarTemporadaGrupo(Grupo $grupo): void

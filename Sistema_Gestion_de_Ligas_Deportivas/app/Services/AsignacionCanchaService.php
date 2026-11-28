@@ -80,7 +80,7 @@ class AsignacionCanchaService
     }
 
     // Una duración vacía, en 0 o negativa haría que ningún partido se solapara: se detiene en vez de permitirlo todo
-    private function duracionEnMinutos(): int
+    public function duracionEnMinutos(): int
     {
         $minutos = (int) config('programacion.duracion_partido_minutos');
 
@@ -89,5 +89,29 @@ class AsignacionCanchaService
         }
 
         return $minutos;
+    }
+
+    /**
+     * Registra un intervalo [inicioTs, finTs) en todos los buckets diarios que toca (cruce de medianoche incluido).
+     * Permite reutilizar exactamente la regla de ventana entre días de HU-025 en O(1) por fecha (RNF-07).
+     *
+     * @param  array<string, array<int, array<int|string, mixed>>>  $bucketsPorFecha
+     * @param  array<int|string, mixed>  $entrada
+     */
+    public static function registrarIntervaloConCruceMedianoche(
+        array &$bucketsPorFecha,
+        int $inicioTs,
+        int $finTs,
+        array $entrada
+    ): void {
+        $fechaInicio = date('Y-m-d', $inicioTs);
+        $bucketsPorFecha[$fechaInicio][] = $entrada;
+
+        // Si el fin real cae en un día posterior (excluyendo exactamente las 00:00:00 porque fin es abierto [inicio, fin))
+        $finInclusiveTs = max($inicioTs, $finTs - 1);
+        $fechaFin = date('Y-m-d', $finInclusiveTs);
+        if ($fechaFin !== $fechaInicio) {
+            $bucketsPorFecha[$fechaFin][] = $entrada;
+        }
     }
 }

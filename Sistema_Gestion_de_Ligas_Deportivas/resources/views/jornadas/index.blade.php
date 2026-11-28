@@ -25,10 +25,23 @@
             <a href="{{ route('categorias.show', $grupo->categoria) }}" class="text-gray-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-400 rounded text-sm px-3 py-2">
                 Volver a la categoría
             </a>
+            @can('gestionarPreferencias', $grupo)
+                <a href="{{ route('grupos.preferencias.edit', $grupo) }}" class="px-4 py-2 bg-gray-700 text-gray-100 font-medium text-sm rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-400 transition">
+                    Preferencias de equipos
+                </a>
+            @endcan
             @can('create', [App\Models\Jornada::class, $grupo])
                 <a href="{{ route('grupos.generar-rol', $grupo) }}" class="px-4 py-2 bg-indigo-600 text-white font-medium text-sm rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition">
                     Generar rol automático
                 </a>
+                @if ($jornadas->isNotEmpty())
+                    <form action="{{ route('grupos.asignar-horarios', $grupo) }}" method="POST" class="inline">
+                        @csrf
+                        <button type="submit" class="px-4 py-2 bg-cyan-600 text-white font-medium text-sm rounded-lg hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-400 transition">
+                            Auto-asignar horarios
+                        </button>
+                    </form>
+                @endif
                 <a href="{{ route('grupos.jornadas.create', $grupo) }}" class="px-4 py-2 bg-green-600 text-white font-medium text-sm rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400 transition">
                     + Nueva jornada
                 </a>
@@ -42,6 +55,27 @@
 
     @if (session('error'))
         <x-alert type="error" :message="session('error')" />
+    @endif
+
+    @if (session('programacion_conflictos'))
+        <div class="bg-amber-950/40 border border-amber-500/50 rounded-xl p-4 space-y-2">
+            <h3 class="text-sm font-bold text-amber-200">Partidos sin asignación completa de horario</h3>
+            <p class="text-xs text-amber-200/80">
+                Los encuentros válidos ya fueron asignados. Revise las siguientes causas antes de publicar:
+            </p>
+            <div class="space-y-2 mt-2">
+                @foreach (session('programacion_conflictos', []) as $conflicto)
+                    <div class="rounded border border-amber-500/30 bg-gray-900/70 p-2.5 text-xs space-y-1">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <span class="font-semibold text-white">Jornada {{ $conflicto['jornada_numero'] ?? '' }} — {{ $conflicto['enfrentamiento'] ?? '' }}</span>
+                            <span class="text-amber-300 font-medium">{{ $conflicto['regla_origen'] ?? '' }}</span>
+                        </div>
+                        <p class="text-gray-300"><strong class="text-gray-200">Causa:</strong> {{ $conflicto['causa'] ?? '' }}</p>
+                        <p class="text-emerald-300"><strong>Sugerencia:</strong> {{ $conflicto['sugerencia'] ?? '' }}</p>
+                    </div>
+                @endforeach
+            </div>
+        </div>
     @endif
 
     {{-- HU-036: rechazo del borrado de una jornada (por ejemplo, con una cédula capturada) --}}

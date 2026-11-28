@@ -10,6 +10,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -138,6 +139,11 @@ class TemporadaController extends Controller
             ->get()
             ->keyBy('registro_id');
 
+        $puedeVerProgramacionMasiva = $request->user()?->can('verResumenProgramacionMasiva', $temporada) ?? false;
+        $resumenProgramacionMasiva = $puedeVerProgramacionMasiva
+            ? Cache::get("programacion_masiva_temporada_{$temporada->id}")
+            : null;
+
         if ($request->expectsJson()) {
             return response()->json([
                 'modulo' => 'Temporada',
@@ -169,13 +175,14 @@ class TemporadaController extends Controller
                         ];
                     }
                 )->values(),
+                'programacion_masiva' => is_array($resumenProgramacionMasiva) ? $resumenProgramacionMasiva : null,
                 'acceso' => 'autorizado',
             ]);
         }
 
         return view(
             'temporadas.show',
-            compact('temporada', 'convocatorias', 'altas')
+            compact('temporada', 'convocatorias', 'altas', 'resumenProgramacionMasiva')
         );
     }
 

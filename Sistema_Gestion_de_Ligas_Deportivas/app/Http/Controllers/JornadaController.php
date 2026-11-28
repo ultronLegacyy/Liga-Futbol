@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreJornadaRequest;
 use App\Http\Requests\UpdateJornadaRequest;
+use App\Models\Cancha;
 use App\Models\Grupo;
 use App\Models\Jornada;
 use App\Services\ProgramacionJornadaService;
@@ -88,11 +89,25 @@ class JornadaController extends Controller
 
         $grupo = $jornada->grupo;
         $equipos = $grupo->equipos;
-        $conflictos = $jornada->partidos->isNotEmpty()
-            ? $this->publicacionService->detectarConflictos($jornada)
+        $conflictosDetallados = $jornada->partidos->isNotEmpty()
+            ? $this->publicacionService->detectarConflictosDetallados($jornada)
             : [];
+        $conflictos = $this->publicacionService->filtrarMensajesBloqueantes($conflictosDetallados);
+        $canchasDisponibles = Cancha::query()
+            ->where('estado', 'Disponible')
+            ->orderBy('nombre')
+            ->get(['id', 'nombre', 'capacidad_partidos_consecutivos']);
+        $horariosDefecto = (array) config('programacion.horarios_defecto', ['09:00', '11:00', '13:00', '15:00']);
 
-        return view('jornadas.show', compact('jornada', 'grupo', 'equipos', 'conflictos'));
+        return view('jornadas.show', compact(
+            'jornada',
+            'grupo',
+            'equipos',
+            'conflictos',
+            'conflictosDetallados',
+            'canchasDisponibles',
+            'horariosDefecto'
+        ));
     }
 
     /**
@@ -201,13 +216,15 @@ class JornadaController extends Controller
     {
         Gate::authorize('view', $jornada);
 
-        $conflictos = $this->publicacionService->detectarConflictos($jornada);
+        $conflictosDetallados = $this->publicacionService->detectarConflictosDetallados($jornada);
+        $conflictos = $this->publicacionService->filtrarMensajesBloqueantes($conflictosDetallados);
 
         return response()->json([
             'jornada_id' => $jornada->id,
             'numero_jornada' => $jornada->numero_jornada,
-            'tiene_conflictos' => ! empty($conflictos),
+            'tiene_conflictos' => $conflictos !== [],
             'conflictos' => $conflictos,
+            'conflictos_detallados' => $conflictosDetallados,
         ]);
     }
 }

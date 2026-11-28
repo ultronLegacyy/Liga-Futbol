@@ -21,6 +21,7 @@ class ReprogramacionPartidoService
     public function __construct(
         private readonly AsignacionCanchaService $canchaService,
         private readonly AvisoProgramacionService $avisos,
+        private readonly AsignacionArbitroService $arbitroService,
     ) {
     }
 
@@ -233,16 +234,12 @@ class ReprogramacionPartidoService
                     ]);
                 }
 
-                $arbitroOcupado = Partido::query()
-                    ->where('arbitro_id', $arbitro->id)
-                    ->where('fecha_partido', $fechaNueva)
-                    ->where('hora_partido', $horaNueva)
-                    ->whereKeyNot($partidoBloqueado->id)
-                    ->exists();
+                $inicioArbitro = Carbon::parse($fechaNueva)->setTimeFromTimeString($horaNueva);
+                $motivoArbitro = $this->arbitroService->motivoDeRechazoHorario($arbitro, $inicioArbitro, $partidoBloqueado);
 
-                if ($arbitroOcupado) {
+                if ($motivoArbitro !== null) {
                     throw ValidationException::withMessages([
-                        'arbitro_id' => 'El árbitro ya tiene asignado otro partido en la misma fecha y horario.',
+                        'arbitro_id' => $motivoArbitro,
                     ]);
                 }
             }

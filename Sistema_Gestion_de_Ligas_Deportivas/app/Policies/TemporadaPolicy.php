@@ -11,8 +11,8 @@ class TemporadaPolicy
     // Evaluacion previa para otorgar acceso irrestricto al Administrador General salvo en operaciones de cierre
     public function before(User $usuario, string $habilidad): ?bool
     {
-        // Se delega a los metodos update y delete para verificar la inmutabilidad de temporadas cerradas
-        if (in_array($habilidad, ['update', 'delete'])) {
+        // Se delega a update, delete y programarMasivo para verificar la inmutabilidad de temporadas cerradas
+        if (in_array($habilidad, ['update', 'delete', 'programarMasivo'], true)) {
             return null;
         }
 
@@ -63,5 +63,30 @@ class TemporadaPolicy
         return $usuario->can('temporadas.eliminar')
             ? Response::allow()
             : Response::deny('No cuenta con privilegios para eliminar temporadas.');
+    }
+
+    /**
+     * Autorización para ejecutar la programación automática masiva sobre una temporada (HU-074 / RF-07.2).
+     */
+    public function programarMasivo(User $usuario, Temporada $temporada): Response
+    {
+        if ($temporada->estado === 'cerrada') {
+            return Response::deny('Una temporada cerrada no admite cambios en su programación.');
+        }
+
+        return ($usuario->hasRole('Administrador General') || $usuario->can('partidos.programar'))
+            ? Response::allow()
+            : Response::deny('No cuenta con privilegios para ejecutar la programación automática masiva.');
+    }
+
+    /**
+     * Autorización para consultar el resumen y estado (completado/cancelado/fallido) de la programación masiva,
+     * incluso si la temporada fue cerrada posteriormente (HU-033 / HU-074).
+     */
+    public function verResumenProgramacionMasiva(User $usuario, Temporada $temporada): Response
+    {
+        return ($usuario->hasRole('Administrador General') || $usuario->can('partidos.programar'))
+            ? Response::allow()
+            : Response::deny('No cuenta con privilegios para consultar el resumen de programación masiva.');
     }
 }

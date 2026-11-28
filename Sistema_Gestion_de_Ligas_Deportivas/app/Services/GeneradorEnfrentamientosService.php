@@ -15,7 +15,8 @@ use Illuminate\Validation\ValidationException;
 class GeneradorEnfrentamientosService
 {
     public function __construct(
-        private readonly AuditService $auditService
+        private readonly AuditService $auditService,
+        private readonly ProgramacionAutomaticaService $programacionAutomaticaService,
     ) {
     }
 
@@ -157,8 +158,8 @@ class GeneradorEnfrentamientosService
     /**
      * Genera la propuesta completa del rol regular para previsualización.
      *
-     * @param  array{fecha_inicio?: string|null, intervalo_dias?: int|string|null, dias_duracion?: int|string|null, vueltas?: int|string|null, aleatorizar?: bool|int|string|null}  $opciones
-     * @return array{grupo_id: int, grupo_nombre: string, categoria_nombre: string, temporada_nombre: string, total_equipos: int, total_jornadas: int, vueltas: int, jornadas: array<int, array{numero_jornada: int, fecha_inicio: string, fecha_fin: string, equipo_descanso_id: int|null, equipo_descanso_nombre: string|null, partidos: array<int, array{equipo_local_id: int, equipo_local_nombre: string, equipo_visitante_id: int, equipo_visitante_nombre: string}>}>}
+     * @param  array{fecha_inicio?: string|null, intervalo_dias?: int|string|null, dias_duracion?: int|string|null, vueltas?: int|string|null, aleatorizar?: bool|int|string|null, asignar_horarios?: bool|int|string|null, horarios?: array<int, string>|null, cancha_ids?: array<int, int>|null, respetar_capacidad_cancha?: bool|int|string|null}  $opciones
+     * @return array<string, mixed>
      *
      * @throws ValidationException
      */
@@ -230,7 +231,7 @@ class GeneradorEnfrentamientosService
             }
         }
 
-        return [
+        $propuesta = [
             'grupo_id' => $grupo->id,
             'grupo_nombre' => $grupo->nombre,
             'categoria_nombre' => $grupo->categoria->nombre,
@@ -240,6 +241,12 @@ class GeneradorEnfrentamientosService
             'vueltas' => $vueltas,
             'jornadas' => $jornadasFormateadas,
         ];
+
+        if ((bool) ($opciones['asignar_horarios'] ?? false)) {
+            return $this->programacionAutomaticaService->asignarPropuesta($grupo, $propuesta, $opciones);
+        }
+
+        return $propuesta;
     }
 
     /**
@@ -637,20 +644,28 @@ class GeneradorEnfrentamientosService
     }
 
     /**
-     * Persiste la propuesta del rol regular en la base de datos bajo transacción atómica.
+     * Persiste una propuesta de rol regular como jornadas y partidos reales en estado borrador.
+     * Si `$asignarHorarios` es verdadero, ejecuta la asignación automática de cancha, fecha y hora (HU-074)
+     * reportando cualquier déficit sin bloquear el guardado (HU-033).
      *
-     * @param  array{jornadas: array<int, array{numero_jornada: int, fecha_inicio: string, fecha_fin: string, equipo_descanso_id: int|null, partidos: array<int, array{equipo_local_id: int, equipo_visitante_id: int}>}>}  $propuesta
-     * @return array{jornadas_creadas: int, partidos_creados: int}
+     * @param  array<string, mixed>  $propuesta
+     * @param  array<string, mixed>  $opcionesHorarios
+     * @return array<string, mixed>
      *
      * @throws ValidationException
      */
-    public function guardarRolGenerado(Grupo $grupo, array $propuesta, bool $sobrescribir = false): array
-    {
+    public function guardarRolGenerado(
+        Grupo $grupo,
+        array $propuesta,
+        bool $sobrescribir = false,
+        bool $asignarHorarios = false,
+        array $opcionesHorarios = []
+    ): array {
         $this->validarPropuestaRol($grupo, $propuesta);
 
         return $this->auditService->conMotivo(
             'Generación automática de rol de enfrentamientos (HU-032 / RF-07.1)',
-            function () use ($grupo, $propuesta, $sobrescribir): array {
+            function () use ($grupo, $propuesta, $sobrescribir, $asignarHorarios, $opcionesHorarios): array {
                 // Serializar concurrencia bloqueando pesimistamente la fila del grupo (RNF-33)
                 /** @var Grupo $grupoBloqueado */
                 $grupoBloqueado = Grupo::query()->whereKey($grupo->id)->lockForUpdate()->firstOrFail();
@@ -733,10 +748,87 @@ class GeneradorEnfrentamientosService
                     }
                 }
 
-                return [
+                $resumen = [
                     'jornadas_creadas' => $totalJornadas,
                     'partidos_creados' => $totalPartidos,
                 ];
+
+                if ($asignarHorarios) {
+                    $slotsPropuesta = [];
+                    $temporadaGrupo = $grupoBloqueado->temporada;
+                    $minTemp = $temporadaGrupo?->fecha_inicio ? Carbon::parse($temporadaGrupo->fecha_inicio)->toDateString() : null;
+                    $maxTemp = $temporadaGrupo?->fecha_fin ? Carbon::parse($temporadaGrupo->fecha_fin)->toDateString() : null;
+
+                    foreach ($propuesta['jornadas'] as $itemJornada) {
+                        if (! is_array($itemJornada) || ! isset($itemJornada['partidos']) || ! is_array($itemJornada['partidos'])) {
+                            continue;
+                        }
+
+                        $numJ = (int) ($itemJornada['numero_jornada'] ?? 0);
+                        $inicioJ = is_string($itemJornada['fecha_inicio'] ?? null) ? $itemJornada['fecha_inicio'] : null;
+                        $finJ = is_string($itemJornada['fecha_fin'] ?? null) ? $itemJornada['fecha_fin'] : null;
+                        if ($numJ <= 0 || $inicioJ === null || $finJ === null) {
+                            continue;
+                        }
+
+                        foreach ($itemJornada['partidos'] as $itemPartido) {
+                            if (! is_array($itemPartido)) {
+                                continue;
+                            }
+
+                            $rawCancha = $itemPartido['cancha_id'] ?? null;
+                            $rawFecha = $itemPartido['fecha_partido'] ?? null;
+                            $rawHora = $itemPartido['hora_partido'] ?? null;
+                            $rawLocal = $itemPartido['equipo_local_id'] ?? null;
+                            $rawVisitante = $itemPartido['equipo_visitante_id'] ?? null;
+
+                            if (
+                                (! is_int($rawCancha) && ! (is_string($rawCancha) && ctype_digit($rawCancha)))
+                                || (! is_int($rawLocal) && ! (is_string($rawLocal) && ctype_digit($rawLocal)))
+                                || (! is_int($rawVisitante) && ! (is_string($rawVisitante) && ctype_digit($rawVisitante)))
+                                || ! is_string($rawFecha)
+                                || ! is_string($rawHora)
+                            ) {
+                                continue;
+                            }
+
+                            $canchaIdValida = (int) $rawCancha;
+                            $fechaDt = \DateTimeImmutable::createFromFormat('Y-m-d', $rawFecha);
+                            $horaLimpiar = substr(trim($rawHora), 0, 5);
+                            if (
+                                $canchaIdValida <= 0
+                                || $fechaDt === false
+                                || $fechaDt->format('Y-m-d') !== $rawFecha
+                                || $rawFecha < $inicioJ
+                                || $rawFecha > $finJ
+                                || ($minTemp !== null && $rawFecha < $minTemp)
+                                || ($maxTemp !== null && $rawFecha > $maxTemp)
+                                || preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $horaLimpiar) !== 1
+                            ) {
+                                continue;
+                            }
+
+                            $clavePar = (int) $rawLocal.'-'.(int) $rawVisitante;
+                            $slotsPropuesta[$numJ][$clavePar] = [
+                                'cancha_id' => $canchaIdValida,
+                                'fecha_partido' => $rawFecha,
+                                'hora_partido' => $horaLimpiar,
+                            ];
+                        }
+                    }
+
+                    $opcionesConPropuesta = $opcionesHorarios;
+                    if ($slotsPropuesta !== []) {
+                        $opcionesConPropuesta['slots_preferidos_propuesta'] = $slotsPropuesta;
+                    }
+
+                    $resumen['resumen_horarios'] = $this->programacionAutomaticaService->asignarHorariosAGrupo(
+                        $grupoBloqueado,
+                        $opcionesConPropuesta
+                    );
+                }
+
+                return $resumen;
             }
         );
     }
