@@ -141,8 +141,13 @@ class User extends Authenticatable
             return route('canchas.index');
         }
 
-        // Árbitro en Campo y Comisión Arbitral: padrón de colegiados arbitrales
-        if ($this->hasRole('Comisión Arbitral') || $this->hasRole('Árbitro en Campo')) {
+        // HAB-S7 (S7-T04): el Árbitro en Campo empieza en «Mis partidos», donde abre y captura sus cédulas
+        if ($this->hasRole('Árbitro en Campo') && ! $this->hasRole('Comisión Arbitral')) {
+            return route('cedulas.mis-partidos');
+        }
+
+        // Comisión Arbitral: padrón de colegiados arbitrales
+        if ($this->hasRole('Comisión Arbitral')) {
             return route('arbitros.index');
         }
 
