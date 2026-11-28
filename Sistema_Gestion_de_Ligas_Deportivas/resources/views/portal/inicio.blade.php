@@ -120,7 +120,9 @@
     .pestanas input { position: absolute; opacity: 0; pointer-events: none; }
     .pestanas label { flex: none; padding: .5625rem 1rem; border-radius: 999px; cursor: pointer; font-size: .75rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; opacity: .8; }
     .pestanas input:checked + label { background: var(--lima); color: var(--tinta); opacity: 1; }
-    .pestanas input:focus-visible + label { outline: 3px solid var(--foco); }
+    /* Las pestañas van sobre el banner marino: el foco es un contorno blanco (más de 10:1). El halo global cae
+       sobre el input oculto, no sobre la etiqueta (revisión 2 del #112). */
+    .pestanas input:focus-visible + label { outline: 3px solid #fff; outline-offset: 2px; }
     .fila { display: grid; grid-template-columns: 1.75rem minmax(0, 1fr) 2.25rem 2.75rem 2.75rem; align-items: center; gap: .5rem; padding: .625rem .625rem; border-radius: .875rem; font-size: .875rem; }
     .fila.cabeza { font-size: .6875rem; font-weight: 800; letter-spacing: .12em; opacity: .8; }
     .fila.lider { background: rgba(255, 255, 255, .1); }
@@ -206,7 +208,7 @@
     @if ($proximo)
         <div class="vidrio {{ $enJuego ? 'vidrio-2' : 'vidrio-1' }}">
             <span class="icono" aria-hidden="true">{{ $proximo->hora_partido ? substr($proximo->hora_partido, 0, 2) : '—' }}</span>
-            <p><b>Próximo: {{ $proximo->fecha_partido?->locale('es')->translatedFormat('D') }} {{ $proximo->hora_partido ? substr($proximo->hora_partido, 0, 5) : '' }}</b><span>{{ $proximo->cancha?->nombre ?? 'Cancha por confirmar' }}</span></p>
+            <p><b>Próximo: {{ $proximo->fecha_partido?->locale('es')->translatedFormat('D') }} {{ $proximo->hora_partido ? substr($proximo->hora_partido, 0, 5) : '· hora por confirmar' }}</b><span>{{ $proximo->cancha?->nombre ?? 'Cancha por confirmar' }}</span></p>
         </div>
     @endif
 @endsection

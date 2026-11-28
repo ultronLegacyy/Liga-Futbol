@@ -62,7 +62,10 @@ class PortalController extends Controller
         $proximo = $partidos
             ->filter(fn ($partido): bool => ! in_array($partido->estado, ['finalizado', 'cancelado', 'en juego'], true)
                 && $partido->fecha_partido !== null
-                && CarbonImmutable::parse($partido->fecha_partido->toDateString().' '.($partido->hora_partido ?? '23:59:59'), Sancion::ZONA_HORARIA)->greaterThan($ahora))
+                // Sin hora cuenta como próximo solo si es de un día posterior a hoy (la tarjeta dice «hora por confirmar»)
+                && ($partido->hora_partido === null
+                    ? $partido->fecha_partido->toDateString() > $ahora->toDateString()
+                    : CarbonImmutable::parse($partido->fecha_partido->toDateString().' '.$partido->hora_partido, Sancion::ZONA_HORARIA)->greaterThan($ahora)))
             ->sortBy(fn ($partido): string => $partido->fecha_partido->toDateString().' '.($partido->hora_partido ?? '23:59:59'))
             ->first();
 

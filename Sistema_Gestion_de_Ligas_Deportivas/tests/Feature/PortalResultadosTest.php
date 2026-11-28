@@ -2,11 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\Categoria;
 use App\Models\CedulaArbitral;
 use App\Models\EventoPartido;
+use App\Models\Grupo;
 use App\Models\Jugador;
 use App\Models\Partido;
 use App\Models\TablaPosicion;
+use App\Models\Temporada;
 use App\Models\User;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -89,6 +92,29 @@ class PortalResultadosTest extends TestCase
 
         $this->assertStringNotContainsString('>2</span> amarillas', $html);
         $this->assertStringNotContainsString('aria-label="1 amarillas"', $html);
+    }
+
+    // Decisión del PO (27/11/2026): /resultados-y-tablas muestra solo la temporada en curso; un grupo de una
+    // temporada cerrada no se ofrece ni se abre con ?grupo=<id>
+    public function test_una_temporada_cerrada_no_se_ofrece_ni_con_el_parametro_grupo(): void
+    {
+        $vieja = Temporada::factory()->cerrada()->create(['nombre' => 'Temporada Cerrada 2025']);
+        $grupoViejo = Grupo::factory()->create([
+            'categoria_id' => Categoria::factory()->create(['temporada_id' => $vieja->id, 'nombre' => 'Categoría Cerrada'])->id,
+            'nombre' => 'Grupo Cerrado',
+        ]);
+        TablaPosicion::create([
+            'grupo_id' => $grupoViejo->id, 'equipo_id' => $this->equipo($grupoViejo)->id, 'posicion' => 1,
+            'pj' => 1, 'pg' => 1, 'pe' => 0, 'pp' => 0, 'gf' => 9, 'gc' => 0, 'dg' => 9, 'puntos' => 3,
+        ]);
+
+        foreach ([[], ['grupo' => $grupoViejo->id]] as $parametros) {
+            $this->get(route('portal.resultados', $parametros))
+                ->assertOk()
+                ->assertDontSee('Grupo Cerrado')
+                ->assertDontSee('Categoría Cerrada')
+                ->assertSee($this->oficial->jornada->grupo->nombre);
+        }
     }
 
     // RNF-31: de los jugadores solo nombre y equipo; sin CURP, fecha de nacimiento ni formularios

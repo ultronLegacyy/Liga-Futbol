@@ -8,7 +8,7 @@
 @php
     $tipos = [
         'success' => [
-            'clases' => 'bg-green-500/10 border-green-500/30 text-green-400',
+            'clases' => 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
             'icono' => '✓',
             'etiqueta' => 'Éxito',
             'rol' => 'status',

@@ -2,15 +2,18 @@
 
 namespace Tests\Feature;
 
+use App\Models\CatalogoArticulo;
 use App\Models\Categoria;
 use App\Models\CedulaArbitral;
 use App\Models\Equipo;
 use App\Models\EventoPartido;
+use App\Models\ExpedienteDisciplinario;
 use App\Models\Grupo;
 use App\Models\Jornada;
 use App\Models\Jugador;
 use App\Models\Partido;
 use App\Models\Persona;
+use App\Models\Sancion;
 use App\Models\TablaPosicion;
 use App\Models\Temporada;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -158,6 +161,85 @@ class PortalInicioTest extends TestCase
             ->assertOk()
             ->assertSee('Próximo: sáb')
             ->assertDontSee('Próximo: lun');
+    }
+
+    // Revisión 2 del #112: el marcador de la semana solo sale con resultado oficial (cédula validada)
+    public function test_una_cedula_cerrada_sin_validar_no_muestra_marcador(): void
+    {
+        CedulaArbitral::create([
+            'partido_id' => $this->partido->id, 'estado' => CedulaArbitral::CERRADA,
+            'goles_local' => 4, 'goles_visitante' => 3, 'cerrada_en' => now(),
+        ]);
+
+        $this->get(route('portal.inicio'))->assertOk()->assertDontSee('4–3')->assertDontSee('4 a 3');
+    }
+
+    // Revisión 2 del #112: cada pestaña muestra el top 5 de la tabla
+    public function test_la_tabla_del_banner_muestra_solo_cinco_equipos(): void
+    {
+        $grupo = $this->partido->jornada->grupo;
+        $equipos = [$this->partido->local, $this->partido->visitante];
+        for ($i = 0; $i < 4; $i++) {
+            $equipos[] = $this->equipo($grupo);
+        }
+        foreach ($equipos as $posicion => $equipo) {
+            TablaPosicion::create(['grupo_id' => $grupo->id, 'equipo_id' => $equipo->id, 'posicion' => $posicion + 1, 'pj' => 1, 'pg' => 0, 'pe' => 0, 'pp' => 0, 'gf' => 0, 'gc' => 0, 'dg' => 0, 'puntos' => 10 - $posicion]);
+        }
+
+        $this->get(route('portal.inicio'))->assertOk()
+            ->assertSee($equipos[4]->nombre)
+            ->assertDontSee($equipos[5]->nombre);
+    }
+
+    // Revisión 2 del #112: una persona con dos sanciones cuenta una vez, igual que /castigados
+    public function test_los_castigados_cuentan_personas_distintas(): void
+    {
+        $jugador = Jugador::query()->where('equipo_id', $this->partido->equipo_local_id)->orderBy('id')->firstOrFail();
+        $tribunal = $this->usuario('Tribunal de Penas');
+        $articulo = CatalogoArticulo::query()->firstOrCreate(['codigo' => 'ART-PORTADA'], ['descripcion' => 'Conducta antideportiva', 'castigo_base_partidos' => 2]);
+        foreach ([1, 2] as $numero) {
+            $expediente = ExpedienteDisciplinario::create([
+                'folio' => 'EXP-PORTADA-'.$numero, 'partido_id' => $this->partido->id, 'articulo_id' => $articulo->id,
+                'titulo' => 'Expediente', 'descripcion_hechos' => 'Hechos', 'origen' => 'cedula_arbitral',
+                'estado' => ExpedienteDisciplinario::ESTADO_ABIERTO, 'fecha_apertura' => now(), 'generado_automaticamente' => true,
+            ]);
+            Sancion::create([
+                'expediente_id' => $expediente->id, 'persona_id' => $jugador->persona_id, 'articulo_id' => $articulo->id,
+                'tipo_sancion' => Sancion::TIPO_PARTIDOS, 'descripcion_sancion' => 'Suspensión', 'partidos_suspendidos' => 2,
+                'partidos_cumplidos' => 0, 'fecha_inicio' => '2026-11-10', 'estado' => Sancion::ESTADO_VIGENTE,
+                'publicada_en_boletin' => true, 'validado_por_usuario_id' => $tribunal->id, 'fecha_validacion' => now(),
+                'autorizado_por_usuario_id' => $tribunal->id, 'autorizado_por_cargo' => 'Tribunal de Penas', 'fecha_publicacion' => now(),
+            ]);
+        }
+
+        $this->get(route('portal.inicio'))->assertOk()->assertSee('1 persona suspendida')->assertDontSee('2 personas suspendidas');
+    }
+
+    // Revisión 2 del #112: un partido sin hora es «próximo» solo si es de un día posterior, con «hora por confirmar»
+    public function test_un_partido_sin_hora_de_hoy_no_es_proximo(): void
+    {
+        foreach (['2026-11-12', '2026-11-13'] as $fecha) {
+            Partido::create([
+                'jornada_id' => $this->partido->jornada_id,
+                'equipo_local_id' => $this->partido->equipo_visitante_id,
+                'equipo_visitante_id' => $this->partido->equipo_local_id,
+                'arbitro_id' => $this->partido->arbitro_id,
+                'fecha_partido' => $fecha,
+                'hora_partido' => null,
+                'estado' => 'programado',
+            ]);
+        }
+
+        $this->get(route('portal.inicio'))->assertOk()
+            ->assertSee('hora por confirmar')
+            ->assertDontSee('Próximo: jue');
+    }
+
+    // Revisión 2 del #112: las pestañas van sobre el banner marino; su foco es un contorno blanco
+    public function test_el_foco_de_las_pestanas_es_blanco(): void
+    {
+        $this->get(route('portal.inicio'))->assertOk()
+            ->assertSee('.pestanas input:focus-visible + label { outline: 3px solid #fff; outline-offset: 2px; }', false);
     }
 
     public function test_es_accesible_sin_javascript_y_esta_en_el_menu(): void
